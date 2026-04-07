@@ -1,0 +1,11 @@
+{
+  "name": "УниКредит покупки на Кредит",
+  "code": "mt_uni_credit",
+  "version": "1.4.0",
+  "author": "Авалон ООД",
+  "link": "https://avalonbg.com",
+  "status": 1,
+  "type": "module",
+  "install": ["admin/controller/module/mt_uni_credit::install"],
+  "uninstall": ["admin/controller/module/mt_uni_credit::uninstall"]
+}

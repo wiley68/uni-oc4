@@ -1,0 +1,30 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Dependencies / build artifacts
+vendor/
+node_modules/
+dist/
+build/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Intelephense/OpenCart local stubs
+stubs/
