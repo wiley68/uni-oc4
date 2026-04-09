@@ -10,6 +10,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private array $error = [];
     private $path = 'extension/mt_uni_credit/module/mt_uni_credit';
     private $model = 'extension/mt_uni_credit/module/unicredit';
+    private $module = 'module_mt_uni_credit';
 
     public function index(): void
     {
@@ -67,44 +68,15 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'href' => $this->url->link($this->path, $user_token)
         ];
 
-        $data['action'] = $this->url->link($this->path, $user_token);
-        $data['cancel'] = $this->url->link('marketplace/extension', $user_token . '&type=module');
+        $data['save'] = $this->url->link($this->path . '|save', $user_token);
+        $data['back'] = $this->url->link('marketplace/extension', $user_token . '&type=module');
 
-        if (isset($this->request->post['module_mt_uni_credit_status'])) {
-            $data['module_mt_uni_credit_status'] = $this->request->post['module_mt_uni_credit_status'];
-        } else {
-            $data['module_mt_uni_credit_status'] = $this->config->get('module_mt_uni_credit_status');
-        }
-
-        if (isset($this->request->post['module_mt_uni_credit_unicid'])) {
-            $data['module_mt_uni_credit_unicid'] = $this->request->post['module_mt_uni_credit_unicid'];
-        } else {
-            $data['module_mt_uni_credit_unicid'] = $this->config->get('module_mt_uni_credit_unicid');
-        }
-
-        if (isset($this->request->post['module_mt_uni_credit_reklama'])) {
-            $data['module_mt_uni_credit_reklama'] = $this->request->post['module_mt_uni_credit_reklama'];
-        } else {
-            $data['module_mt_uni_credit_reklama'] = $this->config->get('module_mt_uni_credit_reklama');
-        }
-
-        if (isset($this->request->post['module_mt_uni_credit_cart'])) {
-            $data['module_mt_uni_credit_cart'] = $this->request->post['module_mt_uni_credit_cart'];
-        } else {
-            $data['module_mt_uni_credit_cart'] = $this->config->get('module_mt_uni_credit_cart');
-        }
-
-        if (isset($this->request->post['module_mt_uni_credit_debug'])) {
-            $data['module_mt_uni_credit_debug'] = $this->request->post['module_mt_uni_credit_debug'];
-        } else {
-            $data['module_mt_uni_credit_debug'] = $this->config->get('module_mt_uni_credit_debug');
-        }
-
-        if (isset($this->request->post['module_mt_uni_credit_gap'])) {
-            $data['module_mt_uni_credit_gap'] = $this->request->post['module_mt_uni_credit_gap'];
-        } else {
-            $data['module_mt_uni_credit_gap'] = $this->config->get('module_mt_uni_credit_gap') == null ? 0 : $this->config->get('module_mt_uni_credit_gap');
-        }
+        $data[$this->module . '_status'] = $this->config->get($this->module . '_status');
+        $data[$this->module . '_unicid'] = $this->config->get($this->module . '_unicid');
+        $data[$this->module . '_reklama'] = $this->config->get($this->module . '_reklama');
+        $data[$this->module . '_cart'] = $this->config->get($this->module . '_cart');
+        $data[$this->module . '_debug'] = $this->config->get($this->module . '_debug');
+        $data[$this->module . '_gap'] = $this->config->get($this->module . '_gap') == null ? 0 : $this->config->get($this->module . '_gap');
 
         $data['header'] = $this->load->controller('common/header');
         $data['column_left'] = $this->load->controller('common/column_left');
@@ -115,13 +87,46 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
     public function install(): void
     {
-        // Reserved for future install routines.
+        $this->load->model('setting/setting');
+
+        $this->model_setting_setting->editSetting($this->module, [
+            $this->module . '_status' => 1,
+            $this->module . '_reklama' => 0,
+            $this->module . '_cart' => 0,
+            $this->module . '_debug' => 0
+        ]);
     }
 
     public function uninstall(): void
     {
         $this->load->model('setting/setting');
         $this->model_setting_setting->deleteSetting('module_mt_uni_credit');
+    }
+
+    public function save(): void
+    {
+        $this->load->language($this->path);
+
+        $json = [];
+
+        if (!$this->user->hasPermission('modify', $this->path)) {
+            $json['error'] = $this->language->get('error_permission');
+        }
+
+        if (!$json) {
+            $this->init();
+            $this->load->model('setting/setting');
+            $this->model_setting_setting->editSetting($this->module, $this->request->post);
+            $json['success'] = 'Настройките са променени успешно!';
+        }
+
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($json));
+    }
+
+    protected function init(): void
+    {
+        //$this->load->model($this->model);
     }
 
     protected function validate(): bool
