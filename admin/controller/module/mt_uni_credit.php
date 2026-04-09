@@ -1,14 +1,21 @@
 <?php
+
+namespace Opencart\Admin\Controller\Extension\MtUniCredit\Module;
+
 /**
  * @property object $model_setting_setting
  */
-class ControllerModuleMtUniCredit extends Controller
+class MtUniCredit extends \Opencart\System\Engine\Controller
 {
     private array $error = [];
+    private $path = 'extension/mt_uni_credit/module/mt_uni_credit';
+    private $model = 'extension/mt_uni_credit/module/unicredit';
 
     public function index(): void
     {
-        $this->load->language('module/mt_uni_credit');
+        $user_token = 'user_token=' . $this->session->data['user_token'];
+
+        $this->load->language($this->path);
 
         $this->document->setTitle($this->language->get('heading_title'));
 
@@ -19,7 +26,7 @@ class ControllerModuleMtUniCredit extends Controller
 
             $this->session->data['success'] = $this->language->get('text_success');
 
-            $this->response->redirect($this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module'));
+            $this->response->redirect($this->url->link('marketplace/extension', $user_token . '&type=module'));
         }
 
         $data['uni_text_edit'] = $this->language->get('uni_text_edit');
@@ -47,21 +54,21 @@ class ControllerModuleMtUniCredit extends Controller
 
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_home'),
-            'href' => $this->url->link('common/dashboard', 'user_token=' . $this->session->data['user_token'])
+            'href' => $this->url->link('common/dashboard', $user_token)
         ];
 
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_extension'),
-            'href' => $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module')
+            'href' => $this->url->link('marketplace/extension', $user_token . '&type=module')
         ];
 
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('heading_title'),
-            'href' => $this->url->link('module/mt_uni_credit', 'user_token=' . $this->session->data['user_token'])
+            'href' => $this->url->link($this->path, $user_token)
         ];
 
-        $data['action'] = $this->url->link('module/mt_uni_credit', 'user_token=' . $this->session->data['user_token']);
-        $data['cancel'] = $this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module');
+        $data['action'] = $this->url->link($this->path, $user_token);
+        $data['cancel'] = $this->url->link('marketplace/extension', $user_token . '&type=module');
 
         if (isset($this->request->post['module_mt_uni_credit_status'])) {
             $data['module_mt_uni_credit_status'] = $this->request->post['module_mt_uni_credit_status'];
@@ -103,7 +110,7 @@ class ControllerModuleMtUniCredit extends Controller
         $data['column_left'] = $this->load->controller('common/column_left');
         $data['footer'] = $this->load->controller('common/footer');
 
-        $this->response->setOutput($this->load->view('module/mt_uni_credit', $data));
+        $this->response->setOutput($this->load->view($this->path, $data));
     }
 
     public function install(): void
@@ -119,7 +126,7 @@ class ControllerModuleMtUniCredit extends Controller
 
     protected function validate(): bool
     {
-        if (!$this->user->hasPermission('modify', 'module/mt_uni_credit')) {
+        if (!$this->user->hasPermission('modify', $this->path)) {
             $this->error['warning'] = $this->language->get('error_permission');
         }
 
