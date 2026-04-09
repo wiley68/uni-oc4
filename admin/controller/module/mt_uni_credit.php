@@ -108,9 +108,27 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->load->language($this->path);
 
         $json = [];
+        $errors = [];
 
         if (!$this->user->hasPermission('modify', $this->path)) {
             $json['error'] = $this->language->get('error_permission');
+        }
+
+        $unicid = isset($this->request->post[$this->module . '_unicid']) ? trim((string)$this->request->post[$this->module . '_unicid']) : '';
+
+        if ($unicid === '') {
+            $errors[] = $this->language->get('error_unicid_required');
+        }
+
+        $gap_raw = $this->request->post[$this->module . '_gap'] ?? '';
+        $gap = filter_var($gap_raw, FILTER_VALIDATE_INT);
+
+        if ($gap === false || $gap <= 0) {
+            $errors[] = $this->language->get('error_gap_positive_int');
+        }
+
+        if (!$json && $errors) {
+            $json['error'] = implode('<br/>', $errors);
         }
 
         if (!$json) {

@@ -20,3 +20,5 @@ $_['uni_entry_gap'] = 'Free space above the button';
 $_['uni_entry_gap_small'] = 'Free space above the button in px';
 $_['uni_button_save'] = 'Save';
 $_['uni_button_cancel'] = 'Cancel';
+$_['error_unicid_required'] = 'The field "Unique identification code of your store" is required.';
+$_['error_gap_positive_int'] = 'The field "Free space above the button" must be a positive integer.';
