@@ -22,17 +22,26 @@ class ControllerModuleMtUniCredit extends Controller
             $this->response->redirect($this->url->link('marketplace/extension', 'user_token=' . $this->session->data['user_token'] . '&type=module'));
         }
 
-        $data['error_warning'] = $this->error['warning'] ?? '';
+        $data['uni_text_edit'] = $this->language->get('uni_text_edit');
+        $data['uni_text_edit_kop'] = $this->language->get('uni_text_edit_kop');
+        $data['uni_text_module'] = $this->language->get('uni_text_module');
+        $data['uni_text_enabled'] = $this->language->get('uni_text_enabled');
+        $data['uni_text_disabled'] = $this->language->get('uni_text_disabled');
         $data['heading_title'] = $this->language->get('heading_title');
-        $data['text_edit'] = $this->language->get('text_edit');
-        $data['text_home'] = $this->language->get('text_home');
-        $data['text_extension'] = $this->language->get('text_extension');
-        $data['text_enabled'] = $this->language->get('text_enabled');
-        $data['text_disabled'] = $this->language->get('text_disabled');
-        $data['entry_status'] = $this->language->get('entry_status');
-        $data['entry_sort_order'] = $this->language->get('entry_sort_order');
-        $data['button_save'] = $this->language->get('button_save');
-        $data['button_cancel'] = $this->language->get('button_cancel');
+        $data['uni_entry_status'] = $this->language->get('uni_entry_status');
+        $data['uni_entry_status_small'] = $this->language->get('uni_entry_status_small');
+        $data['uni_entry_unicid'] = $this->language->get('uni_entry_unicid');
+        $data['uni_entry_unicid_small'] = $this->language->get('uni_entry_unicid_small');
+        $data['uni_entry_reklama'] = $this->language->get('uni_entry_reklama');
+        $data['uni_entry_reklama_small'] = $this->language->get('uni_entry_reklama_small');
+        $data['uni_entry_cart'] = $this->language->get('uni_entry_cart');
+        $data['uni_entry_cart_small'] = $this->language->get('uni_entry_cart_small');
+        $data['uni_entry_debug'] = $this->language->get('uni_entry_debug');
+        $data['uni_entry_debug_small'] = $this->language->get('uni_entry_debug_small');
+        $data['uni_entry_gap'] = $this->language->get('uni_entry_gap');
+        $data['uni_entry_gap_small'] = $this->language->get('uni_entry_gap_small');
+        $data['uni_button_save'] = $this->language->get('uni_button_save');
+        $data['uni_button_cancel'] = $this->language->get('uni_button_cancel');
 
         $data['breadcrumbs'] = [];
 
@@ -60,10 +69,34 @@ class ControllerModuleMtUniCredit extends Controller
             $data['module_mt_uni_credit_status'] = $this->config->get('module_mt_uni_credit_status');
         }
 
-        if (isset($this->request->post['module_mt_uni_credit_sort_order'])) {
-            $data['module_mt_uni_credit_sort_order'] = $this->request->post['module_mt_uni_credit_sort_order'];
+        if (isset($this->request->post['module_mt_uni_credit_unicid'])) {
+            $data['module_mt_uni_credit_unicid'] = $this->request->post['module_mt_uni_credit_unicid'];
         } else {
-            $data['module_mt_uni_credit_sort_order'] = $this->config->get('module_mt_uni_credit_sort_order');
+            $data['module_mt_uni_credit_unicid'] = $this->config->get('module_mt_uni_credit_unicid');
+        }
+
+        if (isset($this->request->post['module_mt_uni_credit_reklama'])) {
+            $data['module_mt_uni_credit_reklama'] = $this->request->post['module_mt_uni_credit_reklama'];
+        } else {
+            $data['module_mt_uni_credit_reklama'] = $this->config->get('module_mt_uni_credit_reklama');
+        }
+
+        if (isset($this->request->post['module_mt_uni_credit_cart'])) {
+            $data['module_mt_uni_credit_cart'] = $this->request->post['module_mt_uni_credit_cart'];
+        } else {
+            $data['module_mt_uni_credit_cart'] = $this->config->get('module_mt_uni_credit_cart');
+        }
+
+        if (isset($this->request->post['module_mt_uni_credit_debug'])) {
+            $data['module_mt_uni_credit_debug'] = $this->request->post['module_mt_uni_credit_debug'];
+        } else {
+            $data['module_mt_uni_credit_debug'] = $this->config->get('module_mt_uni_credit_debug');
+        }
+
+        if (isset($this->request->post['module_mt_uni_credit_gap'])) {
+            $data['module_mt_uni_credit_gap'] = $this->request->post['module_mt_uni_credit_gap'];
+        } else {
+            $data['module_mt_uni_credit_gap'] = $this->config->get('module_mt_uni_credit_gap') == null ? 0 : $this->config->get('module_mt_uni_credit_gap');
         }
 
         $data['header'] = $this->load->controller('common/header');

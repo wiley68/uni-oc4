@@ -1,22 +1,22 @@
 <?php
-// Heading
-$_['heading_title'] = 'UniCredit Credit Purchase';
-
-// Text
-$_['text_extension'] = 'Extensions';
-$_['text_home'] = 'Home';
-$_['text_success'] = 'Success: You have modified module settings!';
-$_['text_edit'] = 'Edit Module Settings';
-$_['text_enabled'] = 'Enabled';
-$_['text_disabled'] = 'Disabled';
-
-// Entry
-$_['entry_status'] = 'Status';
-$_['entry_sort_order'] = 'Sort Order';
-
-// Button
-$_['button_save'] = 'Save';
-$_['button_cancel'] = 'Cancel';
-
-// Error
-$_['error_permission'] = 'Warning: You do not have permission to modify this module!';
+$_['heading_title'] = 'UniCredit Credit purchases';
+$_['uni_text_edit'] = 'Edit settings';
+$_['uni_text_edit_kop'] = 'Correspondence between Categories and КОП on SmartUCF UniCredit system';
+$_['uni_text_module'] = 'Modules';
+$_['text_success'] = 'You have successfully saved the changes.';
+$_['uni_text_enabled'] = 'Enabled';
+$_['uni_text_disabled'] = 'Disabled';
+$_['uni_entry_status'] = 'UniCredit Credit purchases';
+$_['uni_entry_status_small'] = 'Allows your customers to purchase goods on installment with UniCredit';
+$_['uni_entry_unicid'] = 'Unique identification code of your store';
+$_['uni_entry_unicid_small'] = 'Unique identification code of your store in the UniCredit system.';
+$_['uni_entry_reklama'] = 'Show on product page';
+$_['uni_entry_reklama_small'] = 'Displays UniCredit calculator/info on product page.';
+$_['uni_entry_cart'] = 'Show in cart';
+$_['uni_entry_cart_small'] = 'Displays UniCredit calculator/info in cart.';
+$_['uni_entry_debug'] = 'Debug mode';
+$_['uni_entry_debug_small'] = 'Please select this option if you want to enable the debug mode';
+$_['uni_entry_gap'] = 'Spacing (GAP)';
+$_['uni_entry_gap_small'] = 'Spacing in pixels between price and the credit calculator block.';
+$_['uni_button_save'] = 'Save';
+$_['uni_button_cancel'] = 'Cancel';

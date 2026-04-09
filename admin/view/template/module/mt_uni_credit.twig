@@ -3,9 +3,9 @@
   <div class="page-header">
     <div class="container-fluid">
       <div class="float-end">
-        <button type="submit" form="form-module" data-bs-toggle="tooltip" title="{{ button_save }}"
+        <button type="submit" form="form-module" data-bs-toggle="tooltip" title="{{ uni_button_save }}"
           class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i></button>
-        <a href="{{ cancel }}" data-bs-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-light"><i
+        <a href="{{ cancel }}" data-bs-toggle="tooltip" title="{{ uni_button_cancel }}" class="btn btn-light"><i
             class="fa-solid fa-reply"></i></a>
       </div>
       <h1>{{ heading_title }}</h1>
@@ -26,29 +26,89 @@
     {% endif %}
 
     <div class="card">
-      <div class="card-header"><i class="fa-solid fa-pencil"></i> {{ text_edit }}</div>
+      <div class="card-header"><i class="fa-solid fa-pencil"></i> {{ uni_text_edit }}</div>
       <div class="card-body">
         <form id="form-module" action="{{ action }}" method="post" data-oc-toggle="ajax">
           <div class="row mb-3">
-            <label for="input-status" class="col-sm-2 col-form-label">{{ entry_status }}</label>
+            <label for="input-status" class="col-sm-2 col-form-label">{{ uni_entry_status }}</label>
             <div class="col-sm-10">
               <select name="module_mt_uni_credit_status" id="input-status" class="form-select">
                 {% if module_mt_uni_credit_status %}
-                <option value="1" selected="selected">{{ text_enabled }}</option>
-                <option value="0">{{ text_disabled }}</option>
+                <option value="1" selected="selected">{{ uni_text_enabled }}</option>
+                <option value="0">{{ uni_text_disabled }}</option>
                 {% else %}
-                <option value="1">{{ text_enabled }}</option>
-                <option value="0" selected="selected">{{ text_disabled }}</option>
+                <option value="1">{{ uni_text_enabled }}</option>
+                <option value="0" selected="selected">{{ uni_text_disabled }}</option>
                 {% endif %}
               </select>
+              <div class="form-text">{{ uni_entry_status_small }}</div>
             </div>
           </div>
 
           <div class="row mb-3">
-            <label for="input-sort-order" class="col-sm-2 col-form-label">{{ entry_sort_order }}</label>
+            <label for="input-unicid" class="col-sm-2 col-form-label">{{ uni_entry_unicid }}</label>
             <div class="col-sm-10">
-              <input type="text" name="module_mt_uni_credit_sort_order" value="{{ module_mt_uni_credit_sort_order }}"
-                placeholder="{{ entry_sort_order }}" id="input-sort-order" class="form-control" />
+              <input type="text" name="module_mt_uni_credit_unicid" value="{{ module_mt_uni_credit_unicid }}"
+                placeholder="{{ uni_entry_unicid }}" id="input-unicid" class="form-control" />
+              <div class="form-text">{{ uni_entry_unicid_small }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label for="input-reklama" class="col-sm-2 col-form-label">{{ uni_entry_reklama }}</label>
+            <div class="col-sm-10">
+              <select name="module_mt_uni_credit_reklama" id="input-reklama" class="form-select">
+                {% if module_mt_uni_credit_reklama %}
+                <option value="1" selected="selected">{{ uni_text_enabled }}</option>
+                <option value="0">{{ uni_text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ uni_text_enabled }}</option>
+                <option value="0" selected="selected">{{ uni_text_disabled }}</option>
+                {% endif %}
+              </select>
+              <div class="form-text">{{ uni_entry_reklama_small }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label for="input-cart" class="col-sm-2 col-form-label">{{ uni_entry_cart }}</label>
+            <div class="col-sm-10">
+              <select name="module_mt_uni_credit_cart" id="input-cart" class="form-select">
+                {% if module_mt_uni_credit_cart %}
+                <option value="1" selected="selected">{{ uni_text_enabled }}</option>
+                <option value="0">{{ uni_text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ uni_text_enabled }}</option>
+                <option value="0" selected="selected">{{ uni_text_disabled }}</option>
+                {% endif %}
+              </select>
+              <div class="form-text">{{ uni_entry_cart_small }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label for="input-debug" class="col-sm-2 col-form-label">{{ uni_entry_debug }}</label>
+            <div class="col-sm-10">
+              <select name="module_mt_uni_credit_debug" id="input-debug" class="form-select">
+                {% if module_mt_uni_credit_debug %}
+                <option value="1" selected="selected">{{ uni_text_enabled }}</option>
+                <option value="0">{{ uni_text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ uni_text_enabled }}</option>
+                <option value="0" selected="selected">{{ uni_text_disabled }}</option>
+                {% endif %}
+              </select>
+              <div class="form-text">{{ uni_entry_debug_small }}</div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <label for="input-gap" class="col-sm-2 col-form-label">{{ uni_entry_gap }}</label>
+            <div class="col-sm-10">
+              <input type="number" min="0" step="1" name="module_mt_uni_credit_gap"
+                value="{{ module_mt_uni_credit_gap }}" placeholder="{{ uni_entry_gap }}" id="input-gap"
+                class="form-control" />
+              <div class="form-text">{{ uni_entry_gap_small }}</div>
             </div>
           </div>
         </form>
