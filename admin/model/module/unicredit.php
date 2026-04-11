@@ -95,6 +95,89 @@ class Unicredit extends \Opencart\System\Engine\Model
         }
     }
 
+    /**
+     * Изтрива редове от API кеша с group=coeff с date_upd преди началото на днешния ден (като PS UniCreditGetCoeffService).
+     */
+    public function purgeCoeffCacheOlderThanToday(): int
+    {
+        $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
+        $threshold = $this->getSqlDatetimeStartOfToday();
+        $q = $this->db->query(
+            "SELECT COUNT(*) AS `c` FROM `{$table}` WHERE `cache_group` = 'coeff' AND `date_upd` < '" . $this->db->escape($threshold) . "'"
+        );
+        $cnt = (int) ($q->row['c'] ?? 0);
+        if ($cnt > 0) {
+            $this->db->query(
+                "DELETE FROM `{$table}` WHERE `cache_group` = 'coeff' AND `date_upd` < '" . $this->db->escape($threshold) . "'"
+            );
+        }
+
+        return $cnt;
+    }
+
+    /**
+     * Нулира kimb / kimb_time / stats за всички главни категории (запазва kop/promo); създава липсващи редове.
+     * Аналог на {@see KopMappingService::refreshMappings} в PS модула.
+     */
+    public function refreshKopMappingsResetStats(): bool
+    {
+        foreach ($this->getTopLevelCategoryMappings() as $row) {
+            $this->resetBankFieldsForCategory((int) $row['category_id'], (string) $row['kop'], (string) $row['promo']);
+        }
+
+        return true;
+    }
+
+    /**
+     * GET getparameters.php?cid=… и запис в api_cache (params:md5(cid)); при $forceReload пропуска TTL.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function fetchUniParamsFromBankAndCache(string $unicid, bool $forceReload): ?array
+    {
+        $unicid = trim($unicid);
+        if ($unicid === '') {
+            return null;
+        }
+
+        $cacheKey = 'params:' . md5($unicid);
+
+        if (!$forceReload) {
+            $cached = $this->readApiCachePayload($cacheKey, UnicreditConfig::API_CACHE_TTL_PARAMS);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
+        $url = rtrim(UnicreditConfig::LIVE_URL, '/') . UnicreditConfig::BANK_GETPARAMETERS_PATH . '?cid=' . rawurlencode($unicid);
+
+        if (!\function_exists('curl_init')) {
+            return null;
+        }
+
+        $ch = curl_init();
+        curl_setopt($ch, \CURLOPT_URL, $url);
+        curl_setopt($ch, \CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, \CURLOPT_MAXREDIRS, 3);
+        curl_setopt($ch, \CURLOPT_TIMEOUT, 6);
+        $response = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, \CURLINFO_HTTP_CODE);
+
+        if ($response === false || $httpCode !== 200) {
+            return null;
+        }
+
+        $params = json_decode((string) $response, true);
+        if (!is_array($params)) {
+            return null;
+        }
+
+        $this->writeApiCachePayload($cacheKey, 'params', $params);
+
+        return $params;
+    }
+
     private function createKopMappingTable(): void
     {
         $table = $this->table(UnicreditConfig::TABLE_KOP_MAPPING);
@@ -173,6 +256,116 @@ class Unicredit extends \Opencart\System\Engine\Model
         } else {
             $stats = '{}';
             $this->db->query("INSERT INTO `{$table}` SET `category_id` = '" . (int) $categoryId . "', `kop` = '" . $this->db->escape($kop) . "', `promo` = '" . $this->db->escape($promo) . "', `kimb` = '', `kimb_time` = '0', `stats` = '" . $this->db->escape($stats) . "', `date_add` = '" . $this->db->escape($now) . "', `date_upd` = '" . $this->db->escape($now) . "'");
+        }
+    }
+
+    private function resetBankFieldsForCategory(int $categoryId, string $kop, string $promo): void
+    {
+        $table = $this->table(UnicreditConfig::TABLE_KOP_MAPPING);
+        $now = date('Y-m-d H:i:s');
+        $statsJson = $this->getDefaultStatsJson();
+        $q = $this->db->query("SELECT `category_id` FROM `{$table}` WHERE `category_id` = '" . (int) $categoryId . "' LIMIT 1");
+
+        if ($q->num_rows) {
+            $this->db->query(
+                "UPDATE `{$table}` SET `kimb` = '', `kimb_time` = '0', `stats` = '" . $this->db->escape($statsJson) . "', `date_upd` = '" . $this->db->escape($now) . "' WHERE `category_id` = '" . (int) $categoryId . "'"
+            );
+        } else {
+            $this->db->query(
+                "INSERT INTO `{$table}` SET `category_id` = '" . (int) $categoryId . "', `kop` = '" . $this->db->escape($kop) . "', `promo` = '" . $this->db->escape($promo) . "', `kimb` = '', `kimb_time` = '0', `stats` = '" . $this->db->escape($statsJson) . "', `date_add` = '" . $this->db->escape($now) . "', `date_upd` = '" . $this->db->escape($now) . "'"
+            );
+        }
+    }
+
+    private function getDefaultStatsJson(): string
+    {
+        $stats = [
+            'kimb_3' => '',
+            'glp_3' => '',
+            'kimb_4' => '',
+            'glp_4' => '',
+            'kimb_5' => '',
+            'glp_5' => '',
+            'kimb_6' => '',
+            'glp_6' => '',
+            'kimb_9' => '',
+            'glp_9' => '',
+            'kimb_10' => '',
+            'glp_10' => '',
+            'kimb_12' => '',
+            'glp_12' => '',
+            'kimb_15' => '',
+            'glp_15' => '',
+            'kimb_18' => '',
+            'glp_18' => '',
+            'kimb_24' => '',
+            'glp_24' => '',
+            'kimb_30' => '',
+            'glp_30' => '',
+            'kimb_36' => '',
+            'glp_36' => '',
+        ];
+        $json = json_encode($stats, \JSON_UNESCAPED_UNICODE);
+
+        return is_string($json) ? $json : '{}';
+    }
+
+    private function getSqlDatetimeStartOfToday(): string
+    {
+        $tzName = (string) ($this->config->get('config_timezone') ?? '');
+        if ($tzName !== '') {
+            try {
+                return (new \DateTimeImmutable('today', new \DateTimeZone($tzName)))->format('Y-m-d H:i:s');
+            } catch (\Exception) {
+            }
+        }
+
+        return date('Y-m-d 00:00:00');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readApiCachePayload(string $cacheKey, int $ttlSeconds): ?array
+    {
+        $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
+        $q = $this->db->query(
+            "SELECT `payload`, `date_upd` FROM `{$table}` WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "' LIMIT 1"
+        );
+        if (!$q->num_rows) {
+            return null;
+        }
+        $updatedTs = strtotime((string) ($q->row['date_upd'] ?? ''));
+        if ($updatedTs === false || (time() - $updatedTs) >= $ttlSeconds) {
+            return null;
+        }
+        $payload = json_decode((string) ($q->row['payload'] ?? ''), true);
+
+        return is_array($payload) ? $payload : null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function writeApiCachePayload(string $cacheKey, string $group, array $payload): void
+    {
+        $json = json_encode($payload, \JSON_UNESCAPED_UNICODE);
+        if (!is_string($json)) {
+            return;
+        }
+        $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
+        $now = date('Y-m-d H:i:s');
+        $q = $this->db->query(
+            "SELECT `id_mt_uni_credit_api_cache` FROM `{$table}` WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "' LIMIT 1"
+        );
+        if ($q->num_rows) {
+            $this->db->query(
+                "UPDATE `{$table}` SET `cache_group` = '" . $this->db->escape($group) . "', `payload` = '" . $this->db->escape($json) . "', `date_upd` = '" . $this->db->escape($now) . "' WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "'"
+            );
+        } else {
+            $this->db->query(
+                "INSERT INTO `{$table}` SET `cache_group` = '" . $this->db->escape($group) . "', `cache_key` = '" . $this->db->escape($cacheKey) . "', `payload` = '" . $this->db->escape($json) . "', `date_add` = '" . $this->db->escape($now) . "', `date_upd` = '" . $this->db->escape($now) . "'"
+            );
         }
     }
 

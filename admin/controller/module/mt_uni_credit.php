@@ -55,6 +55,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['uni_kop_col_promo'] = $this->language->get('uni_kop_col_promo');
         $data['uni_kop_empty'] = $this->language->get('uni_kop_empty');
         $data['uni_button_save_kop'] = $this->language->get('uni_button_save_kop');
+        $data['uni_button_refresh_kop'] = $this->language->get('uni_button_refresh_kop');
+        $data['uni_kop_refresh_hint'] = $this->language->get('uni_kop_refresh_hint');
         $data['error_warning'] = $this->error['warning'] ?? '';
 
         $this->load->model('extension/mt_uni_credit/module/unicredit');
@@ -79,6 +81,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         $data['save'] = $this->url->link($this->path . '|save', $user_token);
         $data['save_kop'] = $this->url->link($this->path . '|saveKop', $user_token);
+        $data['refresh_kop'] = $this->url->link($this->path . '|refreshKop', $user_token);
         $data['back'] = $this->url->link('marketplace/extension', $user_token . '&type=module');
 
         $data[$this->module . '_status'] = $this->config->get($this->module . '_status');
@@ -196,6 +199,67 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->load->model('extension/mt_uni_credit/module/unicredit');
             $this->model_extension_mt_uni_credit_module_unicredit->saveKopMappingsFromPost($kop_map);
             $json['success'] = $this->language->get('text_success_kop');
+        }
+
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($json));
+    }
+
+    /**
+     * AJAX: нулира kimb/stats по главни категории, чисти стар coeff кеш, опреснява getparameters в api_cache.
+     * Редът на операциите е като в PrestaShop модула (refreshKopMapping).
+     */
+    public function refreshKop(): void
+    {
+        $this->load->language($this->path);
+
+        $json = [
+            'result'           => 'error',
+            'kop_refreshed'    => false,
+            'params_refreshed' => false,
+            'coeff_purged'     => 0,
+            'errors'           => [],
+        ];
+
+        if (!$this->user->hasPermission('modify', $this->path)) {
+            $json['errors'][] = $this->language->get('error_permission');
+            $json['error'] = $this->language->get('error_permission');
+            $this->response->addHeader('Content-Type: application/json');
+            $this->response->setOutput(json_encode($json));
+
+            return;
+        }
+
+        $unicid = trim((string) ($this->config->get($this->module . '_unicid') ?? ''));
+        if ($unicid === '') {
+            $msg = $this->language->get('error_unicid_required');
+            $json['errors'][] = $msg;
+            $json['error'] = $msg;
+            $this->response->addHeader('Content-Type: application/json');
+            $this->response->setOutput(json_encode($json));
+
+            return;
+        }
+
+        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $model = $this->model_extension_mt_uni_credit_module_unicredit;
+
+        $json['coeff_purged'] = $model->purgeCoeffCacheOlderThanToday();
+
+        $model->refreshKopMappingsResetStats();
+        $json['kop_refreshed'] = true;
+
+        $params = $model->fetchUniParamsFromBankAndCache($unicid, true);
+        $paramsOk = is_array($params);
+        $json['params_refreshed'] = $paramsOk;
+
+        if ($paramsOk) {
+            $json['result'] = 'success';
+            $json['success'] = $this->language->get('text_refresh_kop_full');
+        } else {
+            $json['result'] = 'partial';
+            $json['errors'][] = $this->language->get('error_refresh_bank_params');
+            $json['success'] = $this->language->get('text_refresh_kop_partial');
         }
 
         $this->response->addHeader('Content-Type: application/json');

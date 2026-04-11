@@ -132,12 +132,19 @@
               </tbody>
             </table>
           </div>
-          <div class="text-end mt-3">
-            <button type="submit" class="btn btn-primary" data-bs-toggle="tooltip" title="{{ uni_button_save_kop }}">
-              <i class="fa-solid fa-table-list"></i> {{ uni_button_save_kop }}
-            </button>
-          </div>
         </form>
+        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3">
+          <form id="form-kop-refresh" action="{{ refresh_kop }}" method="post" data-oc-toggle="ajax" class="m-0">
+            <button type="submit" class="btn btn-outline-secondary" data-bs-toggle="tooltip"
+              title="{{ uni_button_refresh_kop }}">
+              <i class="fa-solid fa-rotate"></i> {{ uni_button_refresh_kop }}
+            </button>
+          </form>
+          <button type="submit" form="form-kop-map" class="btn btn-primary" data-bs-toggle="tooltip"
+            title="{{ uni_button_save_kop }}">
+            <i class="fa-solid fa-table-list"></i> {{ uni_button_save_kop }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
