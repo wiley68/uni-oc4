@@ -26,5 +26,5 @@ build/
 .env.*
 !.env.example
 
-# Intelephense/OpenCart local stubs
-stubs/
+# Локални stub overrides (по избор); проследените stubs са в stubs/*.stub.php
+stubs/local/

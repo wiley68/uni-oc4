@@ -2,9 +2,6 @@
 
 namespace Opencart\Admin\Controller\Extension\MtUniCredit\Module;
 
-/**
- * @property object $model_setting_setting
- */
 class MtUniCredit extends \Opencart\System\Engine\Controller
 {
     private array $error = [];
@@ -50,6 +47,18 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['uni_entry_gap_small'] = $this->language->get('uni_entry_gap_small');
         $data['uni_button_save'] = $this->language->get('uni_button_save');
         $data['uni_button_cancel'] = $this->language->get('uni_button_cancel');
+        $data['uni_kop_section_title'] = $this->language->get('uni_kop_section_title');
+        $data['uni_kop_section_hint'] = $this->language->get('uni_kop_section_hint');
+        $data['uni_kop_col_id'] = $this->language->get('uni_kop_col_id');
+        $data['uni_kop_col_name'] = $this->language->get('uni_kop_col_name');
+        $data['uni_kop_col_kop'] = $this->language->get('uni_kop_col_kop');
+        $data['uni_kop_col_promo'] = $this->language->get('uni_kop_col_promo');
+        $data['uni_kop_empty'] = $this->language->get('uni_kop_empty');
+        $data['uni_button_save_kop'] = $this->language->get('uni_button_save_kop');
+        $data['error_warning'] = $this->error['warning'] ?? '';
+
+        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $data['kop_mappings'] = $this->model_extension_mt_uni_credit_module_unicredit->getTopLevelCategoryMappings();
 
         $data['breadcrumbs'] = [];
 
@@ -69,6 +78,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         ];
 
         $data['save'] = $this->url->link($this->path . '|save', $user_token);
+        $data['save_kop'] = $this->url->link($this->path . '|saveKop', $user_token);
         $data['back'] = $this->url->link('marketplace/extension', $user_token . '&type=module');
 
         $data[$this->module . '_status'] = $this->config->get($this->module . '_status');
@@ -76,7 +86,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data[$this->module . '_reklama'] = $this->config->get($this->module . '_reklama');
         $data[$this->module . '_cart'] = $this->config->get($this->module . '_cart');
         $data[$this->module . '_debug'] = $this->config->get($this->module . '_debug');
-        $data[$this->module . '_gap'] = $this->config->get($this->module . '_gap') == null ? 0 : $this->config->get($this->module . '_gap');
+        $gap_cfg = $this->config->get($this->module . '_gap');
+        $data[$this->module . '_gap'] = ($gap_cfg === null || $gap_cfg === '') ? 0 : (int) $gap_cfg;
 
         $data['header'] = $this->load->controller('common/header');
         $data['column_left'] = $this->load->controller('common/column_left');
@@ -87,18 +98,29 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
     public function install(): void
     {
+        if ($this->user->hasPermission('modify', $this->path)) {
+            $this->init();
+        }
+
         $this->load->model('setting/setting');
 
         $this->model_setting_setting->editSetting($this->module, [
             $this->module . '_status' => 1,
             $this->module . '_reklama' => 0,
             $this->module . '_cart' => 0,
-            $this->module . '_debug' => 0
+            $this->module . '_debug' => 0,
+            $this->module . '_gap' => 0
         ]);
+
+        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $this->model_extension_mt_uni_credit_module_unicredit->install();
     }
 
     public function uninstall(): void
     {
+        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $this->model_extension_mt_uni_credit_module_unicredit->uninstall();
+
         $this->load->model('setting/setting');
         $this->model_setting_setting->deleteSetting('module_mt_uni_credit');
     }
@@ -121,10 +143,15 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         $gap_raw = $this->request->post[$this->module . '_gap'] ?? '';
-        $gap = filter_var($gap_raw, FILTER_VALIDATE_INT);
+        $gap_str = is_string($gap_raw) ? trim($gap_raw) : (string) $gap_raw;
 
-        if ($gap === false || $gap <= 0) {
-            $errors[] = $this->language->get('error_gap_positive_int');
+        if ($gap_str === '') {
+            $gap = 0;
+        } else {
+            $gap = filter_var($gap_str, FILTER_VALIDATE_INT);
+            if ($gap === false || $gap < 0) {
+                $errors[] = $this->language->get('error_gap_non_negative_int');
+            }
         }
 
         if (!$json && $errors) {
@@ -132,10 +159,43 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         if (!$json) {
+            $this->request->post[$this->module . '_gap'] = $gap;
             $this->init();
             $this->load->model('setting/setting');
             $this->model_setting_setting->editSetting($this->module, $this->request->post);
-            $json['success'] = 'Настройките са променени успешно!';
+
+            $json['success'] = $this->language->get('text_success');
+        }
+
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($json));
+    }
+
+    public function saveKop(): void
+    {
+        $this->load->language($this->path);
+
+        $json = [];
+
+        if (!$this->user->hasPermission('modify', $this->path)) {
+            $json['error'] = $this->language->get('error_permission');
+        }
+
+        $kop_map = $this->request->post['kop_map'] ?? [];
+        if (!is_array($kop_map)) {
+            $kop_map = [];
+        }
+
+        $errors = $this->validateKopMapPost($kop_map);
+
+        if (!$json && $errors) {
+            $json['error'] = implode('<br/>', $errors);
+        }
+
+        if (!$json) {
+            $this->load->model('extension/mt_uni_credit/module/unicredit');
+            $this->model_extension_mt_uni_credit_module_unicredit->saveKopMappingsFromPost($kop_map);
+            $json['success'] = $this->language->get('text_success_kop');
         }
 
         $this->response->addHeader('Content-Type: application/json');
@@ -144,7 +204,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
     protected function init(): void
     {
-        //$this->load->model($this->model);
+        $oc_version = \defined('VERSION') ? (string) \constant('VERSION') : '4.0.2.0';
+        $jet_separator = \version_compare($oc_version, '4.0.2', '>=') ? '.' : '|';
     }
 
     protected function validate(): bool
@@ -154,5 +215,49 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         return !$this->error;
+    }
+
+    /**
+     * @param array<int|string, mixed> $kop_map
+     *
+     * @return list<string>
+     */
+    protected function validateKopMapPost(array $kop_map): array
+    {
+        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $allowed = $this->model_extension_mt_uni_credit_module_unicredit->getTopLevelCategoryIds();
+        $allowedFlip = array_flip($allowed);
+        $maxLen = \Opencart\Admin\Model\Extension\MtUniCredit\Module\Unicredit::KOP_MAX_LENGTH;
+        $err = [];
+
+        foreach ($kop_map as $cidKey => $fields) {
+            $cid = (int) $cidKey;
+            if ($cid <= 0 || !isset($allowedFlip[$cid]) || !is_array($fields)) {
+                continue;
+            }
+
+            $kop = isset($fields['kop']) ? trim((string) $fields['kop']) : '';
+            $promo = isset($fields['promo']) ? trim((string) $fields['promo']) : '';
+
+            $kopLabel = sprintf($this->language->get('uni_kop_field_standard'), $cid);
+            $promoLabel = sprintf($this->language->get('uni_kop_field_promo'), $cid);
+
+            if ($kop !== '') {
+                if (mb_strlen($kop) > $maxLen) {
+                    $err[] = sprintf($this->language->get('error_kop_too_long'), $kopLabel, (string) $maxLen);
+                } elseif (preg_match('/[\x00-\x1F\x7F]/u', $kop)) {
+                    $err[] = sprintf($this->language->get('error_kop_control_chars'), $kopLabel);
+                }
+            }
+            if ($promo !== '') {
+                if (mb_strlen($promo) > $maxLen) {
+                    $err[] = sprintf($this->language->get('error_kop_too_long'), $promoLabel, (string) $maxLen);
+                } elseif (preg_match('/[\x00-\x1F\x7F]/u', $promo)) {
+                    $err[] = sprintf($this->language->get('error_kop_control_chars'), $promoLabel);
+                }
+            }
+        }
+
+        return $err;
     }
 }
