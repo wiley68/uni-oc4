@@ -13,8 +13,42 @@ namespace {
     if (!defined('DB_PREFIX')) {
         define('DB_PREFIX', 'oc_');
     }
+    if (!defined('DIR_EXTENSION')) {
+        /** Абсолютен път към папката extension/ на OpenCart (като в config.php). */
+        define('DIR_EXTENSION', '');
+    }
+    if (!defined('DIR_APPLICATION')) {
+        /** В админ: …/admin/ ; в каталог: …/catalog/ */
+        define('DIR_APPLICATION', '');
+    }
+    if (!defined('DIR_CATALOG')) {
+        /** Публичен каталог на магазина (само в admin config.php). */
+        define('DIR_CATALOG', '');
+    }
     if (!defined('VERSION')) {
         define('VERSION', '4.0.2.0');
+    }
+
+    /**
+     * @see extension/mt_uni_credit/system/library/uni_financial_rate.php
+     */
+    final class MtUniCreditFinancialRate
+    {
+        public static function periodicRate(
+            float $nper,
+            float $pmt,
+            float $pv,
+            float $fv = 0.0,
+            int $type = 0,
+            float $guess = 0.1
+        ): float {
+            return 0.0;
+        }
+
+        public static function formatGprPercentForDisplay(float $percentPoints): string
+        {
+            return '0.00';
+        }
     }
 }
 
@@ -82,6 +116,10 @@ namespace Opencart\System\Engine {
     class Document
     {
         public function setTitle(string $title): void {}
+
+        public function addStyle(string $href, string $rel = 'stylesheet', string $media = 'screen'): void {}
+
+        public function addScript(string $href, string $position = 'header'): void {}
     }
 
     /**

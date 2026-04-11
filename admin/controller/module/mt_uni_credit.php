@@ -8,6 +8,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private $path = 'extension/mt_uni_credit/module/mt_uni_credit';
     private $model = 'extension/mt_uni_credit/module/unicredit';
     private $module = 'module_mt_uni_credit';
+    private $event_product_controller = 'extension/mt_uni_credit/event/mt_uni_credit_product_controller';
+    private $event_product_view = 'extension/mt_uni_credit/event/mt_uni_credit_product_view';
 
     public function index(): void
     {
@@ -59,7 +61,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['uni_kop_refresh_hint'] = $this->language->get('uni_kop_refresh_hint');
         $data['error_warning'] = $this->error['warning'] ?? '';
 
-        $this->load->model('extension/mt_uni_credit/module/unicredit');
+        $this->load->model($this->model);
         $data['kop_mappings'] = $this->model_extension_mt_uni_credit_module_unicredit->getTopLevelCategoryMappings();
 
         $data['breadcrumbs'] = [];
@@ -117,6 +119,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         $this->load->model('extension/mt_uni_credit/module/unicredit');
         $this->model_extension_mt_uni_credit_module_unicredit->install();
+
+        $this->syncCatalogPublicAssets();
     }
 
     public function uninstall(): void
@@ -126,6 +130,12 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         $this->load->model('setting/setting');
         $this->model_setting_setting->deleteSetting('module_mt_uni_credit');
+
+        if ($this->user->hasPermission('modify', $this->path)) {
+            $this->load->model('setting/event');
+            $this->model_setting_event->deleteEventByCode($this->module . '_before_product_controller');
+            $this->model_setting_event->deleteEventByCode($this->module . '_after_product_view');
+        }
     }
 
     public function save(): void
@@ -266,10 +276,86 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->response->setOutput(json_encode($json));
     }
 
+    /**
+     * Копира CSS/JS/картинки от пакета в DIR_CATALOG/view/… за публични URL като при другите модули (без /extension/… в адреса).
+     */
+    protected function syncCatalogPublicAssets(): void
+    {
+        $catalogRoot = \defined('DIR_CATALOG')
+            ? (string) \constant('DIR_CATALOG')
+            : rtrim(\dirname(\DIR_APPLICATION), '/') . '/catalog/';
+        $catalogRoot = rtrim($catalogRoot, '/') . '/';
+
+        if (!is_dir($catalogRoot)) {
+            return;
+        }
+
+        $srcBase = \DIR_EXTENSION . 'mt_uni_credit/catalog/view/';
+        $pairs = [
+            ['stylesheet/mt_uni_credit', 'view/stylesheet/mt_uni_credit'],
+            ['javascript/mt_uni_credit', 'view/javascript/mt_uni_credit'],
+            ['image/mt_uni_credit', 'view/image/mt_uni_credit'],
+        ];
+
+        foreach ($pairs as [$relSrc, $relDst]) {
+            $from = $srcBase . $relSrc;
+            if (!is_dir($from)) {
+                continue;
+            }
+
+            $to = $catalogRoot . $relDst;
+            if (!is_dir($to) && !@mkdir($to, 0775, true) && !is_dir($to)) {
+                continue;
+            }
+
+            foreach (glob($from . '/*') ?: [] as $file) {
+                if (is_file($file)) {
+                    @copy($file, $to . '/' . basename($file));
+                }
+            }
+        }
+    }
+
     protected function init(): void
     {
+        $this->load->language($this->path);
+
         $oc_version = \defined('VERSION') ? (string) \constant('VERSION') : '4.0.2.0';
-        $jet_separator = \version_compare($oc_version, '4.0.2', '>=') ? '.' : '|';
+        $uni_separator = \version_compare($oc_version, '4.0.2', '>=') ? '.' : '|';
+
+        $moduleName = $this->language->get('heading_title');
+        $descController = sprintf($this->language->get('uni_event_description_product_controller'), $moduleName);
+        $descView = sprintf($this->language->get('uni_event_description_product_view'), $moduleName);
+
+        $this->load->model('setting/event');
+
+        $this->model_setting_event->deleteEventByCode($this->module . '_before_product_controller');
+        $this->model_setting_event->addEvent([
+            'code'        => $this->module . '_before_product_controller',
+            'description' => $descController,
+            'trigger'     => 'catalog/controller/product/product/before',
+            'action'      => $this->event_product_controller . $uni_separator . 'init',
+            'status'      => true,
+            'sort_order'  => 0
+        ]);
+
+        $this->model_setting_event->deleteEventByCode($this->module . '_after_product_view');
+        $this->model_setting_event->addEvent([
+            'code'        => $this->module . '_after_product_view',
+            'description' => $descView,
+            'trigger'     => 'catalog/view/product/product/after',
+            'action'      => $this->event_product_view . $uni_separator . 'init',
+            'status'      => true,
+            'sort_order'  => 0
+        ]);
+
+        $this->load->model('user/user_group');
+        $groups = $this->model_user_user_group->getUserGroups();
+
+        foreach ($groups as $group) {
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_controller);
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_view);
+        }
     }
 
     protected function validate(): bool
