@@ -30,7 +30,7 @@
 })();
   </script>
 {% endif %}
-<div id="uni-product-button-container">
+<div id="uni-product-button-container"{% if uni_gap > 0 %} style="margin-top: {{ uni_gap }}px;"{% endif %}>
   {% if uni_zaglavie %}
     <div class="uni_zaglavie">{{ uni_zaglavie|e }}</div>
   {% endif %}

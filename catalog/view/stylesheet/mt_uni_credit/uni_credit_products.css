@@ -1,10 +1,5 @@
 @import url('roboto-condensed.css');
 
-* {
-    padding: 0;
-    margin: 0;
-}
-
 .uni_zaglavie {
     font-family: 'Roboto Condensed', sans-serif !important;
     font-size: 16px !important;
@@ -92,7 +87,11 @@
     cursor: pointer !important;
 }
 
-/* uni popup */
+/* uni popup — без наследено line-height от body / Bootstrap (--bs-body-line-height); само вътре в модула */
+#uni-product-popup-container {
+    line-height: normal;
+}
+
 .modalpayment_uni {
     display: none;
     position: fixed !important;
@@ -143,9 +142,9 @@
 
 .uni_title_head {
     width: 100%;
-    padding: 15px !important;
+    padding: 8px 15px 5px 15px !important;
     color: #000000 !important;
-    font-family: 'Roboto Condensed', sans-serif !important;
+    font-family: "Roboto Condensed", sans-serif !important;
     font-size: 22px !important;
     font-weight: 400 !important;
     text-align: left !important;
@@ -153,9 +152,9 @@
 
 .unim_title_head {
     width: 100%;
-    padding: 15px !important;
+    padding: 8px 15px 5px 15px !important;
     color: #000000 !important;
-    font-family: 'Roboto Condensed', sans-serif !important;
+    font-family: "Roboto Condensed", sans-serif !important;
     font-size: 16px !important;
     font-weight: 400 !important;
     text-align: left !important;

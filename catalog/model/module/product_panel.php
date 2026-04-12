@@ -242,6 +242,9 @@ class ProductPanel extends Model
 
         $classes = $this->resolveUiClasses($deviceis, $texts);
 
+        $gapRaw = $this->config->get($this->module . '_gap');
+        $uniGap = ($gapRaw === null || $gapRaw === '') ? 0 : (int) $gapRaw;
+
         $assign = array_merge([
             'uni_cart'                        => (int) $this->config->get($this->module . '_cart'),
             'uni_csrf_token'                  => '',
@@ -268,7 +271,7 @@ class ProductPanel extends Model
             'uni_shema_current'               => $uniShemaCurrent,
             'uni_product_installment_options' => $uniProductInstallmentOptions,
             'uni_mini_logo'                   => $uniMiniLogo,
-            'UNIPAYMENT_GAP'                  => (int) $this->config->get($this->module . '_gap'),
+            'uni_gap'                         => $uniGap,
             'uni_proces1'                     => $uniProces1,
             'uni_js_shop_strings'             => json_encode([
                 'cartAddFailed' => $texts['js_cart_add_failed'] ?? '',
