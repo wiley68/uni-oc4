@@ -103,3 +103,9 @@ textarea.uni_input {
 .uni-payment-checkout__terms-text {
     font-size: 12px;
 }
+
+/* Докато чака отговор от преизчисляване (бутонът за потвърждение е изключен). */
+#uni-checkout-container.uni-payment-checkout--calculating {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+}

@@ -5,7 +5,7 @@
 {% if (uni_total < uni_minstojnost) or (uni_total > uni_maxstojnost) %}
   <p class="uni-payment-checkout__error">{{ text_cart_range }}</p>
 {% else %}
-  {% set btn_status = '' %}
+  {# Бутонът остава disabled в HTML (btn_status от ред 1), докато JS не завърши преизчисляване — без „мигване“ преди init. JSON btnStatus идва от контролера за логиката в refreshConfirmButtonState. #}
   <script type="application/json" id="uni-checkout-payment-config">{{ uni_payment_checkout_config_json }}</script>
   <input type="hidden" name="uni_liveurl" id="uni_liveurl" value="{{ uni_liveurl }}"/>
   <input type="hidden" name="uni_unicid" id="uni_unicid" value="{{ uni_unicid }}"/>

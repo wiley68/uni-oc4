@@ -6,6 +6,11 @@
 (function ($, window) {
     'use strict';
 
+    /** Монотонно нарастващ при всяка нова заявка за преизчисляване (отхвърляне на остарели отговори). */
+    var calcSeq = 0;
+    /** Има ли успешно приложен отговор за текущите месеци/вноска (съвпада с последната заявка). */
+    var calculationReady = false;
+
     function readConfig() {
         var el = document.getElementById('uni-checkout-payment-config');
         if (!el || !el.textContent) {
@@ -18,10 +23,39 @@
         }
     }
 
+    function refreshConfirmButtonState(cfg) {
+        var $btn = $('#checkout-payment #button-confirm');
+        if (!$btn.length || !cfg) {
+            return;
+        }
+        if (cfg.btnStatus !== '') {
+            $btn.prop('disabled', true).removeAttr('aria-busy');
+            return;
+        }
+        if (!calculationReady) {
+            $btn.prop('disabled', true).attr('aria-busy', 'true');
+            return;
+        }
+        if (String(cfg.uni_proces2) === '1' && !$('#uni_uslovia').prop('checked')) {
+            $btn.prop('disabled', true).removeAttr('aria-busy');
+            return;
+        }
+        $btn.prop('disabled', false).removeAttr('aria-busy');
+    }
+
     function calculateUni(cfg, meseci) {
         if (!cfg || !cfg.calculateUrl) {
             return;
         }
+        var mySeq = ++calcSeq;
+        calculationReady = false;
+        refreshConfirmButtonState(cfg);
+
+        var $box = $('#uni-checkout-container');
+        if ($box.length) {
+            $box.addClass('uni-payment-checkout--calculating');
+        }
+
         $.ajax({
             url: cfg.calculateUrl,
             type: 'post',
@@ -44,7 +78,12 @@
                 uni_eur: cfg.uni_eur
             },
             success: function (json) {
+                if (mySeq !== calcSeq) {
+                    return;
+                }
                 if (!json) {
+                    calculationReady = false;
+                    refreshConfirmButtonState(cfg);
                     return;
                 }
                 $('#uni_obshto').val(json.uni_obshto);
@@ -68,18 +107,23 @@
                 }
                 $('#uni_gpr').val(json.uni_gpr);
                 $('#uni_kop').val(json.uni_kop);
+
+                calculationReady = json.success === 'success' && json.uni_kop;
+                refreshConfirmButtonState(cfg);
+            },
+            error: function () {
+                if (mySeq !== calcSeq) {
+                    return;
+                }
+                calculationReady = false;
+                refreshConfirmButtonState(cfg);
+            },
+            complete: function () {
+                if (mySeq === calcSeq && $box.length) {
+                    $box.removeClass('uni-payment-checkout--calculating');
+                }
             }
         });
-    }
-
-    function updateTermsButtonState(cfg) {
-        var $btn = $('#checkout-payment #button-confirm');
-        if (!$btn.length) {
-            return;
-        }
-        if (String(cfg.uni_proces2) === '1' && cfg.btnStatus === '') {
-            $btn.prop('disabled', !$('#uni_uslovia').prop('checked'));
-        }
     }
 
     function bindOnce(cfg) {
@@ -87,6 +131,11 @@
 
         $(document).on('click.uniMtCreditPay', '#checkout-payment #button-confirm', function (e) {
             if (!$('#uni-checkout-container').length) {
+                return;
+            }
+            if (!calculationReady) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
                 return;
             }
             e.stopImmediatePropagation();
@@ -126,12 +175,14 @@
                     if (typeof $btn.button === 'function') {
                         $btn.button('reset');
                     }
+                    refreshConfirmButtonState(cfg);
                 },
                 error: function (xhr, ajaxOptions, thrownError) {
                     $btn.prop('disabled', false);
                     if (typeof $btn.button === 'function') {
                         $btn.button('reset');
                     }
+                    refreshConfirmButtonState(cfg);
                     alert(thrownError + '\r\n' + xhr.statusText + '\r\n' + xhr.responseText);
                 }
             });
@@ -147,10 +198,11 @@
             } else {
                 $('#uni_parva').attr('readonly', true);
             }
+            calculateUni(cfg, $('#uni_pogasitelni_vnoski').val());
         });
 
         $(document).on('change.uniMtCreditPay', '#uni-checkout-container #uni_uslovia', function () {
-            updateTermsButtonState(cfg);
+            refreshConfirmButtonState(cfg);
         });
 
         $(document).on('click.uniMtCreditPay', '#uni-checkout-container #uni_parva_button', function () {
@@ -163,9 +215,10 @@
         if (!cfg) {
             return;
         }
+        calculationReady = false;
         bindOnce(cfg);
         calculateUni(cfg, cfg.uni_shema_current);
-        updateTermsButtonState(cfg);
+        refreshConfirmButtonState(cfg);
     }
 
     window.uniMtCreditPaymentCheckoutInit = init;
