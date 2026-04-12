@@ -62,9 +62,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['uni_button_save_kop'] = $this->language->get('uni_button_save_kop');
         $data['uni_button_refresh_kop'] = $this->language->get('uni_button_refresh_kop');
         $data['uni_kop_refresh_hint'] = $this->language->get('uni_kop_refresh_hint');
-        $data['uni_entry_cache_api_token'] = $this->language->get('uni_entry_cache_api_token');
-        $data['uni_entry_cache_api_token_small'] = $this->language->get('uni_entry_cache_api_token_small');
-        $data['uni_cache_api_url_hint'] = $this->language->get('uni_cache_api_url_hint');
         $data['error_warning'] = $this->error['warning'] ?? '';
 
         $this->load->model($this->model);
@@ -99,17 +96,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data[$this->module . '_debug'] = $this->config->get($this->module . '_debug');
         $gap_cfg = $this->config->get($this->module . '_gap');
         $data[$this->module . '_gap'] = ($gap_cfg === null || $gap_cfg === '') ? 0 : (int) $gap_cfg;
-        $data[$this->module . '_cache_api_token'] = (string) ($this->config->get($this->module . '_cache_api_token') ?? '');
-
-        $catalogBase = trim((string) ($this->config->get('config_url') ?? ''));
-        if ($catalogBase === '' && \defined('HTTP_CATALOG')) {
-            $catalogBase = rtrim((string) \constant('HTTP_CATALOG'), '/');
-        } else {
-            $catalogBase = rtrim($catalogBase, '/');
-        }
-        $data['uni_cache_api_example_url'] = $catalogBase !== ''
-            ? $catalogBase . '/index.php?route=extension/mt_uni_credit/api/refreshcache&token=…'
-            : 'index.php?route=extension/mt_uni_credit/api/refreshcache&token=…';
 
         $data['header'] = $this->load->controller('common/header');
         $data['column_left'] = $this->load->controller('common/column_left');
@@ -132,7 +118,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->module . '_cart' => 0,
             $this->module . '_debug' => 0,
             $this->module . '_gap' => 0,
-            $this->module . '_cache_api_token' => bin2hex(random_bytes(24)),
         ]);
 
         $this->load->model('extension/mt_uni_credit/module/unicredit');

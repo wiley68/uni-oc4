@@ -94,18 +94,6 @@
               <div class="form-text">{{ uni_entry_gap_small }}</div>
             </div>
           </div>
-
-          <div class="row mb-3">
-            <label for="input-cache-api-token" class="col-sm-4 col-form-label">{{ uni_entry_cache_api_token }}</label>
-            <div class="col-sm-8">
-              <input type="text" name="module_mt_uni_credit_cache_api_token" autocomplete="off"
-                value="{{ module_mt_uni_credit_cache_api_token|default('') }}"
-                placeholder="{{ uni_entry_cache_api_token }}" id="input-cache-api-token" class="form-control font-monospace" />
-              <div class="form-text">{{ uni_entry_cache_api_token_small }}</div>
-              <div class="form-text"><code class="small user-select-all">{{ uni_cache_api_example_url }}</code></div>
-              <div class="form-text text-muted small">{{ uni_cache_api_url_hint }}</div>
-            </div>
-          </div>
         </form>
 
         <hr class="my-4" />

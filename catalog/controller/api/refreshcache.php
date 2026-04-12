@@ -10,8 +10,6 @@ namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Api;
  * - POST със суров JSON тяло; заглавки X-UniPayment-Timestamp и X-UniPayment-Signature
  * - Подпис: hash_hmac('sha256', $timestamp . '.' . $rawBody, $unicid) където $unicid е настроеният UNICID на магазина
  * - Тяло: {"unicid":"...","refresh":true} — unicid трябва да съвпада с настройката на модула
- *
- * Алтернатива: параметър/заглавка token (module_mt_uni_credit_cache_api_token) за ръчни извиквания.
  */
 class Refreshcache extends \Opencart\System\Engine\Controller
 {
@@ -126,40 +124,11 @@ class Refreshcache extends \Opencart\System\Engine\Controller
             return;
         }
 
-        // Ръчен режим: токен от настройките (GET/POST поле или X-Mt-Uni-Credit-Token).
-        $expectedTok = (string) ($this->config->get($this->module . '_cache_api_token') ?? '');
-        $givenTok = (string) ($this->request->get['token'] ?? $this->request->post['token'] ?? '');
-        if ($givenTok === '' && $rawBody !== '') {
-            $j = json_decode($rawBody, true);
-            if (is_array($j) && isset($j['token'])) {
-                $givenTok = trim((string) $j['token']);
-            }
-        }
-        if ($givenTok === '' && !empty($this->request->server['HTTP_X_MT_UNI_CREDIT_TOKEN'])) {
-            $givenTok = (string) $this->request->server['HTTP_X_MT_UNI_CREDIT_TOKEN'];
-        }
-
-        if ($expectedTok === '' || $givenTok === '' || !hash_equals($expectedTok, $givenTok)) {
-            $this->response->addHeader($proto . ' 403 Forbidden');
-            $this->response->setOutput(json_encode([
-                'result' => 'error',
-                'errors' => ['invalid_or_missing_token'],
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return;
-        }
-
-        if ($unicidConfig === '') {
-            $this->response->addHeader($proto . ' 503 Service Unavailable');
-            $this->response->setOutput(json_encode([
-                'result' => 'error',
-                'errors' => ['unicid_not_configured'],
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return;
-        }
-
-        $this->runPipelineAndRespond($proto, $unicidConfig);
+        $this->response->addHeader($proto . ' 403 Forbidden');
+        $this->response->setOutput(json_encode([
+            'result' => 'error',
+            'errors' => ['bank_headers_required'],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private function runPipelineAndRespond(string $proto, string $unicid): void
