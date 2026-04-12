@@ -357,6 +357,453 @@ class ProductPanel extends Model
     }
 
     /**
+     * @param array<string, mixed> $paramsuni Кеширани bank params (getparameters).
+     */
+    public function isCheckoutInstallmentMonthAllowed(array $paramsuni, int $months): bool
+    {
+        if ($months <= 0 || !in_array($months, self::PRODUCT_INSTALLMENT_MONTHS, true)) {
+            return false;
+        }
+
+        return (int) ($paramsuni['uni_meseci_' . $months] ?? 0) !== 0;
+    }
+
+    /**
+     * Данни за фрагмента на плащане в чекаута (аналог на PS8 hookPaymentOptions + Smarty assign).
+     *
+     * @return array<string, mixed>
+     */
+    public function buildAssignForCheckoutPayment(int $paymentUniEnabled): array
+    {
+        $currencyCode = (string) ($this->session->data['currency'] ?? 'BGN');
+        $cartTotalRaw = $this->cart->hasProducts() ? (float) $this->cart->getTotal() : 0.0;
+
+        $baseOut = [
+            'uni_status'            => 'No',
+            'uni_total'             => $cartTotalRaw,
+            'uni_minstojnost'       => 0.0,
+            'uni_maxstojnost'       => 0.0,
+            'uni_sign'              => 'лева',
+            'uni_sign_second'       => 'евро',
+            'uni_eur'               => 0,
+            'uni_price_second'      => '0',
+            'uni_liveurl'           => rtrim(UnicreditConfig::LIVE_URL, '/'),
+            'uni_unicid'            => trim((string) $this->config->get($this->module . '_unicid')),
+            'uni_mod_version'       => '1.4.0',
+            'uni_proces1'           => 0,
+            'uni_proces2'           => 0,
+            'uni_first_vnoska'      => 'No',
+            'uni_firstname'         => '',
+            'uni_lastname'          => '',
+            'uni_phone'             => '',
+            'uni_email'             => '',
+            'uni_shema_current'     => 12,
+            'uni_product_cat_id'    => 0,
+            'uni_product_category_ids' => '',
+            'uni_promo'             => '',
+            'uni_promo_data'        => '',
+            'uni_promo_meseci_znak' => '',
+            'uni_promo_meseci'      => '',
+            'uni_promo_price'       => '',
+            'uni_service'           => '',
+            'uni_user'              => '',
+            'uni_password'          => '',
+            'uni_sertificat'        => 'No',
+            'uni_terms_href'        => rtrim(UnicreditConfig::LIVE_URL, '/') . '/css/uni_uslovia.pdf',
+        ];
+
+        foreach (self::PRODUCT_INSTALLMENT_MONTHS as $m) {
+            $baseOut['uni_meseci_' . $m] = false;
+        }
+
+        if ($paymentUniEnabled !== 1 || !$this->cart->hasProducts()) {
+            return $baseOut;
+        }
+
+        $uniStatusMod = (int) $this->config->get($this->module . '_status');
+        if ($uniStatusMod <= 0 || ($currencyCode !== 'EUR' && $currencyCode !== 'BGN')) {
+            return $baseOut;
+        }
+
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return $baseOut;
+        }
+
+        $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, false);
+        if (!is_array($paramsuni) || (($paramsuni['uni_status'] ?? '') !== 'Yes')) {
+            return $baseOut;
+        }
+
+        $mergedRoots = $this->getMergedRootCategoryIdsForCart();
+        if ($mergedRoots === []) {
+            return $baseOut;
+        }
+
+        $uniCategoriesKop = $this->loadKopMappingFromDb();
+        $uniKey = $this->findKopRowIndexForProductCategories($uniCategoriesKop, $mergedRoots);
+        if ($uniKey === false) {
+            return $baseOut;
+        }
+
+        $uniEur = (int) ($paramsuni['uni_eur'] ?? 0);
+        $uniPrice = $cartTotalRaw;
+        $uniPrice = $this->applyUniEurToCartTotal($uniPrice, $uniEur, $currencyCode);
+        $secondary = $this->buildUniSecondaryPriceAndSigns($uniPrice, $uniEur, $currencyCode);
+
+        $uniMinstojnost = (float) ($paramsuni['uni_minstojnost'] ?? 0);
+        $uniMaxstojnost = (float) ($paramsuni['uni_maxstojnost'] ?? 0);
+        if ($uniPrice < $uniMinstojnost || $uniPrice > $uniMaxstojnost) {
+            $out = $baseOut;
+            $out['uni_status'] = 'Yes';
+            $out['uni_minstojnost'] = $uniMinstojnost;
+            $out['uni_maxstojnost'] = $uniMaxstojnost;
+            $out['uni_total'] = $uniPrice;
+            $out['uni_eur'] = $uniEur;
+            $out['uni_sign'] = $secondary['uni_sign'];
+            $out['uni_sign_second'] = $secondary['uni_sign_second'];
+            $out['uni_price_second'] = $secondary['uni_price_second'];
+            $out['uni_proces1'] = (int) ($paramsuni['uni_proces1'] ?? 0);
+            $out['uni_proces2'] = (int) ($paramsuni['uni_proces2'] ?? 0);
+            $out['uni_first_vnoska'] = (string) ($paramsuni['uni_first_vnoska'] ?? 'No');
+            foreach (self::PRODUCT_INSTALLMENT_MONTHS as $m) {
+                $out['uni_meseci_' . $m] = $this->isCheckoutInstallmentMonthAllowed($paramsuni, $m);
+            }
+
+            return $out;
+        }
+
+        $preferredCookie = isset($_COOKIE[UnicreditConfig::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS])
+            ? (int) $_COOKIE[UnicreditConfig::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS]
+            : 0;
+        $sessionMonths = (int) ($this->session->data['mt_uni_credit_installment_months'] ?? 0);
+        $bankDefaultShema = (int) ($paramsuni['uni_shema_current'] ?? 12);
+
+        $uniShemaCurrent = $bankDefaultShema;
+        if ($sessionMonths > 0 && $this->isCheckoutInstallmentMonthAllowed($paramsuni, $sessionMonths)) {
+            $uniShemaCurrent = $sessionMonths;
+        } elseif ($preferredCookie > 0 && $this->isCheckoutInstallmentMonthAllowed($paramsuni, $preferredCookie)) {
+            $uniShemaCurrent = $preferredCookie;
+        } else {
+            $uniShemaCurrent = $this->pickDefaultCheckoutInstallmentMonth($paramsuni, $bankDefaultShema);
+        }
+
+        $uniFirstname = '';
+        $uniLastname = '';
+        $uniEmail = '';
+        $uniPhone = '';
+
+        if ($this->customer->isLogged()) {
+            $uniFirstname = (string) $this->customer->getFirstName();
+            $uniLastname = (string) $this->customer->getLastName();
+            $uniEmail = (string) $this->customer->getEmail();
+            $uniPhone = (string) $this->customer->getTelephone();
+        } elseif (isset($this->session->data['customer'])) {
+            $c = $this->session->data['customer'];
+            $uniFirstname = (string) ($c['firstname'] ?? '');
+            $uniLastname = (string) ($c['lastname'] ?? '');
+            $uniEmail = (string) ($c['email'] ?? '');
+            $uniPhone = (string) ($c['telephone'] ?? '');
+        }
+
+        if ($uniPhone === '' && !empty($this->session->data['shipping_address']['telephone'])) {
+            $uniPhone = (string) $this->session->data['shipping_address']['telephone'];
+        }
+
+        $out = $baseOut;
+        $out['uni_status'] = 'Yes';
+        $out['uni_total'] = $uniPrice;
+        $out['uni_minstojnost'] = $uniMinstojnost;
+        $out['uni_maxstojnost'] = $uniMaxstojnost;
+        $out['uni_eur'] = $uniEur;
+        $out['uni_sign'] = $secondary['uni_sign'];
+        $out['uni_sign_second'] = $secondary['uni_sign_second'];
+        $out['uni_price_second'] = $secondary['uni_price_second'];
+        $out['uni_proces1'] = (int) ($paramsuni['uni_proces1'] ?? 0);
+        $out['uni_proces2'] = (int) ($paramsuni['uni_proces2'] ?? 0);
+        $out['uni_first_vnoska'] = (string) ($paramsuni['uni_first_vnoska'] ?? 'No');
+        $out['uni_firstname'] = $uniFirstname;
+        $out['uni_lastname'] = $uniLastname;
+        $out['uni_phone'] = $uniPhone;
+        $out['uni_email'] = $uniEmail;
+        $out['uni_shema_current'] = $uniShemaCurrent;
+        $out['uni_product_cat_id'] = (int) ($mergedRoots[0] ?? 0);
+        $out['uni_product_category_ids'] = implode(',', array_map('strval', $mergedRoots));
+        $out['uni_promo'] = (string) ($paramsuni['uni_promo'] ?? '');
+        $out['uni_promo_data'] = (string) ($paramsuni['uni_promo_data'] ?? '');
+        $out['uni_promo_meseci_znak'] = (string) ($paramsuni['uni_promo_meseci_znak'] ?? '');
+        $out['uni_promo_meseci'] = (string) ($paramsuni['uni_promo_meseci'] ?? '');
+        $out['uni_promo_price'] = (string) ($paramsuni['uni_promo_price'] ?? '');
+        $out['uni_service'] = (int) ($paramsuni['uni_testenv'] ?? 0) === 1
+            ? (string) ($paramsuni['uni_test_service'] ?? '')
+            : (string) ($paramsuni['uni_production_service'] ?? '');
+        $out['uni_user'] = html_entity_decode((string) ($paramsuni['uni_user'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $out['uni_password'] = html_entity_decode((string) ($paramsuni['uni_password'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $out['uni_sertificat'] = (string) ($paramsuni['uni_sertificat'] ?? 'No');
+
+        foreach (self::PRODUCT_INSTALLMENT_MONTHS as $m) {
+            $out['uni_meseci_' . $m] = $this->isCheckoutInstallmentMonthAllowed($paramsuni, $m);
+        }
+
+        return $out;
+    }
+
+    /**
+     * AJAX преизчисляване в чекаута (аналог на OC3 calculateUni); коефициенти от банка с DB кеш.
+     *
+     * @param array<string, mixed> $post
+     *
+     * @return array<string, mixed>
+     */
+    public function calculateUniCheckoutAjax(array $post): array
+    {
+        $currencyCode = (string) ($this->session->data['currency'] ?? 'BGN');
+        $empty = [
+            'success'                   => '',
+            'uni_obshto'                => '0.00',
+            'uni_obshto_second'         => 0,
+            'uni_mesecna'               => '0.00',
+            'uni_mesecna_second'        => 0,
+            'uni_glp'                   => '0.00',
+            'uni_obshtozaplashtane'     => '0.00',
+            'uni_obshtozaplashtane_second' => 0,
+            'uni_gpr'                   => '0.00',
+            'uni_kop'                   => '',
+        ];
+
+        if (!$this->cart->hasProducts()) {
+            return $empty;
+        }
+
+        $uniStatusMod = (int) $this->config->get($this->module . '_status');
+        if ($uniStatusMod <= 0 || ($currencyCode !== 'EUR' && $currencyCode !== 'BGN')) {
+            return $empty;
+        }
+
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return $empty;
+        }
+
+        $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, false);
+        if (!is_array($paramsuni) || (($paramsuni['uni_status'] ?? '') !== 'Yes')) {
+            return $empty;
+        }
+
+        $mergedRoots = $this->getMergedRootCategoryIdsForCart();
+        if ($mergedRoots === []) {
+            return $empty;
+        }
+
+        $uniCategoriesKop = $this->loadKopMappingFromDb();
+        $uniKey = $this->findKopRowIndexForProductCategories($uniCategoriesKop, $mergedRoots);
+        if ($uniKey === false) {
+            return $empty;
+        }
+
+        $uniEur = (int) ($paramsuni['uni_eur'] ?? 0);
+        $serverCartTotal = (float) $this->cart->getTotal();
+        $serverCartTotal = $this->applyUniEurToCartTotal($serverCartTotal, $uniEur, $currencyCode);
+
+        $uniMinstojnost = (float) ($paramsuni['uni_minstojnost'] ?? 0);
+        $uniMaxstojnost = (float) ($paramsuni['uni_maxstojnost'] ?? 0);
+        if ($serverCartTotal < $uniMinstojnost || $serverCartTotal > $uniMaxstojnost) {
+            return $empty;
+        }
+
+        $postedPrice = isset($post['uni_total_price']) ? (float) str_replace(',', '.', (string) $post['uni_total_price']) : 0.0;
+        $uniPrice = (abs($serverCartTotal - $postedPrice) > 0.05) ? $serverCartTotal : $postedPrice;
+
+        $meseci = isset($post['uni_meseci']) ? (int) $post['uni_meseci'] : 0;
+        if (!$this->isCheckoutInstallmentMonthAllowed($paramsuni, $meseci)) {
+            return $empty;
+        }
+
+        $uniKop = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $uniPrice, $meseci);
+        if ($uniKop === '') {
+            return $empty;
+        }
+
+        $uniService = (int) ($paramsuni['uni_testenv'] ?? 0) === 1
+            ? (string) ($paramsuni['uni_test_service'] ?? '')
+            : (string) ($paramsuni['uni_production_service'] ?? '');
+        $uniUser = html_entity_decode((string) ($paramsuni['uni_user'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $uniPassword = html_entity_decode((string) ($paramsuni['uni_password'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $useCert = (($paramsuni['uni_sertificat'] ?? '') === 'Yes');
+
+        if (!$this->canUseBankCoeffApi($uniService, $uniUser, $uniPassword)) {
+            return $empty;
+        }
+
+        $coeff = $this->fetchCoeffWithFileCache($uniService, $uniUser, $uniPassword, $uniKop, $meseci, $useCert);
+        if ($coeff === null || $coeff['kimb'] <= 0) {
+            return $empty;
+        }
+
+        $kimb = $coeff['kimb'];
+        $glp = number_format($coeff['glp'], 2, '.', '');
+
+        $uniParva = isset($post['uni_parva']) ? (float) str_replace(',', '.', (string) $post['uni_parva']) : 0.0;
+        if ($uniParva < 0 || $uniParva > $uniPrice) {
+            return $empty;
+        }
+
+        $uniObshto = round($uniPrice - $uniParva, 2);
+        if ($uniObshto < 0) {
+            $uniObshto = 0.0;
+        }
+
+        $uniMesecna = round($uniObshto * $kimb, 2);
+        $uniObshtozaplashtane = round($uniMesecna * $meseci, 2);
+
+        $rateMonthly = \MtUniCreditFinancialRate::periodicRate((float) $meseci, -1 * $uniMesecna, $uniObshto);
+        $uniGprm = $rateMonthly * 12.0;
+        $uniGpr = abs((pow(1 + $uniGprm / 12, 12) - 1) * 100);
+        $uniGpr = round($uniGpr, 2);
+        if ($uniGpr <= 0.1) {
+            $uniGpr = 0.0;
+        }
+        $uniGprDisplay = number_format($uniGpr, 2, '.', '');
+
+        $sec = $this->buildSecondaryAmountsForCalculate($uniObshto, $uniMesecna, $uniObshtozaplashtane, $uniEur);
+
+        return [
+            'success'                   => 'success',
+            'uni_obshto'                => number_format($uniObshto, 2, '.', ''),
+            'uni_obshto_second'         => $sec['obshto_second'],
+            'uni_mesecna'               => number_format($uniMesecna, 2, '.', ''),
+            'uni_mesecna_second'        => $sec['mesecna_second'],
+            'uni_glp'                   => $glp,
+            'uni_obshtozaplashtane'     => number_format($uniObshtozaplashtane, 2, '.', ''),
+            'uni_obshtozaplashtane_second' => $sec['obshtozaplashtane_second'],
+            'uni_gpr'                   => $uniGprDisplay,
+            'uni_kop'                   => $uniKop,
+        ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function getMergedRootCategoryIdsForCart(): array
+    {
+        $merged = [];
+        $seen = [];
+        foreach ($this->cart->getProducts() as $p) {
+            $pid = (int) ($p['product_id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+            $roots = $this->getProductRootCategoryIdsOrdered($pid);
+            foreach ($roots as $rid) {
+                $rid = (int) $rid;
+                if ($rid > 0 && !isset($seen[$rid])) {
+                    $seen[$rid] = true;
+                    $merged[] = $rid;
+                }
+            }
+        }
+
+        return $merged;
+    }
+
+    private function pickDefaultCheckoutInstallmentMonth(array $paramsuni, int $preferredFromBank): int
+    {
+        if ($this->isCheckoutInstallmentMonthAllowed($paramsuni, $preferredFromBank)) {
+            return $preferredFromBank;
+        }
+        foreach (self::PRODUCT_INSTALLMENT_MONTHS as $m) {
+            if ($this->isCheckoutInstallmentMonthAllowed($paramsuni, $m)) {
+                return $m;
+            }
+        }
+
+        return 12;
+    }
+
+    private function applyUniEurToCartTotal(float $uniTotal, int $uniEur, string $currencyCode): float
+    {
+        switch ($uniEur) {
+            case 1:
+                if ($currencyCode === 'EUR') {
+                    return $uniTotal * self::EUR_BGN_RATE;
+                }
+                break;
+            case 2:
+            case 3:
+                if ($currencyCode === 'BGN') {
+                    return $uniTotal / self::EUR_BGN_RATE;
+                }
+                break;
+        }
+
+        return $uniTotal;
+    }
+
+    /**
+     * @return array{uni_sign: string, uni_sign_second: string, uni_price_second: string}
+     */
+    private function buildUniSecondaryPriceAndSigns(float $uniPrice, int $uniEur, string $currencyCode): array
+    {
+        $uniPriceSecond = '0';
+        $uniSign = 'лева';
+        $uniSignSecond = 'евро';
+        switch ($uniEur) {
+            case 0:
+                break;
+            case 1:
+                $uniPriceSecond = number_format($uniPrice / self::EUR_BGN_RATE, 2, '.', '');
+                break;
+            case 2:
+                $uniPriceSecond = number_format($uniPrice * self::EUR_BGN_RATE, 2, '.', '');
+                $uniSign = 'евро';
+                $uniSignSecond = 'лева';
+                break;
+            case 3:
+                $uniSign = 'евро';
+                $uniSignSecond = 'лева';
+                break;
+        }
+
+        return [
+            'uni_sign'          => $uniSign,
+            'uni_sign_second'   => $uniSignSecond,
+            'uni_price_second'  => $uniPriceSecond,
+        ];
+    }
+
+    /**
+     * @return array{obshto_second: float|string, mesecna_second: float|string, obshtozaplashtane_second: float|string}
+     */
+    private function buildSecondaryAmountsForCalculate(float $uniObshto, float $uniMesecna, float $uniObshtozaplashtane, int $uniEur): array
+    {
+        $uniObshtoSecond = 0;
+        $uniMesecnaSecond = 0;
+        $uniObshtozaplashtaneSecond = 0;
+        switch ($uniEur) {
+            case 0:
+                break;
+            case 1:
+                $uniObshtoSecond = number_format($uniObshto / self::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format($uniMesecna / self::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane / self::EUR_BGN_RATE, 2, '.', '');
+                break;
+            case 2:
+                $uniObshtoSecond = number_format($uniObshto * self::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format($uniMesecna * self::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane * self::EUR_BGN_RATE, 2, '.', '');
+                break;
+            case 3:
+                break;
+        }
+
+        return [
+            'obshto_second'            => $uniObshtoSecond,
+            'mesecna_second'           => $uniMesecnaSecond,
+            'obshtozaplashtane_second' => $uniObshtozaplashtaneSecond,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $stats
      *
      * @return array{kimb: array<string, string>, glp: array<string, string>}

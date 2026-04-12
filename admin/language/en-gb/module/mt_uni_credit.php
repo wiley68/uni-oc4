@@ -4,6 +4,7 @@ $_['uni_event_description_product_controller'] = '%s — adds code to the produc
 $_['uni_event_description_product_view'] = '%s — adds code to the product template.';
 $_['uni_event_description_content_top_controller'] = '%s — supplies promotional data in the common/content_top controller.';
 $_['uni_event_description_content_top_view'] = '%s — injects promotional HTML in the common/content_top template.';
+$_['uni_event_description_checkout_controller'] = '%s — adds UniCredit payment form CSS/JS when checkout/checkout loads.';
 $_['uni_event_description_checkout_view'] = '%s — injects script for automatic UniCredit payment selection on checkout/checkout.';
 $_['uni_text_edit'] = 'Edit settings';
 $_['uni_text_edit_kop'] = 'Correspondence between Categories and КОП on SmartUCF UniCredit system';

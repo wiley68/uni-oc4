@@ -3,11 +3,38 @@
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
 /**
- * Инжектира скрипт за автоматичен избор на UniCredit в чекаута.
+ * Чекаута: ресурси за UniCredit плащане + скрипт за автоматичен избор на метода.
  */
 class MtUniCreditCheckout extends \Opencart\System\Engine\Controller
 {
   private string $module = 'module_mt_uni_credit';
+
+  /**
+   * CSS/JS за формата на плащане UniCredit (фрагментът се зарежда по AJAX — външните файлове са в <head>).
+   *
+   * @param string             $route
+   * @param array<int, mixed> $args
+   */
+  public function registerCheckoutAssets(string &$route, array &$args): void
+  {
+    if ($route !== 'checkout/checkout' || !(int) $this->config->get($this->module . '_status')) {
+      return;
+    }
+
+    $cssExt = \DIR_EXTENSION . 'mt_uni_credit/catalog/view/stylesheet/mt_uni_credit/uni_payment_checkout.css';
+    $jsExt = \DIR_EXTENSION . 'mt_uni_credit/catalog/view/javascript/mt_uni_credit/uni_payment_checkout.js';
+    $cssCatalog = \DIR_APPLICATION . 'view/stylesheet/mt_uni_credit/uni_payment_checkout.css';
+    $jsCatalog = \DIR_APPLICATION . 'view/javascript/mt_uni_credit/uni_payment_checkout.js';
+
+    $cssPath = is_file($cssCatalog) ? $cssCatalog : $cssExt;
+    $jsPath = is_file($jsCatalog) ? $jsCatalog : $jsExt;
+
+    $verCss = is_file($cssPath) ? (string) filemtime($cssPath) : '0';
+    $verJs = is_file($jsPath) ? (string) filemtime($jsPath) : '0';
+
+    $this->document->addStyle('catalog/view/stylesheet/mt_uni_credit/uni_payment_checkout.css?ver=' . $verCss);
+    $this->document->addScript('catalog/view/javascript/mt_uni_credit/uni_payment_checkout.js?ver=' . $verJs);
+  }
 
   /**
    * @param string               $route

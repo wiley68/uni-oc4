@@ -1,1 +1,199 @@
-{# UniCredit — потвърждение: catalog/controller/payment/uni::confirm #}
+{% set btn_status = 'disabled' %}
+{% if uni_status == 'No' %}
+  <p class="uni-payment-checkout__error">{{ text_payment_unavailable }}</p>
+{% else %}
+{% if (uni_total < uni_minstojnost) or (uni_total > uni_maxstojnost) %}
+  <p class="uni-payment-checkout__error">{{ text_cart_range }}</p>
+{% else %}
+  {% set btn_status = '' %}
+  <script type="application/json" id="uni-checkout-payment-config">{{ uni_payment_checkout_config_json }}</script>
+  <input type="hidden" name="uni_liveurl" id="uni_liveurl" value="{{ uni_liveurl }}"/>
+  <input type="hidden" name="uni_unicid" id="uni_unicid" value="{{ uni_unicid }}"/>
+  <input type="hidden" name="uni_kop" id="uni_kop" value=""/>
+  <input type="hidden" name="uni_eur" id="uni_eur" value="{{ uni_eur }}"/>
+  <div id="uni-checkout-container">
+    {% if uni_proces1 == 1 %}
+      <div class="uni_title">{{ text_title_process_a }}</div>
+    {% else %}
+      <div class="uni_title">{{ text_title_process_b }}</div>
+    {% endif %}
+    <div class="uni-payment-checkout__spacer"></div>
+    <table class="uni_table">
+      <tr>
+        <td class="uni_row_title">
+          {% if uni_eur == 0 or uni_eur == 3 %}
+            {{ text_product_price }} /{{ uni_sign }}/
+          {% else %}
+            {{ text_product_price }} /{{ uni_sign }}({{ uni_sign_second }})/
+          {% endif %}
+        </td>
+        <td class="uni_row_input">
+          <input type="hidden" id="uni_price" value="{{ uni_total }}"/>
+          {% if uni_eur == 0 or uni_eur == 3 %}
+            <input type="text" class="uni_input passive" readonly="readonly" value="{{ '%.2f'|format(uni_total) }}">
+          {% else %}
+            <input type="text" class="uni_input passive" readonly="readonly" value="{{ '%.2f'|format(uni_total) }} ({{ uni_price_second }})">
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td class="uni_row_title">{{ text_credit_term }} /{{ text_months_suffix }}/</td>
+        <td class="uni_row_input">
+          <select name="uni_pogasitelni_vnoski" id="uni_pogasitelni_vnoski" class="uni_input">
+            {% for m in [3, 4, 5, 6, 9, 10, 12, 15, 18, 24, 30, 36] %}
+              {% set meseci_key = 'uni_meseci_' ~ m %}
+              {% if attribute(_context, meseci_key) %}
+                <option value="{{ m }}" {% if uni_shema_current == m %} selected{% endif %}>{{ m }} {{ text_months_suffix }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      {% if uni_first_vnoska == 'Yes' %}
+        <tr>
+          <td class="uni_row_title">
+            <table class="uni-payment-checkout__inner-table">
+              <tr>
+                <td class="uni_row">
+                  <input type="checkbox" id="uni_parva_chec" title="{{ text_first_payment_checkbox|e('html_attr') }}">
+                </td>
+                <td class="uni_row">{{ text_first_payment_label }} /{{ uni_sign }}/</td>
+              </tr>
+            </table>
+          </td>
+          <td class="uni_row_input">
+            <input class="uni_input" type="text" readonly="readonly" name="uni_parva" id="uni_parva" value="0.00">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">&nbsp;</td>
+          <td class="uni_row_input">
+            <div type="button" class="uni_btn_pre" id="uni_parva_button">{{ text_first_payment_recalc }}</div>
+          </td>
+        </tr>
+      {% else %}
+        <input type="hidden" id="uni_parva_chec" value="0">
+        <input type="hidden" name="uni_parva" id="uni_parva" value="0.00">
+      {% endif %}
+      <tr>
+        <td class="uni_row_title">
+          {% if uni_eur == 0 or uni_eur == 3 %}
+            {{ text_total_credit }} /{{ uni_sign }}/
+          {% else %}
+            {{ text_total_credit }} /{{ uni_sign }}({{ uni_sign_second }})/
+          {% endif %}
+        </td>
+        <td class="uni_row_input">
+          <input type="hidden" name="uni_obshto" id="uni_obshto">
+          <input class="uni_input passive" type="text" name="uni_obshto_second" id="uni_obshto_second" readonly="readonly">
+        </td>
+      </tr>
+      <tr>
+        <td class="uni_row_title">
+          {% if uni_eur == 0 or uni_eur == 3 %}
+            {{ text_monthly }} /{{ uni_sign }}/
+          {% else %}
+            {{ text_monthly }} /{{ uni_sign }}({{ uni_sign_second }})/
+          {% endif %}
+        </td>
+        <td class="uni_row_input">
+          <input type="hidden" name="uni_mesecna" id="uni_mesecna">
+          <input class="uni_input passive" type="text" name="uni_mesecna_second" id="uni_mesecna_second" readonly="readonly" value="">
+        </td>
+      </tr>
+      <tr>
+        <td class="uni_row_title">
+          {% if uni_eur == 0 or uni_eur == 3 %}
+            {{ text_total_due }} /{{ uni_sign }}/
+          {% else %}
+            {{ text_total_due }} /{{ uni_sign }}({{ uni_sign_second }})/
+          {% endif %}
+        </td>
+        <td class="uni_row_input">
+          <input type="hidden" name="uni_obshtozaplashtane" id="uni_obshtozaplashtane">
+          <input class="uni_input passive" type="text" name="uni_obshtozaplashtane_second" id="uni_obshtozaplashtane_second" readonly="readonly">
+        </td>
+      </tr>
+      <tr>
+        <td class="uni_row_title">{{ text_glp }} /%/</td>
+        <td class="uni_row_input">
+          <input class="uni_input passive" type="text" name="uni_glp" id="uni_glp" readonly="readonly"/>
+        </td>
+      </tr>
+      <tr>
+        <td class="uni_row_title">{{ text_gpr }} /%/</td>
+        <td class="uni_row_input">
+          <input class="uni_input passive" type="text" name="uni_gpr" id="uni_gpr" readonly="readonly"/>
+        </td>
+      </tr>
+    </table>
+    {% if uni_proces2 == 1 %}
+      <div class="uni_hr">&nbsp;</div>
+      <table class="uni_table">
+        <tr>
+          <td class="uni_row_title">{{ text_firstname }}</td>
+          <td class="uni_row_input">
+            <input id="uni_firstname" type="text" class="uni_input" value="{{ uni_firstname }}">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_lastname }}</td>
+          <td class="uni_row_input">
+            <input id="uni_lastname" type="text" class="uni_input" value="{{ uni_lastname }}">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_egn }}</td>
+          <td class="uni_row_input">
+            <input id="uni_egn" type="text" class="uni_input">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_phone }}</td>
+          <td class="uni_row_input">
+            <input id="uni_phone" type="text" class="uni_input" value="{{ uni_phone }}">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_phone2 }}</td>
+          <td class="uni_row_input">
+            <input id="uni_phone2" type="text" class="uni_input">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_email }}</td>
+          <td class="uni_row_input">
+            <input id="uni_email" type="text" class="uni_input" value="{{ uni_email }}">
+          </td>
+        </tr>
+        <tr>
+          <td class="uni_row_title">{{ text_comment }}</td>
+          <td class="uni_row_input">
+            <textarea id="uni_description" class="uni_input"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" class="uni-payment-checkout__terms-cell">
+            <input type="checkbox" name="uni_uslovia" value="1" id="uni_uslovia"/>
+            <a href="{{ uni_terms_href }}" class="uni-payment-checkout__terms-link" title="{{ text_terms_pdf_title|e('html_attr') }}" target="_blank" rel="noopener noreferrer"><span class="uni-payment-checkout__terms-text">&nbsp;&nbsp;&nbsp;{{ text_terms_link }}</span></a>
+          </td>
+        </tr>
+      </table>
+    {% endif %}
+    <div class="uni_hr">&nbsp;</div>
+    <div class="uni_text_cc">C.C.Ver. {{ uni_mod_version }}</div>
+  </div>
+  <script type="text/javascript">
+    if (typeof jQuery !== 'undefined' && typeof window.uniMtCreditPaymentCheckoutInit === 'function') {
+      jQuery(function () {
+        window.uniMtCreditPaymentCheckoutInit();
+      });
+    }
+  </script>
+{% endif %}
+{% endif %}
+<div class="buttons">
+  <div class="pull-right">
+    <input type="button" {{ btn_status }} value="{{ button_confirm }}" id="button-confirm" class="btn btn-primary" data-loading-text="{{ text_loading }}"/>
+  </div>
+</div>

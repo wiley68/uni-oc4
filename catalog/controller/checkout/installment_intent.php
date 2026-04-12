@@ -2,6 +2,10 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Checkout;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Записва в сесия намерение за чекаута: метод uni + брой месеци (след добавяне в количката).
  */
@@ -43,10 +47,45 @@ class InstallmentIntent extends \Opencart\System\Engine\Controller
         $this->session->data['mt_uni_credit_auto_payment_code'] = 'uni.uni';
         $this->session->data['mt_uni_credit_installment_months'] = $months;
 
+        $this->writePrepareCheckoutBrowserCookies($months);
+
         $lang = 'language=' . $this->config->get('config_language');
         $json['success'] = true;
         $json['redirect'] = $this->url->link('checkout/checkout', $lang, true);
         $this->outputJson($json);
+    }
+
+    /**
+     * Бисквитки като PrestaShop UniPayment::writeBrowserCookiesForPrepareCheckout (TTL 1800 s).
+     */
+    private function writePrepareCheckoutBrowserCookies(int $resolvedInstallmentsMonths): void
+    {
+        $secure = !empty($this->request->server['HTTPS']) && $this->request->server['HTTPS'] !== 'off';
+        $common = [
+            'expires'  => time() + UnicreditConfig::CHECKOUT_BROWSER_COOKIE_TTL,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => false,
+            'SameSite' => 'Lax',
+        ];
+
+        setcookie(UnicreditConfig::BROWSER_COOKIE_CHECKOUT_FLAG, '1', $common);
+
+        if ($resolvedInstallmentsMonths > 0) {
+            setcookie(
+                UnicreditConfig::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS,
+                (string) $resolvedInstallmentsMonths,
+                $common
+            );
+        } else {
+            setcookie(UnicreditConfig::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS, '', [
+                'expires'  => time() - 3600,
+                'path'     => '/',
+                'secure'   => $secure,
+                'httponly' => false,
+                'SameSite' => 'Lax',
+            ]);
+        }
     }
 
     /**

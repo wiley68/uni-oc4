@@ -22,5 +22,14 @@ final class UnicreditConfig
     /** TTL на кеша за getparameters (секунди), както в PS модула. */
     public const API_CACHE_TTL_PARAMS = 600;
 
+    /** Предпочитани месеци в чекаута — съвпада с PrestaShop UniPayment::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS. */
+    public const BROWSER_COOKIE_CHECKOUT_INSTALLMENTS = 'unipayment_pc_inst';
+
+    /** Флаг „поток от UniCredit / купи на изплащане“ — съвпада с PrestaShop бисквитка unipayment_pc. */
+    public const BROWSER_COOKIE_CHECKOUT_FLAG = 'unipayment_pc';
+
+    /** TTL на тези бисквитки (секунди), като PS UNIPAYMENT_CHECKOUT_BROWSER_COOKIE_TTL (1800). */
+    public const CHECKOUT_BROWSER_COOKIE_TTL = 1800;
+
     private function __construct() {}
 }

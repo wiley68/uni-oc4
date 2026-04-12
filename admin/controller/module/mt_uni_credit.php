@@ -141,6 +141,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_setting_event->deleteEventByCode($this->module . '_after_product_view');
             $this->model_setting_event->deleteEventByCode($this->module . '_before_content_top');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
+            $this->model_setting_event->deleteEventByCode($this->module . '_before_checkout');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_checkout_view');
         }
 
@@ -475,6 +476,17 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'description' => $descView,
             'trigger'     => 'catalog/view/product/product/after',
             'action'      => $this->event_product_view . $uni_separator . 'init',
+            'status'      => true,
+            'sort_order'  => 0
+        ]);
+
+        $descCheckoutController = sprintf($this->language->get('uni_event_description_checkout_controller'), $moduleName);
+        $this->model_setting_event->deleteEventByCode($this->module . '_before_checkout');
+        $this->model_setting_event->addEvent([
+            'code'        => $this->module . '_before_checkout',
+            'description' => $descCheckoutController,
+            'trigger'     => 'catalog/controller/checkout/checkout/before',
+            'action'      => $this->event_checkout . $uni_separator . 'registerCheckoutAssets',
             'status'      => true,
             'sort_order'  => 0
         ]);

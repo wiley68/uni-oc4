@@ -1,0 +1,105 @@
+/**
+ * UniCredit — форма на плащане в чекаута (extension mt_uni_credit).
+ */
+
+.uni-payment-checkout__error {
+    font-weight: bold;
+    color: #c00;
+}
+
+.uni-payment-checkout__spacer {
+    padding-bottom: 5px;
+}
+
+.uni_title {
+    background: #f5f5f5 !important;
+    padding: 8px 15px !important;
+    color: #d20210 !important;
+    font-size: 14px !important;
+}
+
+.uni_table {
+    width: 100% !important;
+    font-size: 14px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.uni_row_title {
+    font-size: 14px !important;
+    width: 60% !important;
+    padding: 2px !important;
+    background: transparent !important;
+}
+
+.uni_row_input {
+    width: 40% !important;
+    padding: 2px !important;
+    background: transparent !important;
+}
+
+.uni_row {
+    /* вложена таблица първа вноска */
+    vertical-align: middle;
+}
+
+.uni_input {
+    font-size: 14px !important;
+    width: 100% !important;
+    border: 1px solid #696969 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-height: 22px !important;
+}
+
+.uni_input textarea,
+textarea.uni_input {
+    max-height: none;
+    min-height: 4rem;
+}
+
+.passive {
+    background: #f5f5f5 !important;
+}
+
+.uni_btn_pre {
+    cursor: pointer !important;
+    text-align: center !important;
+    border: 1px solid #708090 !important;
+    background: #d20210 !important;
+    color: #fff;
+    width: 100px !important;
+    padding: 4px 8px;
+    display: inline-block;
+    box-sizing: border-box;
+}
+
+.uni_hr {
+    border-top: 0 solid #fff !important;
+    border-right: 0 solid #fff !important;
+    border-bottom: 1px solid #dcdcdc !important;
+    border-left: 0 solid #fff !important;
+}
+
+.uni_text_cc {
+    text-align: right !important;
+    font-size: 11px !important;
+}
+
+.uni-payment-checkout__inner-table {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.uni-payment-checkout__terms-cell {
+    padding: 10px;
+}
+
+.uni-payment-checkout__terms-link {
+    color: #993300;
+}
+
+.uni-payment-checkout__terms-text {
+    font-size: 12px;
+}
