@@ -192,7 +192,6 @@ class UniBankRedirect extends Model
         ]);
         $response = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($response === false || $httpCode !== 200) {
             return ['ok' => false, 'redirect' => ''];
@@ -316,7 +315,6 @@ class UniBankRedirect extends Model
 
     /**
      * @param array<int, array<string, mixed>> $uniItems
-     * @param array<string, mixed>              $paramsuni
      */
     private function buildProcess2ResultHtml(
         int $orderId,
@@ -488,20 +486,37 @@ class UniBankRedirect extends Model
         curl_setopt_array($ch, $opts);
         $responseapi = curl_exec($ch);
         $err = curl_error($ch);
-        curl_close($ch);
 
         if ((int) $this->config->get($this->module . '_debug') === 1) {
-            $debugPath = \DIR_EXTENSION . 'mt_uni_credit/keys/uni_debug_session.json';
+            $debugPath = \DIR_EXTENSION . 'mt_uni_credit/keys/uni_debug.json';
             $dir = dirname($debugPath);
             if (!is_dir($dir)) {
                 @mkdir($dir, 0755, true);
             }
-            @file_put_contents(
-                $debugPath,
-                'err: ' . $err . PHP_EOL . 'response: ' . (string) $responseapi . PHP_EOL
-                    . 'request: ' . (is_string($jsonBody) ? $jsonBody : '') . PHP_EOL . '##########' . PHP_EOL,
-                FILE_APPEND
-            );
+            $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT;
+            $responseRaw = (string) $responseapi;
+            $responseBlock = $responseRaw;
+            $decodedResp = json_decode($responseRaw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedResp)) {
+                $responseBlock = (string) json_encode($decodedResp, $jsonFlags);
+            }
+            $requestBlock = (string) json_encode($uniData, $jsonFlags);
+            $stamp = date('Y-m-d H:i:s');
+            $errLine = $err !== '' ? $err : '(няма)';
+            $block = str_repeat('=', 72) . PHP_EOL
+                . 'Време: ' . $stamp . PHP_EOL
+                . str_repeat('-', 72) . PHP_EOL
+                . 'cURL грешка:' . PHP_EOL
+                . $errLine . PHP_EOL
+                . PHP_EOL
+                . 'Отговор (JSON):' . PHP_EOL
+                . $responseBlock . PHP_EOL
+                . PHP_EOL
+                . 'Заявка (JSON body):' . PHP_EOL
+                . $requestBlock . PHP_EOL
+                . str_repeat('#', 72) . PHP_EOL
+                . PHP_EOL;
+            @file_put_contents($debugPath, $block, FILE_APPEND);
         }
 
         $apiObj = json_decode((string) $responseapi);
