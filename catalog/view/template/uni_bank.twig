@@ -1,0 +1,44 @@
+{{ header }}
+<div class="container">
+  <ul class="breadcrumb">
+    {% for breadcrumb in breadcrumbs %}
+      <li class="breadcrumb-item"><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+    {% endfor %}
+  </ul>
+  <div class="row">{{ column_left }}
+    <div id="content" class="{{ class }} mb-4">{{ content_top }}
+      {% if uni_proces1 == 1 and uni_bank_ready_redirect %}
+        <div id="uniloaderpanel" class="uni-bank-loader-panel">
+          <div id="uniloader" class="uni-bank-loader"></div>
+          <div id="uniloadertext" class="uni-bank-loader-text">{{ uni_pause_txt }}</div>
+          <div id="uniloaderimg" class="uni-bank-loader-img"><img src="{{ uni_logo }}" alt="UniCredit" loading="eager" width="120" height="auto"/></div>
+        </div>
+      {% elseif uni_proces1 == 1 %}
+        <div class="alert alert-warning uni-bank-session-fail" role="alert">
+          <p class="uni-bank-session-fail__title mb-2"><strong>{{ text_uni_bank_session_fail }}</strong></p>
+          <p class="uni-bank-session-fail__hint mb-3">{{ text_uni_bank_session_fail_hint }}</p>
+          <p class="mb-0"><a href="{{ uni_continue_home }}" class="btn btn-primary">{{ text_uni_continue_home|e("html") }}</a></p>
+        </div>
+      {% endif %}
+      {% if uni_proces2 == 1 %}
+        <div class="uni-bank-result">{{ result|raw }}</div>
+      {% endif %}
+      {{ content_bottom }}</div>
+    {{ column_right }}</div>
+</div>
+{% if uni_proces1 == 1 and uni_bank_ready_redirect %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = document.getElementById('uniloaderpanel');
+  if (panel) {
+    panel.style.display = 'block';
+  }
+  var app = '{{ uni_application|e("js") }}';
+  var sid = parseInt('{{ uni_api|default(0) }}', 10) || 0;
+  if (app && sid) {
+    window.location.href = app.replace(/\/$/, '') + '/' + sid;
+  }
+});
+</script>
+{% endif %}
+{{ footer }}

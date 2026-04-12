@@ -148,7 +148,28 @@ class Uni extends \Opencart\System\Engine\Controller
 
             $this->model_checkout_order->addHistory($order_id, (int) $this->config->get('payment_uni_order_status_id'));
 
-            $json['redirect'] = $this->url->link('checkout/success', 'language=' . $this->config->get('config_language'), true);
+            $this->session->data['mt_uni_credit_bank_handoff'] = [
+                'order_id'         => $order_id,
+                'uni_mesecna'      => $this->request->post['uni_mesecna'] ?? '',
+                'uni_gpr'          => $this->request->post['uni_gpr'] ?? '',
+                'uni_glp'          => $this->request->post['uni_glp'] ?? '',
+                'uni_vnoski'       => $this->request->post['uni_vnoski'] ?? '',
+                'uni_parva'        => $this->request->post['uni_parva'] ?? '',
+                'uni_kop'          => $this->request->post['uni_kop'] ?? '',
+                'uni_fname'        => $this->request->post['uni_fname'] ?? '',
+                'uni_lname'        => $this->request->post['uni_lname'] ?? '',
+                'uni_phone'        => $this->request->post['uni_phone'] ?? '',
+                'uni_phone2'       => $this->request->post['uni_phone2'] ?? '',
+                'uni_email'        => $this->request->post['uni_email'] ?? '',
+                'uni_egn'          => $this->request->post['uni_egn'] ?? '',
+                'uni_description'  => $this->request->post['uni_description'] ?? '',
+            ];
+
+            $json['redirect'] = $this->url->link(
+                'extension/mt_uni_credit/uni',
+                'language=' . $this->config->get('config_language'),
+                true
+            );
         }
 
         $this->response->addHeader('Content-Type: application/json; charset=utf-8');

@@ -1,0 +1,4 @@
+err: 
+response: {"errorCode":121,"errorText":"Вече е регистрирана поръчка със същия номер","sucfOnlineSessionID":null}
+request: {"user":"Wiley68","pass":"Avatest","orderNo":79,"clientFirstName":"Тест","clientLastName":"Тест","clientPhone":"","clientEmail":"ilko.iv@gmail.com","clientDeliveryAddress":"Тест Улица","onlineProductCode":"POS COM 50","totalPrice":1039.992,"initialPayment":100,"installmentCount":24,"monthlyPayment":52.56,"items":[{"name":"iPhone","code":"40","type":"24","count":1,"singlePrice":1039.992}]}
+##########

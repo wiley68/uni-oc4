@@ -1,0 +1,56 @@
+/**
+ * Loader преди пренасочване към UniCredit (proces1).
+ */
+.uni-bank-loader-panel {
+    display: none;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.uni-bank-loader {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    border: 4px solid #eee;
+    border-top-color: #d20210;
+    border-radius: 50%;
+    animation: uni-bank-spin 0.9s linear infinite;
+}
+
+@keyframes uni-bank-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.uni-bank-loader-text {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.uni-bank-loader-img img {
+    max-width: 160px;
+    height: auto;
+}
+
+.uni-bank-result .uni_result {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.uni-bank-result .uni_subresult {
+    color: #2a7;
+}
+
+.uni-bank-session-fail {
+    max-width: 42rem;
+}
+
+.uni-bank-session-fail__title {
+    font-size: 1rem;
+}
+
+.uni-bank-session-fail__hint {
+    font-size: 0.95rem;
+    margin-bottom: 0;
+}

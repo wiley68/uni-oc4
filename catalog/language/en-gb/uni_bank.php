@@ -1,0 +1,32 @@
+<?php
+
+$_['heading_title'] = 'UniCredit';
+$_['text_home'] = 'Home';
+$_['text_uni'] = 'UniCredit';
+$_['text_uni_pause'] = 'You will be redirected to UniCredit.';
+$_['text_uni_bank_session_fail'] = 'We could not send your order to UniCredit. No valid session was returned by the bank.';
+$_['text_uni_bank_session_fail_hint'] = 'Your order is still saved in the store. Please contact us or try again later.';
+$_['text_uni_continue_home'] = 'Continue to home';
+$_['text_uni_result_title'] = 'Application result.';
+$_['text_uni_result_ok'] = 'Your application was submitted successfully.';
+$_['text_uni_leasing_intro'] = 'UniCredit leasing application.';
+$_['text_uni_order_no'] = 'Order no.:';
+$_['text_uni_fname'] = 'First name:';
+$_['text_uni_lname'] = 'Last name:';
+$_['text_uni_egn'] = 'Personal ID:';
+$_['text_uni_phone'] = 'Phone:';
+$_['text_uni_phone2'] = 'Second phone:';
+$_['text_uni_email'] = 'E-mail:';
+$_['text_uni_delivery'] = 'Delivery address:';
+$_['text_uni_comment'] = 'Comment:';
+$_['text_uni_product_line'] = 'Product ID: ';
+$_['text_uni_goods_price'] = 'Goods price';
+$_['text_uni_first_pay'] = 'Down payment';
+$_['text_uni_installments_count'] = 'Number of installments:';
+$_['text_uni_monthly'] = 'Monthly installment';
+$_['text_uni_gpr'] = 'APR (%):';
+$_['text_uni_total_due'] = 'Total amount due from customer';
+$_['text_uni_expect_contact'] = 'Please expect contact to confirm your application.';
+$_['text_uni_continue_shopping'] = 'You can continue browsing our store.';
+$_['text_uni_mail_subject'] = 'UniCredit leasing application.';
+$_['text_uni_mail_from'] = 'UniCredit customer';

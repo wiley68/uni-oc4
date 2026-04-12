@@ -369,6 +369,32 @@ class ProductPanel extends Model
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function getUniParamsFromBankCached(bool $forceReload = false): ?array
+    {
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return null;
+        }
+
+        return $this->fetchUniParamsFromBankAndCache($unicid, $forceReload);
+    }
+
+    /**
+     * @return array{key: string, cert: string}|null
+     */
+    public function getUnicreditClientPemPaths(): ?array
+    {
+        return $this->ensureClientPemMaterial();
+    }
+
+    public function getClientPemPassphrase(): string
+    {
+        return self::CLIENT_PEM_PASSPHRASE;
+    }
+
+    /**
      * Данни за фрагмента на плащане в чекаута (аналог на PS8 hookPaymentOptions + Smarty assign).
      *
      * @return array<string, mixed>
