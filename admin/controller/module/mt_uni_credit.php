@@ -329,7 +329,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     }
 
     /**
-     * Рекурсивно копира файлове от $from в $to (подпапки и PNG до CSS).
+     * Рекурсивно копира файлове от $from в $to (PNG, CSS, woff2 в fonts/ и т.н.).
      */
     protected function copyCatalogViewTree(string $from, string $to): void
     {

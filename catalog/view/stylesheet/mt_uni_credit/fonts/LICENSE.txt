@@ -1,0 +1,8 @@
+Roboto Condensed
+Copyright 2011 Google Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0.
+Full license: https://www.apache.org/licenses/LICENSE-2.0
+Source: https://github.com/googlefonts/roboto
+
+WOFF2 subsets in this folder were obtained from fonts.gstatic.com (Google Fonts)
+to match the former Google Fonts CSS embed for this module.
