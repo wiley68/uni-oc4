@@ -326,7 +326,7 @@ class ProductPanel extends Model
         }
 
         $base = rtrim($shopSslBase, '/');
-        $uniReklamaUrl = (string) ($paramsuni['uni_reklama_url'] ?? '');
+        $uniReklamaUrl = (string) ($paramsuni['uni_backurl'] ?? '');
         $img = $base . self::PUBLIC_STYLESHEET_ASSETS;
         $uniLogo = $img . '/uni_logo.jpg';
         $uniPicture = $img . '/unim.png';
