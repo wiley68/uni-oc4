@@ -30,28 +30,162 @@ function uniMoneyToDisplayParts(amount) {
 }
 
 /**
- * Стойност от OC (число/низ) → цели стотинки (закръглени), без float при събиране на опции.
+ * Парсване на сума от OC (число/низ), без междинно закръгляне — като float в количката.
  */
-function uniCoercePriceToCents(v) {
+function uniParseMoney(v) {
     if (v === null || v === undefined) {
         return 0;
     }
     const n = parseFloat(String(v).replace(',', '.'));
-    if (!Number.isFinite(n)) {
-        return 0;
-    }
-    return Math.round(n * 100);
+    return Number.isFinite(n) ? n : 0;
 }
 
 /**
- * (базова цена + опции) × количество, резултатът в лева/евро с точност до стотинка.
+ * (базова цена + сума опции) × количество, после стандартно закръгляне до 2 знака (като OpenCart).
  */
-function uniLineTotalFromPartsCents(baseCents, optsCents, quantity) {
+function uniLineTotalFromPartsFloat(baseStr, optsSum, quantity) {
     let q = Number(quantity);
     if (!Number.isFinite(q) || q <= 0) {
         q = 1;
     }
-    return Math.round((baseCents + optsCents) * q) / 100;
+    const base = uniParseMoney(baseStr);
+    const opts = Number(optsSum);
+    const optsSafe = Number.isFinite(opts) ? opts : 0;
+    return uniRoundMoney2((base + optsSafe) * q);
+}
+
+/**
+ * Сума на избраните опции от отговора на uni_option (float, без закръгляне поотделно).
+ */
+function uniSumOptionPricesFromJson(json) {
+    let total_opts = 0;
+    if (!json || !json.optionresult) {
+        return total_opts;
+    }
+    let i;
+    let m;
+    let n;
+    let j;
+    for (i = 0; i < json.optionresult.length; i++) {
+        const current_options = json.optionresult[i].product_option_id_check;
+        if (Object.prototype.toString.call(current_options) === '[object Array]') {
+            for (m = 0; m < current_options.length; m++) {
+                for (n = 0; n < json.optionresult[i].product_option_value.length; n++) {
+                    const tempid = parseInt(JSON.stringify(json.optionresult[i].product_option_value[n].product_option_value_id).replace(/['"]+/g, ''), 10);
+                    const curid = parseInt(JSON.stringify(current_options[m]).replace(/['"]+/g, ''), 10);
+                    if (tempid === curid) {
+                        total_opts += uniParseMoney(json.optionresult[i].product_option_value[n].price);
+                    }
+                }
+            }
+        } else {
+            for (j = 0; j < json.optionresult[i].product_option_value.length; j++) {
+                const tempid = parseInt(JSON.stringify(json.optionresult[i].product_option_value[j].product_option_value_id).replace(/['"]+/g, ''), 10);
+                const curid = parseInt(JSON.stringify(current_options).replace(/['"]+/g, ''), 10);
+                if (tempid === curid) {
+                    total_opts += uniParseMoney(json.optionresult[i].product_option_value[j].price);
+                }
+            }
+        }
+    }
+    return total_opts;
+}
+
+function uniApplyEurConversion(lineTotal) {
+    const uni_eur = parseInt(document.getElementById('uni_eur').value, 10);
+    const uni_currency_code = document.getElementById('uni_currency_code').value;
+    let uni_priceall = lineTotal;
+    switch (uni_eur) {
+        case 0:
+            break;
+        case 1:
+            if (uni_currency_code === 'EUR') {
+                uni_priceall = uni_priceall * 1.95583;
+            }
+            break;
+        case 2:
+        case 3:
+            if (uni_currency_code === 'BGN') {
+                uni_priceall = uni_priceall / 1.95583;
+            }
+            break;
+        default:
+            break;
+    }
+    return uniRoundMoney2(uni_priceall);
+}
+
+/**
+ * Попъп: цена на реда + по избор синхронизиране на скритото #uni_price (продукт без опции).
+ */
+function uniUpdatePopupLineTotalDisplay(uni_priceall, syncHiddenUniPrice) {
+    const uniPriceParts = uniMoneyToDisplayParts(uni_priceall);
+    if (syncHiddenUniPrice) {
+        const uni_price_hidden = document.getElementById('uni_price');
+        if (uni_price_hidden) {
+            uni_price_hidden.value = uniPriceParts.intPart + '.' + uniPriceParts.decTwo;
+        }
+    }
+    const uni_price_int = document.getElementById('uni_price_int');
+    if (uni_price_int) {
+        uni_price_int.innerHTML = uniPriceParts.intPart;
+    }
+    const uni_price_dec = document.getElementById('uni_price_dec');
+    if (uni_price_dec) {
+        uni_price_dec.innerHTML = uniPriceParts.decTwo;
+    }
+    const uni_eur = parseInt(document.getElementById('uni_eur').value, 10);
+    const uni_price_second_int = document.getElementById('uni_price_second_int');
+    const uni_price_second_dec = document.getElementById('uni_price_second_dec');
+    if (uni_price_second_int !== null && uni_price_second_dec !== null) {
+        if (uni_eur === 1) {
+            const uni_price_second_arr = (uni_priceall / 1.95583).toFixed(2).split('.');
+            uni_price_second_int.textContent = uni_price_second_arr[0];
+            uni_price_second_dec.textContent = uni_price_second_arr[1];
+        }
+        if (uni_eur === 2) {
+            const uni_price_second_arr = (uni_priceall * 1.95583).toFixed(2).split('.');
+            uni_price_second_int.textContent = uni_price_second_arr[0];
+            uni_price_second_dec.textContent = uni_price_second_arr[1];
+        }
+    }
+}
+
+/**
+ * Текст на бутона „N вноски“ / месечна вноска (като динамично обновяване при PS модули).
+ */
+function uniUpdateButtonInstallmentLabels(uni_mesecna, months) {
+    const label = document.getElementById('uni_button_installments_label');
+    if (label) {
+        label.textContent = String(months);
+    }
+    const main = document.getElementById('uni_button_mesecna_main');
+    const signEl = document.getElementById('uni_sign');
+    const sign = signEl ? signEl.value : '';
+    if (main) {
+        main.textContent = uni_mesecna.toFixed(2) + ' ' + sign;
+    }
+    const second = document.getElementById('uni_button_mesecna_second');
+    if (!second) {
+        return;
+    }
+    const uni_eur = parseInt(document.getElementById('uni_eur').value, 10);
+    if (uni_eur === 0 || uni_eur === 3) {
+        second.style.display = 'none';
+        second.textContent = '';
+        return;
+    }
+    second.style.display = '';
+    second.style.fontSize = '80%';
+    const signSecondEl = document.getElementById('uni_sign_second');
+    const signSecond = signSecondEl ? signSecondEl.value : '';
+    let secVal = 0;
+    if (uni_eur === 1) {
+        secVal = uni_mesecna / 1.95583;
+    } else if (uni_eur === 2) {
+        secVal = uni_mesecna * 1.95583;
+    }
+    second.textContent = '(' + secVal.toFixed(2) + ' ' + signSecond + ')';
 }
 
 function uniChangeContainer() {
@@ -65,6 +199,79 @@ function uniChangeContainer() {
         uni_label_container.style.opacity = 1;
     }
 }
+
+function uniMtCreditGetShopString(key, fallback) {
+    var o = window.uniPaymentShopStrings || {};
+    if (o && typeof o[key] === 'string' && o[key] !== '') {
+        return o[key];
+    }
+    return fallback || '';
+}
+
+function uniMtCreditSetInstallmentCookies(paymentCode, months) {
+    var maxAge = 3600;
+    var base = '; path=/; SameSite=Lax; max-age=' + maxAge;
+    document.cookie = 'mt_uni_credit_payment=' + encodeURIComponent(paymentCode || 'uni.uni') + base;
+    document.cookie = 'mt_uni_credit_months=' + encodeURIComponent(String(months != null ? months : '')) + base;
+}
+
+/** @returns {boolean} true ако има грешки и не трябва да продължаваме */
+function uniMtCreditCartAddShowErrors(json) {
+    if (!json || !json.error) {
+        return false;
+    }
+    var optAlert = false;
+    var k;
+    var j;
+    for (k in json.error) {
+        if (!Object.prototype.hasOwnProperty.call(json.error, k)) {
+            continue;
+        }
+        var errMsg = json.error[k];
+        if (k.indexOf('option_') === 0) {
+            var optId = k.substring('option_'.length);
+            var el = $('#input-option-' + optId);
+            if (!el.length) {
+                el = $('#input-option' + optId.replace(/_/g, '-'));
+            }
+            if (el.length) {
+                if (el.parent().hasClass('input-group')) {
+                    el.parent().after('<div class="text-danger">' + errMsg + '</div>');
+                } else {
+                    el.after('<div class="text-danger">' + errMsg + '</div>');
+                }
+                optAlert = true;
+            }
+        } else if (k === 'subscription') {
+            $('#input-subscription').after('<div class="text-danger">' + errMsg + '</div>');
+        }
+    }
+    if (json.error.option) {
+        for (j in json.error.option) {
+            if (!Object.prototype.hasOwnProperty.call(json.error.option, j)) {
+                continue;
+            }
+            var el2 = $('#input-option-' + j);
+            if (!el2.length) {
+                el2 = $('#input-option' + j.replace(/_/g, '-'));
+            }
+            if (el2.length) {
+                if (el2.parent().hasClass('input-group')) {
+                    el2.parent().after('<div class="text-danger">' + json.error.option[j] + '</div>');
+                } else {
+                    el2.after('<div class="text-danger">' + json.error.option[j] + '</div>');
+                }
+                optAlert = true;
+            }
+        }
+    }
+    if (optAlert) {
+        alert("Трябва да изберете някоя от опциите за този продукт, за да можете да го добавите в количката си!");
+    }
+    $('.text-danger').parent().addClass('has-error');
+    return true;
+}
+
 function uni_pogasitelni_vnoski_input_change(_uni_price) {
     const uni_vnoski = parseFloat(document.getElementById("uni_pogasitelni_vnoski_input").value);
     const uni_param_kimb_3 = parseFloat(document.getElementById("uni_param_kimb_3").value);
@@ -193,6 +400,7 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
             }
             uni_glp_int.textContent = uni_glp.toFixed(2);
             uni_gpr_int.textContent = uni_gpr.toFixed(2);
+            uniUpdateButtonInstallmentLabels(uni_mesecna, uni_vnoski);
             uni_old_vnoski = uni_vnoski;
         }
     });
@@ -205,39 +413,46 @@ $(document).ready(function () {
         const uniProductPopupContainer = document.getElementById("uni-product-popup-container");
         let uni_price1 = uni_price.value;
         let uni_quantity = 1;
-        let uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), 0, uni_quantity);
+        let uni_priceall = uniLineTotalFromPartsFloat(uni_price1, 0, uni_quantity);
         const uni_buy_buttons_submit = document.querySelectorAll('#button-cart');
+        let uniCreditsRecalcTimer = null;
 
-        $(document).on("click", "#btn_uni", function (e) {
-            if (parseInt($("#uni_cart").val()) == 1) {
-                if (uni_buy_buttons_submit.length) {
-                    uni_buy_buttons_submit.item(0).click();
-                }
+        function uniRunFullCreditPriceFlow(showPopup, silent) {
+            let total_opts_sum = 0;
+            uni_price1 = uni_price.value;
+            if (document.getElementById('input-quantity') !== null) {
+                uni_quantity = parseFloat(document.getElementById('input-quantity').value);
             } else {
-                let total_opts_cents = 0;
-                uni_price1 = uni_price.value;
-                if (document.getElementById("input-quantity") !== null) {
-                    uni_quantity = parseFloat(document.getElementById("input-quantity").value);
+                uni_quantity = 1;
+            }
+            function finishLineTotal(lineBeforeEur, syncHiddenUniPrice) {
+                uni_priceall = uniApplyEurConversion(lineBeforeEur);
+                uniUpdatePopupLineTotalDisplay(uni_priceall, syncHiddenUniPrice);
+                if (showPopup && uniProductPopupContainer) {
+                    uniProductPopupContainer.style.display = 'block';
                 }
-                if (document.querySelectorAll("[id*='input-option']").length > 0) {
-                    if ($ != null) {
-                        $.ajax({
-                            url: (document.getElementById('uni_option_check_url') || {}).value || '',
-                            type: 'post',
-                            data: $('#form-product input[type=\'text\'], #form-product input[type=\'hidden\'], #form-product input[type=\'radio\']:checked, #form-product input[type=\'checkbox\']:checked, #form-product select, #form-product textarea'),
-                            dataType: 'json',
-                            success: function (json) {
-                                $('.alert, .text-danger').remove();
-                                if (json['error']) {
-                                    if (json['error']['option']) {
-                                        for (i in json['error']['option']) {
-                                            if (!Object.prototype.hasOwnProperty.call(json['error']['option'], i)) {
-                                                continue;
-                                            }
-                                            var element = $('#input-option-' + i);
-                                            if (!element.length) {
-                                                element = $('#input-option' + i.replace('_', '-'));
-                                            }
+                uni_pogasitelni_vnoski_input_change(uni_priceall);
+            }
+            if (document.querySelectorAll("[id*='input-option']").length > 0) {
+                if ($ != null) {
+                    $.ajax({
+                        url: (document.getElementById('uni_option_check_url') || {}).value || '',
+                        type: 'post',
+                        data: $('#form-product input[type=\'text\'], #form-product input[type=\'hidden\'], #form-product input[type=\'radio\']:checked, #form-product input[type=\'checkbox\']:checked, #form-product select, #form-product textarea'),
+                        dataType: 'json',
+                        success: function (json) {
+                            $('.alert, .text-danger').remove();
+                            if (json['error']) {
+                                if (json['error']['option']) {
+                                    for (var i in json['error']['option']) {
+                                        if (!Object.prototype.hasOwnProperty.call(json['error']['option'], i)) {
+                                            continue;
+                                        }
+                                        var element = $('#input-option-' + i);
+                                        if (!element.length) {
+                                            element = $('#input-option' + i.replace('_', '-'));
+                                        }
+                                        if (!silent) {
                                             if (element.parent().hasClass('input-group')) {
                                                 element.parent().after('<div class="text-danger">' + json['error']['option'][i] + '</div>');
                                             } else {
@@ -245,173 +460,62 @@ $(document).ready(function () {
                                             }
                                         }
                                     }
+                                }
+                                if (!silent) {
                                     $('.text-danger').parent().addClass('has-error');
                                     alert('Моля изберете стойност за задължителните опции за продукта!');
                                 }
-                                if (json['success']) {
-                                    for (i = 0; i < json['optionresult'].length; i++) {
-                                        var current_options = json['optionresult'][i]['product_option_id_check'];
-                                        if (Object.prototype.toString.call(current_options) === '[object Array]') {
-                                            for (m = 0; m < current_options.length; m++) {
-                                                for (n = 0; n < json['optionresult'][i]['product_option_value'].length; n++) {
-                                                    var tempid = parseInt(JSON.stringify(json['optionresult'][i]['product_option_value'][n]['product_option_value_id']).replace(/['"]+/g, ''));
-                                                    var curid = parseInt(JSON.stringify(current_options[m]).replace(/['"]+/g, ''));
-                                                    if (tempid == curid) {
-                                                        total_opts_cents += uniCoercePriceToCents(json['optionresult'][i]['product_option_value'][n]['price']);
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            for (j = 0; j < json['optionresult'][i]['product_option_value'].length; j++) {
-                                                var tempid = parseInt(JSON.stringify(json['optionresult'][i]['product_option_value'][j]['product_option_value_id']).replace(/['"]+/g, ''));
-                                                var curid = parseInt(JSON.stringify(current_options).replace(/['"]+/g, ''));
-                                                if (tempid == curid) {
-                                                    total_opts_cents += uniCoercePriceToCents(json['optionresult'][i]['product_option_value'][j]['price']);
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
-
-                                    const uni_eur = parseInt(document.getElementById("uni_eur").value);
-                                    const uni_currency_code = document.getElementById("uni_currency_code").value;
-                                    switch (uni_eur) {
-                                        case 0:
-                                            break;
-                                        case 1:
-                                            if (uni_currency_code == "EUR") {
-                                                uni_priceall = uni_priceall * 1.95583;
-                                            }
-                                            break;
-                                        case 2:
-                                        case 3:
-                                            if (uni_currency_code == "BGN") {
-                                                uni_priceall = uni_priceall / 1.95583;
-                                            }
-                                            break;
-                                    }
-                                    uni_priceall = uniRoundMoney2(uni_priceall);
-                                    const uniPriceParts = uniMoneyToDisplayParts(uni_priceall);
-                                    const uni_price_int = document.getElementById('uni_price_int');
-                                    uni_price_int.innerHTML = uniPriceParts.intPart;
-                                    const uni_price_dec = document.getElementById('uni_price_dec');
-                                    uni_price_dec.innerHTML = uniPriceParts.decTwo;
-
-                                    const uni_price_second_int = document.getElementById("uni_price_second_int");
-                                    const uni_price_second_dec = document.getElementById("uni_price_second_dec");
-                                    if (uni_price_second_int !== null && uni_price_second_dec !== null) {
-                                        if (uni_eur == 1) {
-                                            const uni_price_second_arr = (uni_priceall / 1.95583).toFixed(2).split(".");
-                                            uni_price_second_int.textContent = uni_price_second_arr[0];
-                                            uni_price_second_dec.textContent = uni_price_second_arr[1];
-                                        }
-                                        if (uni_eur == 2) {
-                                            const uni_price_second_arr = (uni_priceall * 1.95583).toFixed(2).split(".");
-                                            uni_price_second_int.textContent = uni_price_second_arr[0];
-                                            uni_price_second_dec.textContent = uni_price_second_arr[1];
-                                        }
-                                    }
-
-                                    uniProductPopupContainer.style.display = "block";
-                                    uni_pogasitelni_vnoski_input_change(uni_priceall);
-                                }
+                                return;
                             }
-                        });
-                    } else {
-                        uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
-
-                        const uni_eur = parseInt(document.getElementById("uni_eur").value);
-                        const uni_currency_code = document.getElementById("uni_currency_code").value;
-                        switch (uni_eur) {
-                            case 0:
-                                break;
-                            case 1:
-                                if (uni_currency_code == "EUR") {
-                                    uni_priceall = uni_priceall * 1.95583;
-                                }
-                                break;
-                            case 2:
-                            case 3:
-                                if (uni_currency_code == "BGN") {
-                                    uni_priceall = uni_priceall / 1.95583;
-                                }
-                                break;
-                        }
-
-                        uni_priceall = uniRoundMoney2(uni_priceall);
-                        const uniPricePartsNoJq = uniMoneyToDisplayParts(uni_priceall);
-                        const uni_price_int = document.getElementById('uni_price_int');
-                        uni_price_int.innerHTML = uniPricePartsNoJq.intPart;
-                        const uni_price_dec = document.getElementById('uni_price_dec');
-                        uni_price_dec.innerHTML = uniPricePartsNoJq.decTwo;
-
-                        const uni_price_second_int = document.getElementById("uni_price_second_int");
-                        const uni_price_second_dec = document.getElementById("uni_price_second_dec");
-                        if (uni_price_second_int !== null && uni_price_second_dec !== null) {
-                            if (uni_eur == 1) {
-                                const uni_price_second_arr = (uni_priceall / 1.95583).toFixed(2).split(".");
-                                uni_price_second_int.textContent = uni_price_second_arr[0];
-                                uni_price_second_dec.textContent = uni_price_second_arr[1];
-                            }
-                            if (uni_eur == 2) {
-                                const uni_price_second_arr = (uni_priceall * 1.95583).toFixed(2).split(".");
-                                uni_price_second_int.textContent = uni_price_second_arr[0];
-                                uni_price_second_dec.textContent = uni_price_second_arr[1];
+                            if (json['success']) {
+                                total_opts_sum = uniSumOptionPricesFromJson(json);
+                                const line = uniLineTotalFromPartsFloat(uni_price1, total_opts_sum, uni_quantity);
+                                finishLineTotal(line, false);
                             }
                         }
-
-                        uniProductPopupContainer.style.display = "block";
-                        uni_pogasitelni_vnoski_input_change(uni_priceall);
-                    }
+                    });
                 } else {
-                    uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
-
-                    const uni_eur = parseInt(document.getElementById("uni_eur").value);
-                    const uni_currency_code = document.getElementById("uni_currency_code").value;
-                    switch (uni_eur) {
-                        case 0:
-                            break;
-                        case 1:
-                            if (uni_currency_code == "EUR") {
-                                uni_priceall = uni_priceall * 1.95583;
-                            }
-                            break;
-                        case 2:
-                        case 3:
-                            if (uni_currency_code == "BGN") {
-                                uni_priceall = uni_priceall / 1.95583;
-                            }
-                            break;
-                    }
-
-                    uni_priceall = uniRoundMoney2(uni_priceall);
-                    const uniPricePartsNoOpt = uniMoneyToDisplayParts(uni_priceall);
-                    const uni_price = document.getElementById('uni_price');
-                    uni_price.value = uniPricePartsNoOpt.intPart + '.' + uniPricePartsNoOpt.decTwo;
-                    const uni_price_int = document.getElementById('uni_price_int');
-                    uni_price_int.innerHTML = uniPricePartsNoOpt.intPart;
-                    const uni_price_dec = document.getElementById('uni_price_dec');
-                    uni_price_dec.innerHTML = uniPricePartsNoOpt.decTwo;
-
-                    const uni_price_second_int = document.getElementById("uni_price_second_int");
-                    const uni_price_second_dec = document.getElementById("uni_price_second_dec");
-                    if (uni_price_second_int !== null && uni_price_second_dec !== null) {
-                        if (uni_eur == 1) {
-                            const uni_price_second_arr = (uni_priceall / 1.95583).toFixed(2).split(".");
-                            uni_price_second_int.textContent = uni_price_second_arr[0];
-                            uni_price_second_dec.textContent = uni_price_second_arr[1];
-                        }
-                        if (uni_eur == 2) {
-                            const uni_price_second_arr = (uni_priceall * 1.95583).toFixed(2).split(".");
-                            uni_price_second_int.textContent = uni_price_second_arr[0];
-                            uni_price_second_dec.textContent = uni_price_second_arr[1];
-                        }
-                    }
-
-                    uniProductPopupContainer.style.display = "block";
-                    uni_pogasitelni_vnoski_input_change(uni_priceall);
+                    const line = uniLineTotalFromPartsFloat(uni_price1, total_opts_sum, uni_quantity);
+                    finishLineTotal(line, false);
                 }
+            } else {
+                const line = uniLineTotalFromPartsFloat(uni_price1, total_opts_sum, uni_quantity);
+                finishLineTotal(line, true);
+            }
+        }
+
+        function uniScheduleFullCreditPriceFlow() {
+            const cartEl = document.getElementById('uni_cart');
+            if (cartEl && parseInt(cartEl.value, 10) === 1) {
+                return;
+            }
+            const btnUni = document.getElementById('btn_uni');
+            if (!btnUni || !btnUni.classList.contains('uni_button')) {
+                return;
+            }
+            if (uniCreditsRecalcTimer) {
+                clearTimeout(uniCreditsRecalcTimer);
+            }
+            uniCreditsRecalcTimer = setTimeout(function () {
+                uniCreditsRecalcTimer = null;
+                uniRunFullCreditPriceFlow(false, true);
+            }, 280);
+        }
+
+        $(document).on('change', '#form-product', uniScheduleFullCreditPriceFlow);
+        $(document).on('input change', '#input-quantity', uniScheduleFullCreditPriceFlow);
+
+        setTimeout(function () {
+            uniRunFullCreditPriceFlow(false, true);
+        }, 150);
+
+        $(document).on("click", "#btn_uni", function () {
+            if (parseInt($("#uni_cart").val(), 10) === 1) {
+                if (uni_buy_buttons_submit.length) {
+                    uni_buy_buttons_submit.item(0).click();
+                }
+            } else {
+                uniRunFullCreditPriceFlow(true, false);
             }
         });
 
@@ -435,59 +539,65 @@ $(document).ready(function () {
                 dataType: 'json',
                 data: $('#form-product input[type=\'text\'], #form-product input[type=\'hidden\'], #form-product input[type=\'radio\']:checked, #form-product input[type=\'checkbox\']:checked, #form-product select, #form-product textarea'),
                 success: function (json) {
-                    if (json['error']) {
-                        var optAlert = false;
-                        for (var k in json['error']) {
-                            if (!Object.prototype.hasOwnProperty.call(json['error'], k)) {
-                                continue;
-                            }
-                            var errMsg = json['error'][k];
-                            if (k.indexOf('option_') === 0) {
-                                var optId = k.substring('option_'.length);
-                                var el = $('#input-option-' + optId);
-                                if (!el.length) {
-                                    el = $('#input-option' + optId.replace(/_/g, '-'));
-                                }
-                                if (el.length) {
-                                    if (el.parent().hasClass('input-group')) {
-                                        el.parent().after('<div class="text-danger">' + errMsg + '</div>');
-                                    } else {
-                                        el.after('<div class="text-danger">' + errMsg + '</div>');
-                                    }
-                                    optAlert = true;
-                                }
-                            } else if (k === 'subscription') {
-                                $('#input-subscription').after('<div class="text-danger">' + errMsg + '</div>');
-                            }
-                        }
-                        if (json['error']['option']) {
-                            for (var j in json['error']['option']) {
-                                if (!Object.prototype.hasOwnProperty.call(json['error']['option'], j)) {
-                                    continue;
-                                }
-                                var el2 = $('#input-option-' + j);
-                                if (!el2.length) {
-                                    el2 = $('#input-option' + j.replace(/_/g, '-'));
-                                }
-                                if (el2.length) {
-                                    if (el2.parent().hasClass('input-group')) {
-                                        el2.parent().after('<div class="text-danger">' + json['error']['option'][j] + '</div>');
-                                    } else {
-                                        el2.after('<div class="text-danger">' + json['error']['option'][j] + '</div>');
-                                    }
-                                    optAlert = true;
-                                }
-                            }
-                        }
-                        if (optAlert) {
-                            alert("Трябва да изберете някоя от опциите за този продукт, за да можете да го добавите в количката си!");
-                        }
-                        $('.text-danger').parent().addClass('has-error');
+                    if (uniMtCreditCartAddShowErrors(json)) {
+                        return;
                     }
                     if (json['success']) {
                         var cartPage = (document.getElementById('uni_cart_page_url') || {}).value || '';
                         window.location = cartPage || 'index.php?route=checkout/cart';
                     }
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+                }
+            });
+        });
+
+        $(document).on('click', '#uni_buy_on_installment', function (e) {
+            e.preventDefault();
+            var intentUrl = (document.getElementById('uni_prepare_installmentcheckout_url') || {}).value || '';
+            var checkoutFallback = (document.getElementById('uni_checkout_url') || {}).value || '';
+            var monthsEl = document.getElementById('uni_pogasitelni_vnoski_input');
+            var months = monthsEl ? monthsEl.value : '12';
+            $.ajax({
+                url: (document.getElementById('uni_cart_add_url') || {}).value || '',
+                type: 'post',
+                dataType: 'json',
+                data: $('#form-product input[type=\'text\'], #form-product input[type=\'hidden\'], #form-product input[type=\'radio\']:checked, #form-product input[type=\'checkbox\']:checked, #form-product select, #form-product textarea'),
+                success: function (json) {
+                    if (uniMtCreditCartAddShowErrors(json)) {
+                        return;
+                    }
+                    if (!json['success']) {
+                        return;
+                    }
+                    uniMtCreditSetInstallmentCookies('uni.uni', months);
+                    if (!intentUrl) {
+                        window.location = checkoutFallback || 'index.php?route=checkout/checkout';
+                        return;
+                    }
+                    $.ajax({
+                        url: intentUrl,
+                        type: 'post',
+                        data: { installment_months: months },
+                        dataType: 'json',
+                        success: function (j2) {
+                            if (j2.error) {
+                                alert(j2.error);
+                                return;
+                            }
+                            if (j2.redirect) {
+                                window.location = j2.redirect;
+                            } else if (j2.success && checkoutFallback) {
+                                window.location = checkoutFallback;
+                            } else {
+                                alert(uniMtCreditGetShopString('installmentIntentFailed', 'Checkout setup failed.'));
+                            }
+                        },
+                        error: function (xhr, ajaxOptions, thrownError) {
+                            alert(uniMtCreditGetShopString('installmentIntentFailed', thrownError || 'Error'));
+                        }
+                    });
                 },
                 error: function (xhr, ajaxOptions, thrownError) {
                     alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);

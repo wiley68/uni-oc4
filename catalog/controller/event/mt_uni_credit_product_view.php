@@ -49,6 +49,8 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         $optionCheckUrlJs = $this->url->link('extension/mt_uni_credit/product/uni_option', $lang, true);
         $cartAddUrlJs = $this->url->link('checkout/cart.add', $lang, true);
         $cartPageUrlJs = $this->url->link('checkout/cart', $lang, true);
+        $installmentIntentUrlJs = $this->url->link('extension/mt_uni_credit/checkout/installment_intent.save', $lang, true);
+        $checkoutPageUrlJs = $this->url->link('checkout/checkout', $lang, true);
 
         $sslUrl = (string) ($this->config->get('config_ssl') ?: $this->config->get('config_url'));
         $shopSslBase = rtrim($sslUrl, '/');
@@ -60,8 +62,9 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'months_mobile'         => $this->language->get('text_months_repay_star'),
             'installment_desktop'   => $this->language->get('text_installment_payment'),
             'installment_mobile'    => $this->language->get('text_monthly_installment'),
-            'js_cart_add_failed'    => $this->language->get('text_js_cart_add_failed'),
-            'js_store_error'        => $this->language->get('text_js_store_error'),
+            'js_cart_add_failed'           => $this->language->get('text_js_cart_add_failed'),
+            'js_store_error'               => $this->language->get('text_js_store_error'),
+            'js_installment_intent_failed' => $this->language->get('text_js_installment_intent_failed'),
         ];
 
         $this->load->model('extension/mt_uni_credit/module/product_panel');
@@ -75,7 +78,9 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             $optionCheckUrlJs,
             $cartAddUrlJs,
             $cartPageUrlJs,
-            $texts
+            $texts,
+            $installmentIntentUrlJs,
+            $checkoutPageUrlJs
         );
 
         if ($assign === null) {

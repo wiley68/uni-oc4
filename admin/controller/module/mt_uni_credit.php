@@ -11,6 +11,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private $event_content_top = 'extension/mt_uni_credit/event/mt_uni_credit_content_top';
     private $event_product_controller = 'extension/mt_uni_credit/event/mt_uni_credit_product_controller';
     private $event_product_view = 'extension/mt_uni_credit/event/mt_uni_credit_product_view';
+    private $event_checkout = 'extension/mt_uni_credit/event/mt_uni_credit_checkout';
 
     public function index(): void
     {
@@ -140,6 +141,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_setting_event->deleteEventByCode($this->module . '_after_product_view');
             $this->model_setting_event->deleteEventByCode($this->module . '_before_content_top');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
+            $this->model_setting_event->deleteEventByCode($this->module . '_after_checkout_view');
         }
 
         $this->removeCatalogPublicAssets();
@@ -477,6 +479,17 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'sort_order'  => 0
         ]);
 
+        $descCheckoutView = sprintf($this->language->get('uni_event_description_checkout_view'), $moduleName);
+        $this->model_setting_event->deleteEventByCode($this->module . '_after_checkout_view');
+        $this->model_setting_event->addEvent([
+            'code'        => $this->module . '_after_checkout_view',
+            'description' => $descCheckoutView,
+            'trigger'     => 'catalog/view/checkout/checkout/after',
+            'action'      => $this->event_checkout . $uni_separator . 'appendScript',
+            'status'      => true,
+            'sort_order'  => 0
+        ]);
+
         $this->load->model('user/user_group');
         $groups = $this->model_user_user_group->getUserGroups();
 
@@ -484,6 +497,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_controller);
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_view);
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_content_top);
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_checkout);
         }
     }
 

@@ -47,7 +47,9 @@ class ProductPanel extends Model
         string $optionCheckUrlJs,
         string $cartAddUrlJs,
         string $cartPageUrlJs,
-        array $texts
+        array $texts,
+        string $installmentIntentSaveUrlJs = '',
+        string $checkoutPageUrlJs = ''
     ): ?array {
         $uniStatus = (int) $this->config->get($this->module . '_status');
         if ($uniStatus <= 0 || ($currencyCode !== 'EUR' && $currencyCode !== 'BGN')) {
@@ -248,7 +250,8 @@ class ProductPanel extends Model
         $assign = array_merge([
             'uni_cart'                        => (int) $this->config->get($this->module . '_cart'),
             'uni_csrf_token'                  => '',
-            'uni_prepare_installmentcheckout_url' => '',
+            'uni_prepare_installmentcheckout_url' => $installmentIntentSaveUrlJs,
+            'uni_checkout_url'                => $checkoutPageUrlJs,
             'uni_get_product_link'            => $calculateUrlJs,
             'uni_option_check_url'            => $optionCheckUrlJs,
             'uni_cart_add_url'                => $cartAddUrlJs,
@@ -274,8 +277,9 @@ class ProductPanel extends Model
             'uni_gap'                         => $uniGap,
             'uni_proces1'                     => $uniProces1,
             'uni_js_shop_strings'             => json_encode([
-                'cartAddFailed' => $texts['js_cart_add_failed'] ?? '',
-                'storeError'    => $texts['js_store_error'] ?? '',
+                'cartAddFailed'         => $texts['js_cart_add_failed'] ?? '',
+                'storeError'          => $texts['js_store_error'] ?? '',
+                'installmentIntentFailed' => $texts['js_installment_intent_failed'] ?? '',
             ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP),
         ], $classes);
 

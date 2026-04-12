@@ -5,6 +5,7 @@
 <input type="hidden" id="uni_option_check_url" value="{{ uni_option_check_url|e('html_attr') }}"/>
 <input type="hidden" id="uni_cart_add_url" value="{{ uni_cart_add_url|e('html_attr') }}"/>
 <input type="hidden" id="uni_cart_page_url" value="{{ uni_cart_page_url|e('html_attr') }}"/>
+<input type="hidden" id="uni_checkout_url" value="{{ uni_checkout_url|e('html_attr') }}"/>
 {% for kf in uni_kimb_hidden_fields %}
   <input type="hidden" id="uni_param_glp_{{ kf.m }}" value="{{ kf.glp|e('html_attr') }}"/>
   <input type="hidden" id="uni_param_kimb_{{ kf.m }}" value="{{ kf.kimb|e('html_attr') }}"/>

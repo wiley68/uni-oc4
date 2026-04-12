@@ -24,3 +24,4 @@ $_['text_installment_payment'] = 'Amount of repayment installment';
 $_['text_monthly_installment'] = 'Monthly installment amount';
 $_['text_js_cart_add_failed'] = 'Could not add to cart. Please try again.';
 $_['text_js_store_error'] = 'An error occurred while contacting the store.';
+$_['text_js_installment_intent_failed'] = 'Could not save checkout preferences. Please try again or select payment manually.';
