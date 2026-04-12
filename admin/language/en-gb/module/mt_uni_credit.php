@@ -2,6 +2,8 @@
 $_['heading_title'] = 'UniCredit Credit purchases';
 $_['uni_event_description_product_controller'] = '%s — adds code to the product controller.';
 $_['uni_event_description_product_view'] = '%s — adds code to the product template.';
+$_['uni_event_description_content_top_controller'] = '%s — supplies promotional data in the common/content_top controller.';
+$_['uni_event_description_content_top_view'] = '%s — injects promotional HTML in the common/content_top template.';
 $_['uni_text_edit'] = 'Edit settings';
 $_['uni_text_edit_kop'] = 'Correspondence between Categories and КОП on SmartUCF UniCredit system';
 $_['uni_text_module'] = 'Modules';

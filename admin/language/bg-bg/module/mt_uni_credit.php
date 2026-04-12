@@ -2,6 +2,8 @@
 $_['heading_title'] = 'УниКредит покупки на Кредит';
 $_['uni_event_description_product_controller'] = '%s — добавя код в продуктовия контролер.';
 $_['uni_event_description_product_view'] = '%s — добавя код в продуктовия шаблон.';
+$_['uni_event_description_content_top_controller'] = '%s — добавя данни за рекламна информация в контролера common/content_top.';
+$_['uni_event_description_content_top_view'] = '%s — добавя HTML за рекламна информация в шаблона common/content_top.';
 $_['uni_text_edit'] = 'Редакция настройки';
 $_['uni_text_edit_kop'] = 'Съответствие между Категории и КОП на SmartUCF UNI Credit системата';
 $_['uni_text_module'] = 'Модули';

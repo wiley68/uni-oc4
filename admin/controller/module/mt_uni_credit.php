@@ -8,6 +8,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private $path = 'extension/mt_uni_credit/module/mt_uni_credit';
     private $model = 'extension/mt_uni_credit/module/unicredit';
     private $module = 'module_mt_uni_credit';
+    private $event_content_top = 'extension/mt_uni_credit/event/mt_uni_credit_content_top';
     private $event_product_controller = 'extension/mt_uni_credit/event/mt_uni_credit_product_controller';
     private $event_product_view = 'extension/mt_uni_credit/event/mt_uni_credit_product_view';
 
@@ -23,6 +24,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         if (($this->request->server['REQUEST_METHOD'] === 'POST') && $this->validate()) {
             $this->model_setting_setting->editSetting('module_mt_uni_credit', $this->request->post);
+
+            $this->syncCatalogPublicAssets();
 
             $this->session->data['success'] = $this->language->get('text_success');
 
@@ -135,6 +138,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->load->model('setting/event');
             $this->model_setting_event->deleteEventByCode($this->module . '_before_product_controller');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_product_view');
+            $this->model_setting_event->deleteEventByCode($this->module . '_before_content_top');
+            $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
         }
     }
 
@@ -176,6 +181,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->init();
             $this->load->model('setting/setting');
             $this->model_setting_setting->editSetting($this->module, $this->request->post);
+
+            $this->syncCatalogPublicAssets();
 
             $json['success'] = $this->language->get('text_success');
         }
@@ -277,7 +284,17 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     }
 
     /**
-     * Копира CSS/JS/картинки от пакета в DIR_CATALOG/view/… за публични URL като при другите модули (без /extension/… в адреса).
+     * Публикува публичните ресурси на модула в DIR_CATALOG (за HTTP достъп).
+     *
+     * Източник (само тук държите снимки/CSS/JS в git):
+     * - DIR_EXTENSION/mt_uni_credit/catalog/view/stylesheet/mt_uni_credit/ — всички raster (png/jpg/…) + CSS, подпапка с уникално име срещу конфликти с други модули
+     * - DIR_EXTENSION/mt_uni_credit/catalog/view/javascript/mt_uni_credit/ — JS
+     *
+     * Цел:
+     * - DIR_CATALOG/view/stylesheet/mt_uni_credit/
+     * - DIR_CATALOG/view/javascript/mt_uni_credit/
+     *
+     * Извиква се при install(), при запис на настройки (save / POST от index).
      */
     protected function syncCatalogPublicAssets(): void
     {
@@ -294,7 +311,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $pairs = [
             ['stylesheet/mt_uni_credit', 'view/stylesheet/mt_uni_credit'],
             ['javascript/mt_uni_credit', 'view/javascript/mt_uni_credit'],
-            ['image/mt_uni_credit', 'view/image/mt_uni_credit'],
         ];
 
         foreach ($pairs as [$relSrc, $relDst]) {
@@ -308,11 +324,50 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 continue;
             }
 
-            foreach (glob($from . '/*') ?: [] as $file) {
-                if (is_file($file)) {
-                    @copy($file, $to . '/' . basename($file));
-                }
+            $this->copyCatalogViewTree($from, $to);
+        }
+    }
+
+    /**
+     * Рекурсивно копира файлове от $from в $to (подпапки и PNG до CSS).
+     */
+    protected function copyCatalogViewTree(string $from, string $to): void
+    {
+        $from = rtrim($from, '/\\') . '/';
+        $to = rtrim($to, '/\\') . '/';
+
+        try {
+            $dir = new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS);
+        } catch (\Exception) {
+            return;
+        }
+
+        /** @var \RecursiveDirectoryIterator $dir */
+        $it = new \RecursiveIteratorIterator($dir, \RecursiveIteratorIterator::SELF_FIRST);
+
+        foreach ($it as $fileInfo) {
+            if (!$fileInfo->isFile()) {
+                continue;
             }
+
+            $pathname = $fileInfo->getPathname();
+            $relative = substr($pathname, strlen($from));
+            if ($relative === false || $relative === '') {
+                continue;
+            }
+
+            $relative = str_replace('\\', '/', $relative);
+            if (str_ends_with($relative, '.gitkeep')) {
+                continue;
+            }
+
+            $dest = $to . $relative;
+            $destDir = dirname($dest);
+            if (!is_dir($destDir) && !@mkdir($destDir, 0775, true) && !is_dir($destDir)) {
+                continue;
+            }
+
+            @copy($pathname, $dest);
         }
     }
 
@@ -326,8 +381,31 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $moduleName = $this->language->get('heading_title');
         $descController = sprintf($this->language->get('uni_event_description_product_controller'), $moduleName);
         $descView = sprintf($this->language->get('uni_event_description_product_view'), $moduleName);
+        $descContentTopController = sprintf($this->language->get('uni_event_description_content_top_controller'), $moduleName);
+        $descContentTopView = sprintf($this->language->get('uni_event_description_content_top_view'), $moduleName);
 
         $this->load->model('setting/event');
+
+        // Event hooks за content_top - добавяне на рекламна информация на началната страница
+        $this->model_setting_event->deleteEventByCode($this->module . '_before_content_top');
+        $this->model_setting_event->addEvent([
+            'code' => $this->module . '_before_content_top',
+            'description' => $descContentTopController,
+            'trigger' => 'catalog/controller/common/content_top/before',
+            'action' => $this->event_content_top . $uni_separator . 'init',
+            'status' => true,
+            'sort_order' => 0
+        ]);
+
+        $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
+        $this->model_setting_event->addEvent([
+            'code' => $this->module . '_after_content_top_view',
+            'description' => $descContentTopView,
+            'trigger' => 'catalog/view/common/content_top/after',
+            'action' => $this->event_content_top . $uni_separator . 'addHtml',
+            'status' => true,
+            'sort_order' => 0
+        ]);
 
         $this->model_setting_event->deleteEventByCode($this->module . '_before_product_controller');
         $this->model_setting_event->addEvent([
@@ -355,6 +433,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         foreach ($groups as $group) {
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_controller);
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_view);
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_content_top);
         }
     }
 

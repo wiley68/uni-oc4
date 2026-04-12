@@ -28,6 +28,11 @@ class ProductPanel extends Model
     private string $module = 'module_mt_uni_credit';
 
     /**
+     * Публичен URL-път (след shop base). Файловете идват от extension/.../view/stylesheet/mt_uni_credit/ и се копират в catalog/ при install/запис на модула.
+     */
+    private const PUBLIC_STYLESHEET_ASSETS = '/catalog/view/stylesheet/mt_uni_credit';
+
+    /**
      * @param array<string, string> $texts Езикови низове за UI (desktop/mobile етикети и пр.)
      *
      * @return array<string, mixed>|null null = не показвай блока
@@ -195,8 +200,9 @@ class ProductPanel extends Model
         $uniVnoska = (string) ($paramsuni['uni_vnoska'] ?? 'No');
         $uniReklamaUrl = (string) ($paramsunicalc['uni_reklama_url'] ?? '');
         $base = rtrim($shopSslBase, '/');
-        $uniPicture = $base . '/catalog/view/image/mt_uni_credit/uni.png';
-        $uniMiniLogo = $base . '/catalog/view/image/mt_uni_credit/uni_mini_logo.png';
+        $img = $base . self::PUBLIC_STYLESHEET_ASSETS;
+        $uniPicture = $img . '/uni.png';
+        $uniMiniLogo = $img . '/uni_mini_logo.png';
         $uniProces1 = (int) ($paramsuni['uni_proces1'] ?? 0);
 
         $mesecnaByMonth = [
@@ -276,6 +282,66 @@ class ProductPanel extends Model
         }
 
         return $assign;
+    }
+
+    /**
+     * Данни за плаващ рекламен банер на началната страница (същите ключове като PS8 unipanel.tpl).
+     *
+     * @return array{
+     *     uni_status_cp: string,
+     *     uni_container_status: string,
+     *     deviceis: string,
+     *     uni_logo: string,
+     *     uni_picture: string,
+     *     uni_backurl: string,
+     *     uni_container_txt1: string,
+     *     uni_container_txt2: string
+     * }|null
+     * uni_logo / uni_picture: URL към catalog/view/stylesheet/mt_uni_credit/uni_logo.jpg и unim.png.
+     * uni_reklama_url, uni_container_txt1, uni_container_txt2: от getparameters ($paramsuni).
+     * uni_container_status: от getcalculation ($paramsunicalc), по подразбиране Yes.
+     */
+    public function buildAssignForUnipanel(string $shopSslBase, string $userAgent): ?array
+    {
+        $uniStatus = (int) $this->config->get($this->module . '_status');
+        $reklama = (int) $this->config->get($this->module . '_reklama');
+        if ($uniStatus <= 0 || $reklama <= 0) {
+            return null;
+        }
+
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return null;
+        }
+
+        $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, false);
+        if (!is_array($paramsuni) || (($paramsuni['uni_status'] ?? '') !== 'Yes')) {
+            return null;
+        }
+
+        $deviceis = $this->detectDevice($userAgent);
+        $paramsunicalc = $this->fetchUniCalculationFromBankAndCache($unicid, $deviceis, false);
+        if (!is_array($paramsunicalc) || $paramsunicalc === []) {
+            return null;
+        }
+
+        $base = rtrim($shopSslBase, '/');
+        $uniReklamaUrl = (string) ($paramsuni['uni_reklama_url'] ?? '');
+        $img = $base . self::PUBLIC_STYLESHEET_ASSETS;
+        $uniLogo = $img . '/uni_logo.jpg';
+        $uniPicture = $img . '/unim.png';
+        $containerStatus = (string) ($paramsunicalc['uni_container_status'] ?? 'Yes');
+
+        return [
+            'uni_status_cp'          => (string) ($paramsuni['uni_status'] ?? 'No'),
+            'uni_container_status'   => $containerStatus,
+            'deviceis'               => $deviceis,
+            'uni_logo'               => $uniLogo,
+            'uni_picture'            => $uniPicture,
+            'uni_backurl'            => $uniReklamaUrl,
+            'uni_container_txt1'     => (string) ($paramsuni['uni_container_txt1'] ?? ''),
+            'uni_container_txt2'     => (string) ($paramsuni['uni_container_txt2'] ?? ''),
+        ];
     }
 
     /**

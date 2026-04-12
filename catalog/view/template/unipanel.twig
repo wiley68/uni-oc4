@@ -1,0 +1,22 @@
+{% if uni_status_cp == 'Yes' %}
+{% if uni_container_status == 'Yes' %}
+{% if deviceis == 'pc' %}
+<div class="uni_float" data-uni-mode="toggle" data-uni-backurl="{{ uni_backurl|e('html_attr') }}">
+  <img src="{{ uni_logo|e('html_attr') }}" class="uni-my-float" alt="{{ text_rek_float_alt|e('html_attr') }}" loading="lazy">
+</div>
+{% else %}
+<div class="uni_float" data-uni-mode="goto" data-uni-backurl="{{ uni_backurl|e('html_attr') }}">
+  <img src="{{ uni_logo|e('html_attr') }}" class="uni-my-float" alt="{{ text_rek_float_alt|e('html_attr') }}" loading="lazy">
+</div>
+{% endif %}
+<div class="uni-label-container" id="mt-uni-unipanel">
+  <div class="uni-label-text">
+    <div style="padding-bottom:5px;"></div>
+    <img src="{{ uni_picture|e('html_attr') }}" alt="{{ text_rek_panel_alt|e('html_attr') }}" loading="lazy">
+    <div style="font-size:16px;padding-top:3px;">{{ uni_container_txt1|e }}</div>
+    <p>{{ uni_container_txt2|e }}</p>
+    <div class="uni-label-text-a"><a href="{{ uni_backurl|e('html_attr') }}" target="_blank" rel="noopener noreferrer" title="{{ text_rek_link_title|e('html_attr') }}">{{ text_rek_link_text|e }}</a></div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
