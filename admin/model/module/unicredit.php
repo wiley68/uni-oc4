@@ -21,16 +21,33 @@ class Unicredit extends \Opencart\System\Engine\Model
     }
 
     /**
+     * Главни категории (parent_id = 0). Админският и каталожният Category модел в OC4 имат различни сигнатури на getCategories().
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function getTopLevelCategoryRows(): array
+    {
+        $this->load->model('catalog/category');
+        // OC задава APPLICATION като „Catalog“ / „Admin“ (виж system/framework.php).
+        $application = strtolower((string) ($this->config->get('application') ?? ''));
+
+        if ($application === 'catalog') {
+            return $this->model_catalog_category->getCategories(0);
+        }
+
+        return $this->model_catalog_category->getCategories([
+            'filter_parent_id' => 0,
+            'sort'             => 'sort_order',
+            'order'            => 'ASC',
+        ]);
+    }
+
+    /**
      * @return list<int>
      */
     public function getTopLevelCategoryIds(): array
     {
-        $this->load->model('catalog/category');
-        $categories = $this->model_catalog_category->getCategories([
-            'filter_parent_id' => 0,
-            'sort'             => 'sort_order',
-            'order'            => 'ASC'
-        ]);
+        $categories = $this->getTopLevelCategoryRows();
         $ids = [];
         foreach ($categories as $cat) {
             $id = (int) ($cat['category_id'] ?? 0);
@@ -49,12 +66,7 @@ class Unicredit extends \Opencart\System\Engine\Model
      */
     public function getTopLevelCategoryMappings(): array
     {
-        $this->load->model('catalog/category');
-        $categories = $this->model_catalog_category->getCategories([
-            'filter_parent_id' => 0,
-            'sort'             => 'sort_order',
-            'order'            => 'ASC'
-        ]);
+        $categories = $this->getTopLevelCategoryRows();
         $indexed = $this->getMappingsIndexedByCategoryId();
         $rows = [];
         foreach ($categories as $cat) {
@@ -126,6 +138,37 @@ class Unicredit extends \Opencart\System\Engine\Model
         }
 
         return true;
+    }
+
+    /**
+     * Същият pipeline като админ „Ръчно обновяване на кеша“: coeff purge, нулиране на KOP stats, опресняване на getparameters.
+     *
+     * @return array{result: string, kop_refreshed: bool, params_refreshed: bool, coeff_purged: int}
+     */
+    public function runBankPanelRefreshPipeline(string $unicid): array
+    {
+        $out = [
+            'result' => 'error',
+            'kop_refreshed' => false,
+            'params_refreshed' => false,
+            'coeff_purged' => 0,
+        ];
+
+        $unicid = trim($unicid);
+        if ($unicid === '') {
+            return $out;
+        }
+
+        $out['coeff_purged'] = $this->purgeCoeffCacheOlderThanToday();
+        $this->refreshKopMappingsResetStats();
+        $out['kop_refreshed'] = true;
+
+        $params = $this->fetchUniParamsFromBankAndCache($unicid, true);
+        $out['params_refreshed'] = is_array($params);
+
+        $out['result'] = $out['params_refreshed'] ? 'success' : 'partial';
+
+        return $out;
     }
 
     /**

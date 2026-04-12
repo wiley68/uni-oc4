@@ -299,7 +299,8 @@ class ProductPanel extends Model
      * }|null
      * uni_logo / uni_picture: URL към catalog/view/stylesheet/mt_uni_credit/uni_logo.jpg и unim.png.
      * uni_reklama_url, uni_container_txt1, uni_container_txt2: от getparameters ($paramsuni).
-     * uni_container_status: от getcalculation ($paramsunicalc), по подразбиране Yes.
+     * uni_container_status в assign: от getcalculation ($paramsunicalc), по подразбиране Yes.
+     * От getparameters също се чете uni_container_status (Yes/No); при No рекламата не се показва.
      */
     public function buildAssignForUnipanel(string $shopSslBase, string $userAgent): ?array
     {
@@ -315,7 +316,11 @@ class ProductPanel extends Model
         }
 
         $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, false);
-        if (!is_array($paramsuni) || (($paramsuni['uni_status'] ?? '') !== 'Yes')) {
+        if (
+            !is_array($paramsuni)
+            || (($paramsuni['uni_status'] ?? '') !== 'Yes')
+            || (($paramsuni['uni_container_status'] ?? 'Yes') !== 'Yes')
+        ) {
             return null;
         }
 
