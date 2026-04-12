@@ -1,4 +1,59 @@
 let uni_old_vnoski;
+
+/**
+ * Закръгляне до 2 знака (стотинки) за суми от float операции.
+ */
+function uniRoundMoney2(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) {
+        return 0;
+    }
+    return Math.round(n * 100) / 100;
+}
+
+/**
+ * Показване на цена като цяла част + два знака стотинки без float артефакти (напр. 1040 вместо 1039.100).
+ */
+function uniMoneyToDisplayParts(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) {
+        return { intPart: 0, decTwo: '00' };
+    }
+    let cents = Math.round(n * 100);
+    if (cents < 0) {
+        cents = 0;
+    }
+    return {
+        intPart: Math.floor(cents / 100),
+        decTwo: String(cents % 100).padStart(2, '0')
+    };
+}
+
+/**
+ * Стойност от OC (число/низ) → цели стотинки (закръглени), без float при събиране на опции.
+ */
+function uniCoercePriceToCents(v) {
+    if (v === null || v === undefined) {
+        return 0;
+    }
+    const n = parseFloat(String(v).replace(',', '.'));
+    if (!Number.isFinite(n)) {
+        return 0;
+    }
+    return Math.round(n * 100);
+}
+
+/**
+ * (базова цена + опции) × количество, резултатът в лева/евро с точност до стотинка.
+ */
+function uniLineTotalFromPartsCents(baseCents, optsCents, quantity) {
+    let q = Number(quantity);
+    if (!Number.isFinite(q) || q <= 0) {
+        q = 1;
+    }
+    return Math.round((baseCents + optsCents) * q) / 100;
+}
+
 function uniChangeContainer() {
     var uni_label_container = document.getElementsByClassName("uni-label-container")[0];
     if (uni_label_container.style.visibility == 'visible') {
@@ -23,6 +78,12 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
     const uni_param_kimb_24 = parseFloat(document.getElementById("uni_param_kimb_24").value);
     const uni_param_kimb_30 = parseFloat(document.getElementById("uni_param_kimb_30").value);
     const uni_param_kimb_36 = parseFloat(document.getElementById("uni_param_kimb_36").value);
+
+    const calcHolder = document.getElementById('uni_get_product_link');
+    const calcUrl = calcHolder && calcHolder.value ? String(calcHolder.value).trim() : '';
+    if (!calcUrl) {
+        return;
+    }
 
     $.ajax({
         url: calcUrl,
@@ -144,7 +205,7 @@ $(document).ready(function () {
         const uniProductPopupContainer = document.getElementById("uni-product-popup-container");
         let uni_price1 = uni_price.value;
         let uni_quantity = 1;
-        let uni_priceall = parseFloat(uni_price1) * uni_quantity;
+        let uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), 0, uni_quantity);
         const uni_buy_buttons_submit = document.querySelectorAll('#button-cart');
 
         $(document).on("click", "#btn_uni", function (e) {
@@ -153,7 +214,7 @@ $(document).ready(function () {
                     uni_buy_buttons_submit.item(0).click();
                 }
             } else {
-                let total_price = 0;
+                let total_opts_cents = 0;
                 uni_price1 = uni_price.value;
                 if (document.getElementById("input-quantity") !== null) {
                     uni_quantity = parseFloat(document.getElementById("input-quantity").value);
@@ -196,7 +257,7 @@ $(document).ready(function () {
                                                     var tempid = parseInt(JSON.stringify(json['optionresult'][i]['product_option_value'][n]['product_option_value_id']).replace(/['"]+/g, ''));
                                                     var curid = parseInt(JSON.stringify(current_options[m]).replace(/['"]+/g, ''));
                                                     if (tempid == curid) {
-                                                        total_price += parseFloat(JSON.stringify(json['optionresult'][i]['product_option_value'][n]['price']).replace(/['"]+/g, ''));
+                                                        total_opts_cents += uniCoercePriceToCents(json['optionresult'][i]['product_option_value'][n]['price']);
                                                     }
                                                 }
                                             }
@@ -205,14 +266,13 @@ $(document).ready(function () {
                                                 var tempid = parseInt(JSON.stringify(json['optionresult'][i]['product_option_value'][j]['product_option_value_id']).replace(/['"]+/g, ''));
                                                 var curid = parseInt(JSON.stringify(current_options).replace(/['"]+/g, ''));
                                                 if (tempid == curid) {
-                                                    total_price += parseFloat(JSON.stringify(json['optionresult'][i]['product_option_value'][j]['price']).replace(/['"]+/g, ''));
+                                                    total_opts_cents += uniCoercePriceToCents(json['optionresult'][i]['product_option_value'][j]['price']);
                                                 }
                                             }
                                         }
                                     }
 
-                                    uni_price1 = parseFloat(uni_price1) + total_price;
-                                    uni_priceall = parseFloat(uni_price1) * uni_quantity;
+                                    uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
 
                                     const uni_eur = parseInt(document.getElementById("uni_eur").value);
                                     const uni_currency_code = document.getElementById("uni_currency_code").value;
@@ -231,12 +291,12 @@ $(document).ready(function () {
                                             }
                                             break;
                                     }
-                                    uni_priceall = Math.round(uni_priceall * 100) / 100;
+                                    uni_priceall = uniRoundMoney2(uni_priceall);
+                                    const uniPriceParts = uniMoneyToDisplayParts(uni_priceall);
                                     const uni_price_int = document.getElementById('uni_price_int');
-                                    uni_price_int.innerHTML = Math.floor(uni_priceall);
+                                    uni_price_int.innerHTML = uniPriceParts.intPart;
                                     const uni_price_dec = document.getElementById('uni_price_dec');
-                                    const decimalPartTwoDigitsStr = String(Math.ceil((uni_priceall - Math.trunc(uni_priceall)) * 100)).padStart(2, '0');
-                                    uni_price_dec.innerHTML = decimalPartTwoDigitsStr;
+                                    uni_price_dec.innerHTML = uniPriceParts.decTwo;
 
                                     const uni_price_second_int = document.getElementById("uni_price_second_int");
                                     const uni_price_second_dec = document.getElementById("uni_price_second_dec");
@@ -259,8 +319,7 @@ $(document).ready(function () {
                             }
                         });
                     } else {
-                        uni_price1 = parseFloat(uni_price1) + total_price;
-                        uni_priceall = parseFloat(uni_price1) * uni_quantity;
+                        uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
 
                         const uni_eur = parseInt(document.getElementById("uni_eur").value);
                         const uni_currency_code = document.getElementById("uni_currency_code").value;
@@ -280,11 +339,12 @@ $(document).ready(function () {
                                 break;
                         }
 
+                        uni_priceall = uniRoundMoney2(uni_priceall);
+                        const uniPricePartsNoJq = uniMoneyToDisplayParts(uni_priceall);
                         const uni_price_int = document.getElementById('uni_price_int');
-                        uni_price_int.innerHTML = Math.floor(uni_priceall);
+                        uni_price_int.innerHTML = uniPricePartsNoJq.intPart;
                         const uni_price_dec = document.getElementById('uni_price_dec');
-                        const decimalPartTwoDigitsStr = String(Math.ceil((uni_priceall - Math.trunc(uni_priceall)) * 100)).padStart(2, '0');
-                        uni_price_dec.innerHTML = decimalPartTwoDigitsStr;
+                        uni_price_dec.innerHTML = uniPricePartsNoJq.decTwo;
 
                         const uni_price_second_int = document.getElementById("uni_price_second_int");
                         const uni_price_second_dec = document.getElementById("uni_price_second_dec");
@@ -305,8 +365,7 @@ $(document).ready(function () {
                         uni_pogasitelni_vnoski_input_change(uni_priceall);
                     }
                 } else {
-                    uni_price1 = parseFloat(uni_price1) + total_price;
-                    uni_priceall = parseFloat(uni_price1) * uni_quantity;
+                    uni_priceall = uniLineTotalFromPartsCents(uniCoercePriceToCents(uni_price1), total_opts_cents, uni_quantity);
 
                     const uni_eur = parseInt(document.getElementById("uni_eur").value);
                     const uni_currency_code = document.getElementById("uni_currency_code").value;
@@ -326,13 +385,14 @@ $(document).ready(function () {
                             break;
                     }
 
+                    uni_priceall = uniRoundMoney2(uni_priceall);
+                    const uniPricePartsNoOpt = uniMoneyToDisplayParts(uni_priceall);
                     const uni_price = document.getElementById('uni_price');
-                    uni_price.value = uni_priceall;
+                    uni_price.value = uniPricePartsNoOpt.intPart + '.' + uniPricePartsNoOpt.decTwo;
                     const uni_price_int = document.getElementById('uni_price_int');
-                    uni_price_int.innerHTML = Math.floor(uni_priceall);
+                    uni_price_int.innerHTML = uniPricePartsNoOpt.intPart;
                     const uni_price_dec = document.getElementById('uni_price_dec');
-                    const decimalPartTwoDigitsStr = String(Math.ceil((uni_priceall - Math.trunc(uni_priceall)) * 100)).padStart(2, '0');
-                    uni_price_dec.innerHTML = decimalPartTwoDigitsStr;
+                    uni_price_dec.innerHTML = uniPricePartsNoOpt.decTwo;
 
                     const uni_price_second_int = document.getElementById("uni_price_second_int");
                     const uni_price_second_dec = document.getElementById("uni_price_second_dec");
