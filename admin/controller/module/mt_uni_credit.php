@@ -141,6 +141,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_setting_event->deleteEventByCode($this->module . '_before_content_top');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
         }
+
+        $this->removeCatalogPublicAssets();
     }
 
     public function save(): void
@@ -369,6 +371,56 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
             @copy($pathname, $dest);
         }
+    }
+
+    /**
+     * Премахва публично копираните ресурси от syncCatalogPublicAssets() (само папки с име mt_uni_credit).
+     */
+    protected function removeCatalogPublicAssets(): void
+    {
+        $catalogRoot = \defined('DIR_CATALOG')
+            ? (string) \constant('DIR_CATALOG')
+            : rtrim(\dirname(\DIR_APPLICATION), '/') . '/catalog/';
+        $catalogRoot = rtrim($catalogRoot, '/\\') . '/';
+
+        if (!is_dir($catalogRoot)) {
+            return;
+        }
+
+        foreach (['view/stylesheet/mt_uni_credit', 'view/javascript/mt_uni_credit'] as $rel) {
+            $this->deleteMtUniCreditPublicDirectory($catalogRoot . $rel);
+        }
+    }
+
+    /**
+     * Рекурсивно изтрива директория, само ако последният сегмент е точно mt_uni_credit.
+     */
+    protected function deleteMtUniCreditPublicDirectory(string $path): void
+    {
+        $path = rtrim($path, '/\\');
+        if ($path === '' || !is_dir($path) || basename($path) !== 'mt_uni_credit') {
+            return;
+        }
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+        } catch (\Exception) {
+            return;
+        }
+
+        foreach ($iterator as $item) {
+            $full = $item->getPathname();
+            if ($item->isDir()) {
+                @rmdir($full);
+            } else {
+                @unlink($full);
+            }
+        }
+
+        @rmdir($path);
     }
 
     protected function init(): void
