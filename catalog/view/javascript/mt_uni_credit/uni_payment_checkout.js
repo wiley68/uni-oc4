@@ -168,9 +168,6 @@
                         window.location = json.redirect;
                         return;
                     }
-                    if (json.error && window.console) {
-                        console.log(json.error);
-                    }
                     $btn.prop('disabled', false);
                     if (typeof $btn.button === 'function') {
                         $btn.button('reset');

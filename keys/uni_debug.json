@@ -238,3 +238,50 @@ cURL грешка:
 }
 ########################################################################
 
+========================================================================
+Време: 2026-04-13 11:50:41
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "C7A327815E97DF746C3FE4139304D729"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 198,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 2027.99,
+    "initialPayment": 0,
+    "installmentCount": 24,
+    "monthlyPayment": 113.39,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1030
+        },
+        {
+            "name": "Apple Cinema 30&quot;",
+            "code": "42",
+            "type": "28",
+            "count": 2,
+            "singlePrice": 457.41
+        }
+    ]
+}
+########################################################################
+

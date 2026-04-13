@@ -12,6 +12,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private $event_product_controller = 'extension/mt_uni_credit/event/mt_uni_credit_product_controller';
     private $event_product_view = 'extension/mt_uni_credit/event/mt_uni_credit_product_view';
     private $event_checkout = 'extension/mt_uni_credit/event/mt_uni_credit_checkout';
+    private $event_cart_controller = 'extension/mt_uni_credit/event/mt_uni_credit_cart_controller';
+    private $event_cart_view = 'extension/mt_uni_credit/event/mt_uni_credit_cart_view';
 
     public function index(): void
     {
@@ -143,6 +145,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_setting_event->deleteEventByCode($this->module . '_after_content_top_view');
             $this->model_setting_event->deleteEventByCode($this->module . '_before_checkout');
             $this->model_setting_event->deleteEventByCode($this->module . '_after_checkout_view');
+            $this->model_setting_event->deleteEventByCode($this->module . '_before_cart_controller');
+            $this->model_setting_event->deleteEventByCode($this->module . '_after_cart_view');
         }
 
         $this->removeCatalogPublicAssets();
@@ -436,6 +440,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $descView = sprintf($this->language->get('uni_event_description_product_view'), $moduleName);
         $descContentTopController = sprintf($this->language->get('uni_event_description_content_top_controller'), $moduleName);
         $descContentTopView = sprintf($this->language->get('uni_event_description_content_top_view'), $moduleName);
+        $descCartController = sprintf($this->language->get('uni_event_description_cart_controller'), $moduleName);
+        $descCartView = sprintf($this->language->get('uni_event_description_cart_view'), $moduleName);
 
         $this->load->model('setting/event');
 
@@ -502,6 +508,26 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'sort_order'  => 0
         ]);
 
+        $this->model_setting_event->deleteEventByCode($this->module . '_before_cart_controller');
+        $this->model_setting_event->addEvent([
+            'code' => $this->module . '_before_cart_controller',
+            'description' => $descCartController,
+            'trigger' => 'catalog/controller/checkout/cart/before',
+            'action' => $this->event_cart_controller . $uni_separator . 'init',
+            'status' => true,
+            'sort_order' => 0
+        ]);
+
+        $this->model_setting_event->deleteEventByCode($this->module . '_after_cart_view');
+        $this->model_setting_event->addEvent([
+            'code' => $this->module . '_after_cart_view',
+            'description' => $descCartView,
+            'trigger' => 'catalog/view/checkout/cart_list/after',
+            'action' => $this->event_cart_view . $uni_separator . 'init',
+            'status' => true,
+            'sort_order' => 0
+        ]);
+
         $this->load->model('user/user_group');
         $groups = $this->model_user_user_group->getUserGroups();
 
@@ -510,6 +536,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_product_view);
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_content_top);
             $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_checkout);
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_cart_controller);
+            $this->model_user_user_group->addPermission($group['user_group_id'], 'access', $this->event_cart_view);
         }
     }
 
