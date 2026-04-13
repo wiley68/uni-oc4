@@ -137,7 +137,7 @@ class UniBankRedirect extends Model
                     }
                     break;
             }
-            $uniItems[$ident]['singlePrice'] = $productsPTemp;
+            $uniItems[$ident]['singlePrice'] = (float) number_format($productsPTemp, 2, '.', '');
             ++$ident;
         }
 
@@ -220,14 +220,14 @@ class UniBankRedirect extends Model
             'clientEmail'        => $this->sanitizeUniString($uniEmailSend),
             'clientDeliveryAddress' => $this->sanitizeUniString($uniShippingAddress),
             'onlineProductCode'  => $uniKop,
-            'totalPrice'         => $uniTotal,
+            'totalPrice'         => (float) number_format($uniTotal, 2, '.', ''),
             'initialPayment'     => $uniParva,
             'installmentCount'   => $uniVnoski,
             'monthlyPayment'     => $uniMesecna,
             'items'              => $uniItems,
         ];
 
-        $uniApi = 0;
+        $uniApi = '';
         if (isset($paramsuniadd['status']) && $paramsuniadd['status'] === 'Yes') {
             $uniApi = $this->callSucfOnlineSessionStart(
                 rtrim($uniService, '/') . '/',
@@ -264,7 +264,7 @@ class UniBankRedirect extends Model
 
         $uniApplicationTrim = rtrim($uniApplication, '/');
         $uniBankReadyRedirect = (int) ($paramsuni['uni_proces1'] ?? 1) === 1
-            && $uniApi > 0
+            && $uniApi !== ''
             && $uniApplicationTrim !== '';
 
         $data = [
@@ -495,7 +495,7 @@ class UniBankRedirect extends Model
     /**
      * @param array<string, mixed> $uniData
      */
-    private function callSucfOnlineSessionStart(string $serviceUrl, array $uniData, bool $useCert, int $orderId): int
+    private function callSucfOnlineSessionStart(string $serviceUrl, array $uniData, bool $useCert, int $orderId): string
     {
         $url = rtrim($serviceUrl, '/') . '/sucfOnlineSessionStart';
         $jsonBody = json_encode($uniData, JSON_UNESCAPED_UNICODE);
@@ -523,7 +523,7 @@ class UniBankRedirect extends Model
             $this->load->model('extension/mt_uni_credit/module/product_panel');
             $paths = $this->model_extension_mt_uni_credit_module_product_panel->getUnicreditClientPemPaths();
             if ($paths === null) {
-                return 0;
+                return '';
             }
             $pass = $this->model_extension_mt_uni_credit_module_product_panel->getClientPemPassphrase();
             $opts[CURLOPT_SSLKEY] = $paths['key'];
@@ -571,9 +571,9 @@ class UniBankRedirect extends Model
 
         $apiObj = json_decode((string) $responseapi);
         if (is_object($apiObj) && !empty($apiObj->sucfOnlineSessionID)) {
-            return (int) $apiObj->sucfOnlineSessionID;
+            return (string) $apiObj->sucfOnlineSessionID;
         }
 
-        return 0;
+        return '';
     }
 }

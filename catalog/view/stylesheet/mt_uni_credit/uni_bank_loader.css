@@ -3,8 +3,30 @@
  */
 .uni-bank-loader-panel {
     display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(255, 255, 255, 0.96);
     text-align: center;
     padding: 2rem 1rem;
+    pointer-events: auto;
+    cursor: progress;
+}
+
+.uni-bank-loader-panel.is-active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.uni-bank-loader-panel__content {
+    max-width: 30rem;
+    width: 100%;
+}
+
+body.uni-bank-redirect-lock {
+    overflow: hidden;
+    touch-action: none;
 }
 
 .uni-bank-loader {

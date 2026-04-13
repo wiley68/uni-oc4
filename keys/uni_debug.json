@@ -1,5 +1,5 @@
 ========================================================================
-Време: 2026-04-13 08:44:06
+Време: 2026-04-13 10:00:06
 ------------------------------------------------------------------------
 cURL грешка:
 (няма)
@@ -8,38 +8,38 @@ cURL грешка:
 {
     "errorCode": null,
     "errorText": null,
-    "sucfOnlineSessionID": "7FF9BEFB127F93A3A6F7AD3F321E1A4E"
+    "sucfOnlineSessionID": "28938E1B2382C6406266AED6E724D5DE"
 }
 
 Заявка (JSON body):
 {
     "user": "Wiley68",
     "pass": "Avatest",
-    "orderNo": 184,
+    "orderNo": 192,
     "clientFirstName": "Тест",
     "clientLastName": "Тест",
     "clientPhone": "",
     "clientEmail": "ilko.iv@gmail.com",
     "clientDeliveryAddress": "Тест Улица",
     "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
+    "totalPrice": 1009.99,
+    "initialPayment": 100,
     "installmentCount": 12,
-    "monthlyPayment": 97.49,
+    "monthlyPayment": 88.71,
     "items": [
         {
             "name": "iPhone",
             "code": "40",
             "type": "24",
             "count": 1,
-            "singlePrice": 999.9960000000001
+            "singlePrice": 1009.99
         }
     ]
 }
 ########################################################################
 
 ========================================================================
-Време: 2026-04-13 08:56:11
+Време: 2026-04-13 10:04:50
 ------------------------------------------------------------------------
 cURL грешка:
 (няма)
@@ -48,191 +48,31 @@ cURL грешка:
 {
     "errorCode": null,
     "errorText": null,
-    "sucfOnlineSessionID": "A88F61663FB7203C5E35E98CCB78ABB9"
+    "sucfOnlineSessionID": "334E597E1EA2929150E88842F93A06E0"
 }
 
 Заявка (JSON body):
 {
     "user": "Wiley68",
     "pass": "Avatest",
-    "orderNo": 185,
+    "orderNo": 193,
     "clientFirstName": "Тест",
     "clientLastName": "Тест",
     "clientPhone": "",
-    "clientEmail": "ilko.iv@gmail.com",
+    "clientEmail": "home@avalonbg.com",
     "clientDeliveryAddress": "Тест Улица",
     "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
-    "installmentCount": 12,
-    "monthlyPayment": 97.49,
+    "totalPrice": 2105,
+    "initialPayment": 100,
+    "installmentCount": 24,
+    "monthlyPayment": 111.83,
     "items": [
         {
             "name": "iPhone",
             "code": "40",
             "type": "24",
-            "count": 1,
-            "singlePrice": 999.9960000000001
-        }
-    ]
-}
-########################################################################
-
-========================================================================
-Време: 2026-04-13 09:04:10
-------------------------------------------------------------------------
-cURL грешка:
-(няма)
-
-Отговор (JSON):
-{
-    "errorCode": null,
-    "errorText": null,
-    "sucfOnlineSessionID": "B7777E7C5BD44841B460D8127D7CB3D0"
-}
-
-Заявка (JSON body):
-{
-    "user": "Wiley68",
-    "pass": "Avatest",
-    "orderNo": 186,
-    "clientFirstName": "Тест",
-    "clientLastName": "Тест",
-    "clientPhone": "0887393310",
-    "clientEmail": "ilko.iv@gmail.com",
-    "clientDeliveryAddress": "Тест Улица",
-    "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
-    "installmentCount": 12,
-    "monthlyPayment": 97.49,
-    "items": [
-        {
-            "name": "iPhone",
-            "code": "40",
-            "type": "24",
-            "count": 1,
-            "singlePrice": 999.9960000000001
-        }
-    ]
-}
-########################################################################
-
-========================================================================
-Време: 2026-04-13 09:12:34
-------------------------------------------------------------------------
-cURL грешка:
-(няма)
-
-Отговор (JSON):
-{
-    "errorCode": null,
-    "errorText": null,
-    "sucfOnlineSessionID": "F371DF4F8C5594F5E43DF36F334A3436"
-}
-
-Заявка (JSON body):
-{
-    "user": "Wiley68",
-    "pass": "Avatest",
-    "orderNo": 187,
-    "clientFirstName": "Тест",
-    "clientLastName": "Тест",
-    "clientPhone": "0887393310",
-    "clientEmail": "ilko.iv@gmail.com",
-    "clientDeliveryAddress": "Тест Улица",
-    "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
-    "installmentCount": 12,
-    "monthlyPayment": 97.49,
-    "items": [
-        {
-            "name": "iPhone",
-            "code": "40",
-            "type": "24",
-            "count": 1,
-            "singlePrice": 999.9960000000001
-        }
-    ]
-}
-########################################################################
-
-========================================================================
-Време: 2026-04-13 09:22:37
-------------------------------------------------------------------------
-cURL грешка:
-(няма)
-
-Отговор (JSON):
-{
-    "errorCode": null,
-    "errorText": null,
-    "sucfOnlineSessionID": "518958FEC004243DC4734AD15E87E0D3"
-}
-
-Заявка (JSON body):
-{
-    "user": "Wiley68",
-    "pass": "Avatest",
-    "orderNo": 188,
-    "clientFirstName": "Тест",
-    "clientLastName": "Тест",
-    "clientPhone": "0887393310",
-    "clientEmail": "ilko.iv@gmail.com",
-    "clientDeliveryAddress": "Тест Улица",
-    "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
-    "installmentCount": 12,
-    "monthlyPayment": 97.49,
-    "items": [
-        {
-            "name": "iPhone",
-            "code": "40",
-            "type": "24",
-            "count": 1,
-            "singlePrice": 999.9960000000001
-        }
-    ]
-}
-########################################################################
-
-========================================================================
-Време: 2026-04-13 09:25:33
-------------------------------------------------------------------------
-cURL грешка:
-(няма)
-
-Отговор (JSON):
-{
-    "errorCode": null,
-    "errorText": null,
-    "sucfOnlineSessionID": "A41E714D80463FC0AA80F01CCBE23E2D"
-}
-
-Заявка (JSON body):
-{
-    "user": "Wiley68",
-    "pass": "Avatest",
-    "orderNo": 189,
-    "clientFirstName": "Илко",
-    "clientLastName": "Иванов",
-    "clientPhone": "0887393310",
-    "clientEmail": "ilko@gmail.com",
-    "clientDeliveryAddress": "Тест Улица",
-    "onlineProductCode": "POS COM 50",
-    "totalPrice": 999.996,
-    "initialPayment": 0,
-    "installmentCount": 12,
-    "monthlyPayment": 97.49,
-    "items": [
-        {
-            "name": "iPhone",
-            "code": "40",
-            "type": "24",
-            "count": 1,
-            "singlePrice": 999.9960000000001
+            "count": 2,
+            "singlePrice": 962.5
         }
     ]
 }
