@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.stub.php": "php"
+  },
+  "intelephense.environment.includePaths": ["${workspaceFolder}/stubs"]
+}

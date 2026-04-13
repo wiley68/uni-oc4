@@ -2,7 +2,6 @@
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
 
 # Logs
 *.log
@@ -25,6 +24,3 @@ build/
 .env
 .env.*
 !.env.example
-
-# Локални stub overrides (по избор); проследените stubs са в stubs/*.stub.php
-stubs/local/
