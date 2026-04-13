@@ -4,8 +4,6 @@ namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Payment;
 
 class Uni extends \Opencart\System\Engine\Controller
 {
-    private string $module = 'module_mt_uni_credit';
-
     public function index(): string
     {
         $this->load->language('extension/mt_uni_credit/payment/uni');

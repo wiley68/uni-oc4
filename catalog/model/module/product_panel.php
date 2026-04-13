@@ -415,7 +415,7 @@ class ProductPanel extends Model
             'uni_price_second'      => '0',
             'uni_liveurl'           => rtrim(UnicreditConfig::LIVE_URL, '/'),
             'uni_unicid'            => trim((string) $this->config->get($this->module . '_unicid')),
-            'uni_mod_version'       => '1.4.0',
+            'uni_mod_version'       => '1.4.1',
             'uni_proces1'           => 0,
             'uni_proces2'           => 0,
             'uni_first_vnoska'      => 'No',

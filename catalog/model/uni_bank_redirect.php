@@ -63,6 +63,13 @@ class UniBankRedirect extends Model
         $uniLname = (string) ($order['lastname'] ?? '');
         $uniPhone = (string) ($order['telephone'] ?? '');
         $uniEmail = (string) ($order['email'] ?? '');
+
+        // Формата в чекаута изпраща тези полета в handoff; поръчката може да има празни firstname/telephone
+        // (данните са само в коментар [UniCredit]). За банката ползваме попълненото във формата, иначе — от ордера.
+        $uniFnameSend = $this->uniCustomerFieldPreferHandoff($uniFnameGet, $uniFname);
+        $uniLnameSend = $this->uniCustomerFieldPreferHandoff($uniLnameGet, $uniLname);
+        $uniPhoneSend = $this->uniCustomerFieldPreferHandoff($uniPhoneGet, $uniPhone);
+        $uniEmailSend = $this->uniCustomerFieldPreferHandoff($uniEmailGet, $uniEmail);
         $uniBillingAddress = (string) ($order['payment_address_1'] ?? '');
         $uniBillingCity = (string) ($order['payment_city'] ?? '');
         $uniBillingCounty = (string) ($order['payment_zone'] ?? '');
@@ -146,17 +153,18 @@ class UniBankRedirect extends Model
             'parva'      => $uniParva,
             'devices'    => $devices,
             'currency'   => $uniCurrencyCodeSend,
+            // Контролният панел (addorders) очаква други ключове от JSON към sucfOnlineSessionStart (clientFirstName, …).
             'customer'   => [
-                'clientFirstName'       => $this->sanitizeUniString($uniFname),
-                'clientLastName'        => $this->sanitizeUniString($uniLname),
-                'clientPhone'           => $this->sanitizeUniString($uniPhone),
-                'clientEmail'           => $this->sanitizeUniString($uniEmail),
-                'clientDeliveryAddress' => $this->sanitizeUniString($uniShippingAddress),
-                'billingCity'           => $this->sanitizeUniString($uniBillingCity),
-                'billingCounty'         => $this->sanitizeUniString($uniBillingCounty),
-                'deliveryAddress'       => $this->sanitizeUniString($uniShippingAddress),
-                'deliveryCity'          => $this->sanitizeUniString($uniShippingCity),
-                'deliveryCounty'        => $this->sanitizeUniString($uniShippingCounty),
+                'firstName'        => $this->sanitizeUniString($uniFnameSend),
+                'lastName'         => $this->sanitizeUniString($uniLnameSend),
+                'email'            => $this->sanitizeUniString($uniEmailSend),
+                'phone'            => $this->sanitizeUniString($uniPhoneSend),
+                'billingAddress'   => $this->sanitizeUniString($uniBillingAddress),
+                'billingCity'      => $this->sanitizeUniString($uniBillingCity),
+                'billingCounty'    => $this->sanitizeUniString($uniBillingCounty),
+                'deliveryAddress'  => $this->sanitizeUniString($uniShippingAddress),
+                'deliveryCity'     => $this->sanitizeUniString($uniShippingCity),
+                'deliveryCounty'   => $this->sanitizeUniString($uniShippingCounty),
             ],
             'items' => $uniItems,
         ];
@@ -206,10 +214,10 @@ class UniBankRedirect extends Model
             'user'               => $uniUser,
             'pass'               => $uniPassword,
             'orderNo'            => $orderId,
-            'clientFirstName'    => $this->sanitizeUniString($uniFname),
-            'clientLastName'     => $this->sanitizeUniString($uniLname),
-            'clientPhone'        => $this->sanitizeUniString($uniPhone),
-            'clientEmail'        => $this->sanitizeUniString($uniEmail),
+            'clientFirstName'    => $this->sanitizeUniString($uniFnameSend),
+            'clientLastName'     => $this->sanitizeUniString($uniLnameSend),
+            'clientPhone'        => $this->sanitizeUniString($uniPhoneSend),
+            'clientEmail'        => $this->sanitizeUniString($uniEmailSend),
             'clientDeliveryAddress' => $this->sanitizeUniString($uniShippingAddress),
             'onlineProductCode'  => $uniKop,
             'totalPrice'         => $uniTotal,
@@ -280,6 +288,12 @@ class UniBankRedirect extends Model
     private function sanitizeUniString(string $s): string
     {
         return str_replace(["'", "'"], '', $s);
+    }
+
+    /** Попълнена стойност от Uni формата в чекаута, иначе от записа на поръчката. */
+    private function uniCustomerFieldPreferHandoff(string $handoff, string $fromOrder): string
+    {
+        return trim($handoff) !== '' ? $handoff : $fromOrder;
     }
 
     private function resolveUniLogoUrl(): string
@@ -430,16 +444,52 @@ class UniBankRedirect extends Model
      */
     private function sendProcess2Mail(string $resultHtml, array $paramsuni, string $uniEmailGet): void
     {
-        $toEmail = (string) $this->config->get('config_email');
-        $toName = (string) $this->config->get('config_name');
-        $toEmailAdminConfig = (string) ($paramsuni['uni_email'] ?? '');
-        $toml = $toEmail . ', ' . $uniEmailGet . ', ' . $toEmailAdminConfig;
-        $subject = mb_encode_mimeheader($this->language->get('text_uni_mail_subject'), 'UTF-8');
-        $headers = 'MIME-Version: 1.0' . "\r\n";
-        $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-        $headers .= 'To: ' . $toEmail . "\r\n";
-        $headers .= 'From: ' . mb_encode_mimeheader($this->language->get('text_uni_mail_from'), 'UTF-8') . ' <' . $toEmail . '>' . "\r\n";
-        @mail($toml, $subject, $resultHtml, $headers);
+        if (!$this->config->get('config_mail_engine')) {
+            return;
+        }
+
+        $from = (string) $this->config->get('config_email');
+        $sender = (string) $this->config->get('config_name');
+        $subject = (string) $this->language->get('text_uni_mail_subject');
+        $textBody = trim(strip_tags(str_replace(['<br />', '<br/>', '<br>'], PHP_EOL, $resultHtml)));
+        $mailOption = [
+            'parameter'     => $this->config->get('config_mail_parameter'),
+            'smtp_hostname' => $this->config->get('config_mail_smtp_hostname'),
+            'smtp_username' => $this->config->get('config_mail_smtp_username'),
+            'smtp_password' => html_entity_decode((string) $this->config->get('config_mail_smtp_password'), ENT_QUOTES, 'UTF-8'),
+            'smtp_port'     => $this->config->get('config_mail_smtp_port'),
+            'smtp_timeout'  => $this->config->get('config_mail_smtp_timeout')
+        ];
+
+        $recipients = [];
+        $customerEmail = trim($uniEmailGet);
+        if ($customerEmail !== '') {
+            $recipients[$customerEmail] = true;
+        }
+        $adminEmail = trim((string) $this->config->get('config_email'));
+        if ($adminEmail !== '') {
+            $recipients[$adminEmail] = true;
+        }
+        $moduleAdminEmail = trim((string) ($paramsuni['uni_email'] ?? ''));
+        if ($moduleAdminEmail !== '') {
+            $recipients[$moduleAdminEmail] = true;
+        }
+
+        foreach (array_keys($recipients) as $to) {
+            try {
+                $mailClass = '\Opencart\System\Library\Mail';
+                $mail = new $mailClass((string) $this->config->get('config_mail_engine'), $mailOption);
+                $mail->setTo($to);
+                $mail->setFrom($from);
+                $mail->setSender($sender);
+                $mail->setSubject($subject);
+                $mail->setText($textBody);
+                $mail->setHtml($resultHtml);
+                $mail->send();
+            } catch (\Throwable $e) {
+                // Не прекъсваме поръчката при mail грешка.
+            }
+        }
     }
 
     /**

@@ -1,14 +1,11 @@
 <?php
-
 $_['heading_title'] = 'UniCredit Consumer Financing';
-
 $_['button_confirm'] = 'Confirm Order';
 $_['text_loading'] = 'Loading...';
-
 $_['text_payment_unavailable'] = 'This payment method is not available. Please choose another payment method.';
 $_['text_cart_range'] = 'The cart total is outside the allowed range for installment purchase (%s – %s %s). Please adjust your cart.';
-$_['text_title_process_a'] = 'You can choose the loan term, your preferred monthly installment, and optionally an initial installment. Then confirm your choice. You will be redirected to UniCredit to complete your credit purchase.';
-$_['text_title_process_b'] = 'You can choose the loan term, your preferred monthly installment, and optionally an initial installment. Enter the required personal data and accept the terms of use. Then you can confirm your choice. A UniCredit representative will contact you to complete the process.';
+$_['text_title_process_a'] = 'You can choose the Loan Term, your preferred Monthly Installment, and if desired, the Initial Installment. Then confirm your choice. You will be transferred to the UniCredit page to complete your loan purchase.';
+$_['text_title_process_b'] = 'You can choose the Loan Term, your preferred Monthly Installment, and optionally the Initial Installment. Enter the required personal data and accept the terms of use. You can then confirm your choice. A UniCredit representative will contact you to complete the process.';
 $_['text_product_price'] = 'Product price';
 $_['text_credit_term'] = 'Loan term';
 $_['text_months_suffix'] = 'months';
