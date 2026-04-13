@@ -4,6 +4,12 @@
 (function ($, window, document) {
     'use strict';
 
+    function getEurBgnRate() {
+        var el = document.getElementById('uni_eur_bgn_rate');
+        var n = el ? parseFloat(String(el.value).replace(',', '.')) : NaN;
+        return isFinite(n) && n > 0 ? n : 1.95583;
+    }
+
     function parseConfig() {
         var el = document.getElementById('uni-cart-config');
         if (!el || !el.textContent) {
@@ -47,11 +53,12 @@
             return toNumberSafe(secondaryFromApi);
         }
         var p = toNumberSafe(primary);
+        var rate = getEurBgnRate();
         if (eurMode === 1) {
-            return p / 1.95583;
+            return p / rate;
         }
         if (eurMode === 2) {
-            return p * 1.95583;
+            return p * rate;
         }
         return 0;
     }

@@ -11,7 +11,7 @@ use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
  */
 class InstallmentIntent extends \Opencart\System\Engine\Controller
 {
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     public function save(): void
     {

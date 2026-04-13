@@ -8,6 +8,7 @@
   <input type="hidden" id="uni_get_product_link" value="{{ uni_get_product_link|e('html_attr') }}"/>
   <input type="hidden" id="uni_price" value="{{ uni_total|number_format(2, '.', '') }}"/>
   <input type="hidden" id="uni_eur" value="{{ uni_eur }}"/>
+  <input type="hidden" id="uni_eur_bgn_rate" value="{{ uni_eur_bgn_rate|e('html_attr') }}"/>
   <input type="hidden" id="uni_sign" value="{{ uni_sign|e('html_attr') }}"/>
   <input type="hidden" id="uni_sign_second" value="{{ uni_sign_second|e('html_attr') }}"/>
   <script type="application/json" id="uni-cart-config">{{ uni_cart_config_json|raw }}</script>

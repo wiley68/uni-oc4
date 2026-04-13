@@ -2,6 +2,10 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Class MtUniCreditCartView
  *
@@ -11,7 +15,7 @@ class MtUniCreditCartView extends \Opencart\System\Engine\Controller
 {
 
     private string $path = 'extension/mt_uni_credit/module/mt_uni_credit';
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     public function init(&$route, &$data, &$output): void
     {
@@ -39,7 +43,7 @@ class MtUniCreditCartView extends \Opencart\System\Engine\Controller
         );
         $assign['uni_checkout_url'] = $this->url->link('checkout/checkout', $lang, true);
         $assign['uni_get_product_link'] = $this->url->link('extension/mt_uni_credit/payment/uni.calculateUni', $lang, true);
-        $assign['uni_mod_version'] = '1.4.1';
+        $assign['uni_mod_version'] = UnicreditConfig::MODULE_VERSION;
 
         $stepsKey = 'text_steps_' . (int) ($assign['uni_eur'] ?? 0);
         $intro = $this->language->get($stepsKey);

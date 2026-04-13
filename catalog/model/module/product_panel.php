@@ -13,7 +13,6 @@ use Opencart\System\Engine\Model;
  */
 class ProductPanel extends Model
 {
-    private const EUR_BGN_RATE = 1.95583;
 
     /** @var list<int> */
     private const KIMB_BANK_INSTALLMENT_COUNTS = [3, 4, 5, 6, 9, 10, 12, 18, 24, 30, 36];
@@ -21,11 +20,9 @@ class ProductPanel extends Model
     /** @var list<int> */
     private const PRODUCT_INSTALLMENT_MONTHS = [3, 4, 5, 6, 9, 10, 12, 15, 18, 24, 30, 36];
 
-    private const COEFF_CACHE_TTL = 600;
-
     private const CLIENT_PEM_PASSPHRASE = '1234';
 
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     /**
      * Публичен URL-път (след shop base). Файловете идват от extension/.../view/stylesheet/mt_uni_credit/ и се копират в catalog/ при install/запис на модула.
@@ -158,13 +155,13 @@ class ProductPanel extends Model
         switch ($uniEur) {
             case 1:
                 if ($currencyCode === 'EUR') {
-                    $uniMesecna = (string) ((float) $uniMesecna * self::EUR_BGN_RATE);
+                    $uniMesecna = (string) ((float) $uniMesecna * UnicreditConfig::EUR_BGN_RATE);
                 }
                 break;
             case 2:
             case 3:
                 if ($currencyCode === 'BGN') {
-                    $uniMesecna = (string) ((float) $uniMesecna / self::EUR_BGN_RATE);
+                    $uniMesecna = (string) ((float) $uniMesecna / UnicreditConfig::EUR_BGN_RATE);
                 }
                 break;
         }
@@ -177,14 +174,14 @@ class ProductPanel extends Model
             case 0:
                 break;
             case 1:
-                $uniPriceSecond = number_format($uniPrice / self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = number_format((float) $uniMesecna / self::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniPrice / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format((float) $uniMesecna / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'лева';
                 $uniSignSecond = 'евро';
                 break;
             case 2:
-                $uniPriceSecond = number_format($uniPrice * self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = number_format((float) $uniMesecna * self::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniPrice * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format((float) $uniMesecna * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'евро';
                 $uniSignSecond = 'лева';
                 break;
@@ -261,12 +258,13 @@ class ProductPanel extends Model
             'uni_currency_code'               => $currencyCode,
             'uni_sign'                        => $uniSign,
             'uni_sign_second'                 => $uniSignSecond,
+            'uni_eur_bgn_rate'                => UnicreditConfig::EUR_BGN_RATE,
             'uni_zaglavie'                    => $uniZaglavie,
             'uni_vnoska'                      => $uniVnoska,
             'uni_mesecna'                     => $uniMesecna,
             'uni_product_id'                  => $productId,
             'uni_reklama_url'                 => $uniReklamaUrl,
-            'uni_mod_version'                 => '1.0.0',
+            'uni_mod_version'                 => UnicreditConfig::MODULE_VERSION,
             'uni_picture'                     => $uniPicture,
             'uni_mesecna_second'              => $uniMesecnaSecond,
             'uni_price_second'                => $uniPriceSecond,
@@ -411,11 +409,12 @@ class ProductPanel extends Model
             'uni_maxstojnost'       => 0.0,
             'uni_sign'              => 'лева',
             'uni_sign_second'       => 'евро',
+            'uni_eur_bgn_rate'      => UnicreditConfig::EUR_BGN_RATE,
             'uni_eur'               => 0,
             'uni_price_second'      => '0',
             'uni_liveurl'           => rtrim(UnicreditConfig::LIVE_URL, '/'),
             'uni_unicid'            => trim((string) $this->config->get($this->module . '_unicid')),
-            'uni_mod_version'       => '1.4.1',
+            'uni_mod_version'       => UnicreditConfig::MODULE_VERSION,
             'uni_proces1'           => 0,
             'uni_proces2'           => 0,
             'uni_first_vnoska'      => 'No',
@@ -751,13 +750,13 @@ class ProductPanel extends Model
         switch ($uniEur) {
             case 1:
                 if ($currencyCode === 'EUR') {
-                    return $uniTotal * self::EUR_BGN_RATE;
+                    return $uniTotal * UnicreditConfig::EUR_BGN_RATE;
                 }
                 break;
             case 2:
             case 3:
                 if ($currencyCode === 'BGN') {
-                    return $uniTotal / self::EUR_BGN_RATE;
+                    return $uniTotal / UnicreditConfig::EUR_BGN_RATE;
                 }
                 break;
         }
@@ -777,10 +776,10 @@ class ProductPanel extends Model
             case 0:
                 break;
             case 1:
-                $uniPriceSecond = number_format($uniPrice / self::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniPrice / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 break;
             case 2:
-                $uniPriceSecond = number_format($uniPrice * self::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniPrice * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'евро';
                 $uniSignSecond = 'лева';
                 break;
@@ -809,14 +808,14 @@ class ProductPanel extends Model
             case 0:
                 break;
             case 1:
-                $uniObshtoSecond = number_format($uniObshto / self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = number_format($uniMesecna / self::EUR_BGN_RATE, 2, '.', '');
-                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane / self::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtoSecond = number_format($uniObshto / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format($uniMesecna / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 break;
             case 2:
-                $uniObshtoSecond = number_format($uniObshto * self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = number_format($uniMesecna * self::EUR_BGN_RATE, 2, '.', '');
-                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane * self::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtoSecond = number_format($uniObshto * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = number_format($uniMesecna * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtozaplashtaneSecond = number_format($uniObshtozaplashtane * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 break;
             case 3:
                 break;
@@ -1140,7 +1139,7 @@ class ProductPanel extends Model
             return null;
         }
         $updatedTs = strtotime((string) ($q->row['date_upd'] ?? ''));
-        if ($updatedTs === false || (time() - (int) $updatedTs) >= self::COEFF_CACHE_TTL) {
+        if ($updatedTs === false || (time() - (int) $updatedTs) >= UnicreditConfig::API_CACHE_TTL_COEFF) {
             return null;
         }
         $data = json_decode((string) ($q->row['payload'] ?? ''), true);

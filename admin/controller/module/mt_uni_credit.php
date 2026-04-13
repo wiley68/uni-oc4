@@ -2,12 +2,16 @@
 
 namespace Opencart\Admin\Controller\Extension\MtUniCredit\Module;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 class MtUniCredit extends \Opencart\System\Engine\Controller
 {
     private array $error = [];
     private $path = 'extension/mt_uni_credit/module/mt_uni_credit';
     private $model = 'extension/mt_uni_credit/module/unicredit';
-    private $module = 'module_mt_uni_credit';
+    private $module = UnicreditConfig::MODULE_SETTING_KEY;
     private $event_content_top = 'extension/mt_uni_credit/event/mt_uni_credit_content_top';
     private $event_product_controller = 'extension/mt_uni_credit/event/mt_uni_credit_product_controller';
     private $event_product_view = 'extension/mt_uni_credit/event/mt_uni_credit_product_view';
@@ -26,7 +30,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->load->model('setting/setting');
 
         if (($this->request->server['REQUEST_METHOD'] === 'POST') && $this->validate()) {
-            $this->model_setting_setting->editSetting('module_mt_uni_credit', $this->request->post);
+            $this->model_setting_setting->editSetting($this->module, $this->request->post);
 
             $this->syncCatalogPublicAssets();
 
@@ -135,7 +139,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->model_extension_mt_uni_credit_module_unicredit->uninstall();
 
         $this->load->model('setting/setting');
-        $this->model_setting_setting->deleteSetting('module_mt_uni_credit');
+        $this->model_setting_setting->deleteSetting($this->module);
 
         if ($this->user->hasPermission('modify', $this->path)) {
             $this->load->model('setting/event');

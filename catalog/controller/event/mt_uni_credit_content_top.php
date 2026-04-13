@@ -2,12 +2,16 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Начална страница: плаващ банер — PS8 unipanel.tpl + unipanel.css + unipanel.js.
  */
 class MtUniCreditContentTop extends \Opencart\System\Engine\Controller
 {
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     public function init(&$route, &$data): void
     {

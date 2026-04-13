@@ -1,5 +1,11 @@
 let uni_old_vnoski;
 
+function uniGetEurBgnRate() {
+    const el = document.getElementById('uni_eur_bgn_rate');
+    const n = el ? parseFloat(String(el.value).replace(',', '.')) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 1.95583;
+}
+
 /**
  * Закръгляне до 2 знака (стотинки) за суми от float операции.
  */
@@ -94,19 +100,20 @@ function uniSumOptionPricesFromJson(json) {
 function uniApplyEurConversion(lineTotal) {
     const uni_eur = parseInt(document.getElementById('uni_eur').value, 10);
     const uni_currency_code = document.getElementById('uni_currency_code').value;
+    const rate = uniGetEurBgnRate();
     let uni_priceall = lineTotal;
     switch (uni_eur) {
         case 0:
             break;
         case 1:
             if (uni_currency_code === 'EUR') {
-                uni_priceall = uni_priceall * 1.95583;
+                uni_priceall = uni_priceall * rate;
             }
             break;
         case 2:
         case 3:
             if (uni_currency_code === 'BGN') {
-                uni_priceall = uni_priceall / 1.95583;
+                uni_priceall = uni_priceall / rate;
             }
             break;
         default:
@@ -139,12 +146,12 @@ function uniUpdatePopupLineTotalDisplay(uni_priceall, syncHiddenUniPrice) {
     const uni_price_second_dec = document.getElementById('uni_price_second_dec');
     if (uni_price_second_int !== null && uni_price_second_dec !== null) {
         if (uni_eur === 1) {
-            const uni_price_second_arr = (uni_priceall / 1.95583).toFixed(2).split('.');
+            const uni_price_second_arr = (uni_priceall / uniGetEurBgnRate()).toFixed(2).split('.');
             uni_price_second_int.textContent = uni_price_second_arr[0];
             uni_price_second_dec.textContent = uni_price_second_arr[1];
         }
         if (uni_eur === 2) {
-            const uni_price_second_arr = (uni_priceall * 1.95583).toFixed(2).split('.');
+            const uni_price_second_arr = (uni_priceall * uniGetEurBgnRate()).toFixed(2).split('.');
             uni_price_second_int.textContent = uni_price_second_arr[0];
             uni_price_second_dec.textContent = uni_price_second_arr[1];
         }
@@ -181,9 +188,9 @@ function uniUpdateButtonInstallmentLabels(uni_mesecna, months) {
     const signSecond = signSecondEl ? signSecondEl.value : '';
     let secVal = 0;
     if (uni_eur === 1) {
-        secVal = uni_mesecna / 1.95583;
+        secVal = uni_mesecna / uniGetEurBgnRate();
     } else if (uni_eur === 2) {
-        secVal = uni_mesecna * 1.95583;
+        secVal = uni_mesecna * uniGetEurBgnRate();
     }
     second.textContent = '(' + secVal.toFixed(2) + ' ' + signSecond + ')';
 }
@@ -388,12 +395,12 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
             uni_vnoska_dec.textContent = uni_vnoska_arr[1];
             if (uni_vnoska_second_int !== null && uni_vnoska_second_dec !== null) {
                 if (uni_eur == 1) {
-                    const uni_vnoska_second_arr = (uni_mesecna / 1.95583).toFixed(2).split(".");
+                    const uni_vnoska_second_arr = (uni_mesecna / uniGetEurBgnRate()).toFixed(2).split(".");
                     uni_vnoska_second_int.textContent = uni_vnoska_second_arr[0];
                     uni_vnoska_second_dec.textContent = uni_vnoska_second_arr[1];
                 }
                 if (uni_eur == 2) {
-                    const uni_vnoska_second_arr = (uni_mesecna * 1.95583).toFixed(2).split(".");
+                    const uni_vnoska_second_arr = (uni_mesecna * uniGetEurBgnRate()).toFixed(2).split(".");
                     uni_vnoska_second_int.textContent = uni_vnoska_second_arr[0];
                     uni_vnoska_second_dec.textContent = uni_vnoska_second_arr[1];
                 }

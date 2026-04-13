@@ -12,9 +12,7 @@ use Opencart\System\Engine\Model;
  */
 class UniBankRedirect extends Model
 {
-    private const EUR_BGN_RATE = 1.95583;
-
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     /**
      * @param array<string, mixed> $handoff Полета от payment confirm (сесия)
@@ -88,14 +86,14 @@ class UniBankRedirect extends Model
             case 1:
                 $uniCurrencyCodeSend = 'BGN';
                 if ($currencyCode === 'EUR') {
-                    $uniTotal = (float) number_format($uniTotal * self::EUR_BGN_RATE, 2, '.', '');
+                    $uniTotal = (float) number_format($uniTotal * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 }
                 break;
             case 2:
             case 3:
                 $uniCurrencyCodeSend = 'EUR';
                 if ($currencyCode === 'BGN') {
-                    $uniTotal = (float) number_format($uniTotal / self::EUR_BGN_RATE, 2, '.', '');
+                    $uniTotal = (float) number_format($uniTotal / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 }
                 break;
         }
@@ -127,13 +125,13 @@ class UniBankRedirect extends Model
                     break;
                 case 1:
                     if ($currencyCode === 'EUR') {
-                        $productsPTemp = ($productsPTemp * self::EUR_BGN_RATE);
+                        $productsPTemp = ($productsPTemp * UnicreditConfig::EUR_BGN_RATE);
                     }
                     break;
                 case 2:
                 case 3:
                     if ($currencyCode === 'BGN') {
-                        $productsPTemp = ($productsPTemp / self::EUR_BGN_RATE);
+                        $productsPTemp = ($productsPTemp / UnicreditConfig::EUR_BGN_RATE);
                     }
                     break;
             }
@@ -371,13 +369,13 @@ class UniBankRedirect extends Model
                     break;
                 case 1:
                     if ($uniCurrencyCode === 'EUR') {
-                        $itemSinglePrice = (float) number_format($itemSinglePrice * self::EUR_BGN_RATE, 2, '.', '');
+                        $itemSinglePrice = (float) number_format($itemSinglePrice * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                     }
                     break;
                 case 2:
                 case 3:
                     if ($uniCurrencyCode === 'BGN') {
-                        $itemSinglePrice = (float) number_format($itemSinglePrice / self::EUR_BGN_RATE, 2, '.', '');
+                        $itemSinglePrice = (float) number_format($itemSinglePrice / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                     }
                     break;
             }
@@ -398,14 +396,14 @@ class UniBankRedirect extends Model
             case 0:
                 break;
             case 1:
-                $uniTotalSecond = (float) number_format($uniTotal / self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = (float) number_format($uniMesecna / self::EUR_BGN_RATE, 2, '.', '');
-                $uniObshtaSecond = (float) number_format($uniObshta / self::EUR_BGN_RATE, 2, '.', '');
+                $uniTotalSecond = (float) number_format($uniTotal / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = (float) number_format($uniMesecna / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtaSecond = (float) number_format($uniObshta / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 break;
             case 2:
-                $uniTotalSecond = (float) number_format($uniTotal * self::EUR_BGN_RATE, 2, '.', '');
-                $uniMesecnaSecond = (float) number_format($uniMesecna * self::EUR_BGN_RATE, 2, '.', '');
-                $uniObshtaSecond = (float) number_format($uniObshta * self::EUR_BGN_RATE, 2, '.', '');
+                $uniTotalSecond = (float) number_format($uniTotal * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniMesecnaSecond = (float) number_format($uniMesecna * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniObshtaSecond = (float) number_format($uniObshta * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'евро';
                 $uniSignSecond = 'лева';
                 break;

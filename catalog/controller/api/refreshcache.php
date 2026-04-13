@@ -2,6 +2,10 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Api;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Публичен endpoint за опресняване на кеша (същият pipeline като админ бутона за refresh).
  * Маршрут: extension/mt_uni_credit/api/refreshcache.
@@ -15,7 +19,7 @@ class Refreshcache extends \Opencart\System\Engine\Controller
 {
     private const TIMESTAMP_SKEW_SECONDS = 300;
 
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     public function index(): void
     {

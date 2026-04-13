@@ -2,6 +2,10 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Вмъква UniCredit блок под бутона за количката на продуктова страница.
  */
@@ -9,7 +13,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
 {
     private string $path = 'extension/mt_uni_credit/module/mt_uni_credit_product';
 
-    private string $module = 'module_mt_uni_credit';
+    private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     public function init(&$route, &$data, &$output): void
     {
@@ -94,7 +98,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         }
 
         $assign['uni_steps_intro'] = $intro;
-        $assign['text_title_calc'] = sprintf($this->language->get('text_title_calc'), $assign['uni_mod_version'] ?? '1.0.0');
+        $assign['text_title_calc'] = sprintf($this->language->get('text_title_calc'), $assign['uni_mod_version'] ?? UnicreditConfig::MODULE_VERSION);
         $assign['text_installments'] = $this->language->get('text_installments');
         $assign['text_months'] = $this->language->get('text_months');
         $assign['text_item_price'] = $this->language->get('text_item_price');

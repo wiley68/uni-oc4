@@ -2,12 +2,16 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+require_once \DIR_EXTENSION . 'mt_uni_credit/admin/model/module/unicredit_config.php';
+
+use Opencart\Admin\Model\Extension\MtUniCredit\Module\UnicreditConfig;
+
 /**
  * Чекаута: ресурси за UniCredit плащане + скрипт за автоматичен избор на метода.
  */
 class MtUniCreditCheckout extends \Opencart\System\Engine\Controller
 {
-  private string $module = 'module_mt_uni_credit';
+  private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
   /**
    * CSS/JS за формата на плащане UniCredit (фрагментът се зарежда по AJAX — външните файлове са в <head>).
