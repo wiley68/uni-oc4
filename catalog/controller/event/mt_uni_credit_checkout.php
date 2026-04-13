@@ -94,7 +94,7 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Controller
       var \$radio = $('#modal-payment input[name="payment_method"][value="' + code.replace(/"/g, '\\"') + '"]');
       if (\$radio.length) {
         \$radio.prop('checked', true);
-        $('#form-payment-method').trigger('submit');
+        \$radio.trigger('change');
       }
     }, 200);
   });

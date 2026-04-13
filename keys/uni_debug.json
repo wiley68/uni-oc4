@@ -78,3 +78,163 @@ cURL грешка:
 }
 ########################################################################
 
+========================================================================
+Време: 2026-04-13 10:21:07
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "14E240E3771E0981885AD93935D6E2F1"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 194,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1030,
+    "initialPayment": 0,
+    "installmentCount": 24,
+    "monthlyPayment": 57.59,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1030
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 10:29:10
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "1384CE59ABEA19FCBB58F94C38989796"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 195,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1009.99,
+    "initialPayment": 0,
+    "installmentCount": 18,
+    "monthlyPayment": 70.37,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1009.99
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 10:32:50
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "384C5EC5FDB402F138A0F131D29A1F19"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 196,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1009.99,
+    "initialPayment": 0,
+    "installmentCount": 9,
+    "monthlyPayment": 126.71,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1009.99
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 10:36:04
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "DBD1CFC05950EAF8E9C2AD67BCACA5AF"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 197,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1009.99,
+    "initialPayment": 0,
+    "installmentCount": 24,
+    "monthlyPayment": 56.47,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1009.99
+        }
+    ]
+}
+########################################################################
+

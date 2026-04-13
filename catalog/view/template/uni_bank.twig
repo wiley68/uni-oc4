@@ -8,7 +8,7 @@
   <div class="row">{{ column_left }}
     <div id="content" class="{{ class }} mb-4">{{ content_top }}
       {% if uni_proces1 == 1 and uni_bank_ready_redirect %}
-        <div id="uniloaderpanel" class="uni-bank-loader-panel">
+        <div id="uniloaderpanel" class="uni-bank-loader-panel is-active">
           <div class="uni-bank-loader-panel__content" aria-live="polite" aria-busy="true">
             <div id="uniloader" class="uni-bank-loader"></div>
             <div id="uniloadertext" class="uni-bank-loader-text">{{ uni_pause_txt }}</div>
@@ -29,6 +29,19 @@
     {{ column_right }}</div>
 </div>
 {% if uni_proces1 == 1 and uni_bank_ready_redirect %}
+<style>
+  /* Fallback стилове: видим loader дори при забавено външно CSS */
+  #uniloaderpanel.uni-bank-loader-panel.is-active {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.96);
+    text-align: center;
+  }
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var panel = document.getElementById('uniloaderpanel');
@@ -39,7 +52,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var app = '{{ uni_application|e("js") }}';
   var sid = '{{ uni_api|default("")|e("js") }}';
   if (app && sid) {
-    window.location.href = app.replace(/\/$/, '') + '/' + sid;
+    setTimeout(function () {
+      window.location.href = app.replace(/\/$/, '') + '/' + sid;
+    }, 120);
   }
 });
 </script>
