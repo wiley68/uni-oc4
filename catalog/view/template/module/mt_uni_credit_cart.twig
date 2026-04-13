@@ -32,23 +32,23 @@
   </div>
 
   <div id="uni-product-popup-container" class="modalpayment_uni" style="display:none;">
-    <div class="{{ modalpayment_content_uni|e('html_attr') }}">
-      <div id="uni_body" class="{{ uni_body|e('html_attr') }}">
+    <div class="modalpayment_content_uni">
+      <div id="uni_body" class="uni_body">
         <div>
         <div class="uni_body">
           <img class="uni_image" title="{{ text_title_calc|e('html_attr') }}" src="{{ uni_picture|e('html_attr') }}" alt="{{ text_title_calc|e('html_attr') }}" loading="lazy"/>
           <div class="uni_body_txt">
-            <div class="{{ uni_gpr_container|e('html_attr') }}">
-              <div class="{{ uni_title_head|e('html_attr') }}">{{ uni_steps_intro|e }}</div>
-              <div class="{{ uni_title|e('html_attr') }}">
+            <div class="uni_gpr_container">
+              <div class="uni_title_head">{{ uni_steps_intro|e }}</div>
+              <div class="uni_title">
                 <p>{{ text_step_1|e }}</p><p>{{ text_step_2|e }}</p><p>{{ text_step_3|e }}</p><p>{{ text_step_4|e }}</p>
               </div>
-              <div class="{{ uni_calc_back|e('html_attr') }}">
+              <div class="uni_calc_back">
                 <div class="uni_calc_logo"></div>
-                <div class="{{ uni_calc|e('html_attr') }}">
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}">
-                    <div class="{{ uni_gpr_column|e('html_attr') }}">{{ text_item_price|e }}</div>
-                    <div class="{{ uni_gpr_column_right|e('html_attr') }}">
+                <div class="uni_calc">
+                  <div class="uni_gpr_container_row">
+                    <div class="uni_gpr_column">{{ text_item_price|e }}</div>
+                    <div class="uni_gpr_column_right">
                       {% if uni_eur == 0 or uni_eur == 3 %}
                         <span class="uni_red"><span id="uni_price_int"></span>.<span class="uni_sub"><span id="uni_price_dec"></span>&nbsp;{{ uni_sign|e }}</span></span>
                       {% else %}
@@ -59,10 +59,10 @@
                       {% endif %}
                     </div>
                   </div>
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}">
-                    <div class="{{ uni_gpr_column|e('html_attr') }}"><span class="uni_red">{{ uni_meseci_txt|e }}</span></div>
-                    <div class="{{ uni_gpr_column_right|e('html_attr') }}">
-                      <select id="uni_pogasitelni_vnoski_input" class="{{ uni_txt_right|e('html_attr') }}">
+                  <div class="uni_gpr_container_row">
+                    <div class="uni_gpr_column"><span class="uni_red">{{ uni_meseci_txt|e }}</span></div>
+                    <div class="uni_gpr_column_right">
+                      <select id="uni_pogasitelni_vnoski_input" class="uni_txt_right">
                         {% for m in [3,4,5,6,9,10,12,15,18,24,30,36] %}
                           {% if attribute(_context, 'uni_meseci_' ~ m) %}
                             <option value="{{ m }}" {% if uni_shema_current == m %}selected{% endif %}>{{ m }} {{ text_months|e }}</option>
@@ -71,9 +71,9 @@
                       </select>
                     </div>
                   </div>
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}">
-                    <div class="{{ uni_gpr_column|e('html_attr') }}">{{ uni_vnoska_txt|e }}</div>
-                    <div class="{{ uni_gpr_column_right|e('html_attr') }}">
+                  <div class="uni_gpr_container_row">
+                    <div class="uni_gpr_column">{{ uni_vnoska_txt|e }}</div>
+                    <div class="uni_gpr_column_right">
                       {% if uni_eur == 0 or uni_eur == 3 %}
                         <span class="uni_red"><span id="uni_vnoska_int"></span>.<span class="uni_sub"><span id="uni_vnoska_dec"></span>&nbsp;{{ uni_sign|e }}</span></span>
                       {% else %}
@@ -84,16 +84,16 @@
                       {% endif %}
                     </div>
                   </div>
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}"><div class="{{ uni_gpr_column|e('html_attr') }}">{{ text_glp|e }}</div><div class="{{ uni_gpr_column_right|e('html_attr') }}"><span class="uni_red"><span id="uni_glp_int"></span>%</span></div></div>
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}"><div class="{{ uni_gpr_column|e('html_attr') }}">{{ text_apr|e }}</div><div class="{{ uni_gpr_column_right|e('html_attr') }}"><span class="uni_red"><span id="uni_gpr_int"></span>%</span></div></div>
-                  <div class="{{ uni_gpr_container_row|e('html_attr') }}"><div class="{{ uni_panel_help_text|e('html_attr') }}">{{ text_help_repayment|e }}</div></div>
+                  <div class="uni_gpr_container_row"><div class="uni_gpr_column">{{ text_glp|e }}</div><div class="uni_gpr_column_right"><span class="uni_red"><span id="uni_glp_int"></span>%</span></div></div>
+                  <div class="uni_gpr_container_row"><div class="uni_gpr_column">{{ text_apr|e }}</div><div class="uni_gpr_column_right"><span class="uni_red"><span id="uni_gpr_int"></span>%</span></div></div>
+                  <div class="uni_gpr_container_row"><div class="uni_panel_help_text">{{ text_help_repayment|e }}</div></div>
                 </div>
               </div>
             </div>
             <div style="padding-bottom:20px;"></div>
             <div class="uni_buttons">
-              <div class="{{ uni_btn_seccondary|e('html_attr') }}" id="uni_back_unicredit"><div class="{{ uni_btn_seccondary_inner|e('html_attr') }}"><div class="uni_btn_seccondary_inner_text">{{ text_cancel|e }}</div></div></div>
-              <div class="{{ uni_btn_primary|e('html_attr') }}" id="uni_buy_on_installment"><div class="{{ notify_badge|e('html_attr') }}"></div><div class="{{ uni_btn_primary_inner|e('html_attr') }}"><div class="uni_btn_primary_inner_text">{{ text_buy_installment|e }}</div></div></div>
+              <div class="uni_btn_seccondary" id="uni_back_unicredit"><div class="uni_btn_seccondary_inner"><div class="uni_btn_seccondary_inner_text">{{ text_cancel|e }}</div></div></div>
+              <div class="uni_btn_primary" id="uni_buy_on_installment"><div class="notify-badge"></div><div class="uni_btn_primary_inner"><div class="uni_btn_primary_inner_text">{{ text_buy_installment|e }}</div></div></div>
             </div>
           </div>
         </div>

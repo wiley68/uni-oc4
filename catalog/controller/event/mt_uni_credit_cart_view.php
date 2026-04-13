@@ -75,24 +75,6 @@ class MtUniCreditCartView extends \Opencart\System\Engine\Controller
         $assign['uni_meseci_txt'] = $this->language->get('text_months_star');
         $assign['uni_vnoska_txt'] = $this->language->get('text_installment_payment');
 
-        // Класове като при продуктова страница (desktop), за да е 1:1 визията.
-        $assign['modalpayment_content_uni'] = 'modalpayment_content_uni';
-        $assign['uni_body'] = 'uni_body';
-        $assign['uni_gpr_container'] = 'uni_gpr_container';
-        $assign['uni_title_head'] = 'uni_title_head';
-        $assign['uni_title'] = 'uni_title';
-        $assign['uni_calc_back'] = 'uni_calc_back';
-        $assign['uni_calc'] = 'uni_calc';
-        $assign['uni_gpr_container_row'] = 'uni_gpr_container_row';
-        $assign['uni_gpr_column'] = 'uni_gpr_column';
-        $assign['uni_gpr_column_right'] = 'uni_gpr_column_right';
-        $assign['uni_panel_help_text'] = 'uni_panel_help_text';
-        $assign['uni_btn_seccondary'] = 'uni_btn_seccondary';
-        $assign['uni_btn_seccondary_inner'] = 'uni_btn_seccondary_inner';
-        $assign['uni_btn_primary'] = 'uni_btn_primary';
-        $assign['uni_btn_primary_inner'] = 'uni_btn_primary_inner';
-        $assign['notify_badge'] = 'notify_badge';
-        $assign['uni_txt_right'] = 'uni_txt_right';
         $assign['uni_picture'] = 'catalog/view/stylesheet/mt_uni_credit/uni.png';
         $assign['uni_mini_logo'] = 'catalog/view/stylesheet/mt_uni_credit/uni_mini_logo.png';
         $assign['uni_cart_config_json'] = json_encode([

@@ -285,3 +285,163 @@ cURL грешка:
 }
 ########################################################################
 
+========================================================================
+Време: 2026-04-13 15:20:19
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "933E7693197DC85C33CF8EF001886007"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 199,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1030,
+    "initialPayment": 100,
+    "installmentCount": 24,
+    "monthlyPayment": 52,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1030
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 15:39:41
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "8096983F396E1BE28AB29B4F7F625E2A"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 200,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "ilko.iv@gmail.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1035,
+    "initialPayment": 0,
+    "installmentCount": 10,
+    "monthlyPayment": 117.69,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1030
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 15:41:36
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "FEAF7D1462D2A38BF155CF5F9332E4A6"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 201,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "home@avalonbg.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1039.99,
+    "initialPayment": 100,
+    "installmentCount": 30,
+    "monthlyPayment": 44.91,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1039.99
+        }
+    ]
+}
+########################################################################
+
+========================================================================
+Време: 2026-04-13 15:42:45
+------------------------------------------------------------------------
+cURL грешка:
+(няма)
+
+Отговор (JSON):
+{
+    "errorCode": null,
+    "errorText": null,
+    "sucfOnlineSessionID": "34D2E057A648BBB196B3BBAD1AF9A2F7"
+}
+
+Заявка (JSON body):
+{
+    "user": "Wiley68",
+    "pass": "Avatest",
+    "orderNo": 202,
+    "clientFirstName": "Тест",
+    "clientLastName": "Тест",
+    "clientPhone": "",
+    "clientEmail": "home@avalonbg.com",
+    "clientDeliveryAddress": "Тест Улица",
+    "onlineProductCode": "POS COM 50",
+    "totalPrice": 1000,
+    "initialPayment": 0,
+    "installmentCount": 12,
+    "monthlyPayment": 97.49,
+    "items": [
+        {
+            "name": "iPhone",
+            "code": "40",
+            "type": "24",
+            "count": 1,
+            "singlePrice": 1000
+        }
+    ]
+}
+########################################################################
+

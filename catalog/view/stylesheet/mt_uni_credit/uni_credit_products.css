@@ -686,10 +686,84 @@ select.unim_txt_right:focus {
     margin-top: 12px !important;
 }
 
-/** responsive */
+/** responsive (без device-detection в PHP) */
 @media (max-width: 1199px) {
-    .modalpayment-content_uni {
+    .modalpayment_content_uni {
         max-width: 600px !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .modalpayment_content_uni {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .uni_title_head {
+        font-size: 16px !important;
+    }
+
+    .uni_title {
+        font-size: 14px !important;
+    }
+
+    .uni_title p {
+        padding: 0 !important;
+    }
+
+    .uni_calc {
+        padding: 8px 10px 5px 10px !important;
+        font-size: 14px !important;
+    }
+
+    .uni_calc_back {
+        background-image: none !important;
+    }
+
+    .uni_gpr_container {
+        width: 100% !important;
+        border-radius: 14.5px !important;
+        padding: 10px 15px !important;
+    }
+
+    .uni_gpr_container_row {
+        column-gap: 0 !important;
+    }
+
+    .uni_gpr_column {
+        font-size: 16px !important;
+        text-wrap: wrap !important;
+    }
+
+    .uni_gpr_column_right {
+        font-size: 16px !important;
+    }
+
+    select.uni_txt_right {
+        width: 100% !important;
+        min-width: 10rem !important;
+        font-size: 15px !important;
+    }
+
+    .uni_panel_help_text {
+        font-size: 12px !important;
+    }
+
+    .uni_buttons {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .uni_btn_seccondary,
+    .uni_btn_primary {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .uni_btn_seccondary_inner,
+    .uni_btn_primary_inner {
+        width: 100% !important;
     }
 }
 

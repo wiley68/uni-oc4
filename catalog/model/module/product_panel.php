@@ -239,7 +239,7 @@ class ProductPanel extends Model
             ];
         }
 
-        $classes = $this->resolveUiClasses($deviceis, $texts);
+        $classes = $this->resolveUiTexts($texts);
 
         $gapRaw = $this->config->get($this->module . '_gap');
         $uniGap = ($gapRaw === null || $gapRaw === '') ? 0 : (int) $gapRaw;
@@ -981,50 +981,9 @@ class ProductPanel extends Model
      *
      * @return array<string, string>
      */
-    private function resolveUiClasses(string $deviceis, array $texts): array
+    private function resolveUiTexts(array $texts): array
     {
-        if ($deviceis === 'mobile') {
-            return [
-                'modalpayment_content_uni' => 'modalpaymentm_content_uni',
-                'uni_body'                 => 'unim_body',
-                'uni_title_head'           => 'unim_title_head',
-                'uni_title'                => 'unim_title',
-                'uni_calc'                 => 'unim_calc',
-                'uni_calc_back'            => 'unim_calc_back',
-                'uni_gpr_container'        => 'unim_gpr_container',
-                'uni_gpr_container_row'    => 'unim_gpr_container_row',
-                'uni_gpr_column'           => 'unim_gpr_column',
-                'uni_gpr_column_right'     => 'unim_gpr_column_right',
-                'uni_txt_right'            => 'unim_txt_right',
-                'uni_panel_help_text'      => 'unim_panel_help_text',
-                'uni_btn_primary'          => 'unim_btn_primary',
-                'uni_btn_primary_inner'    => 'unim_btn_primary_inner',
-                'notify_badge'             => 'notifym-badge',
-                'uni_btn_seccondary'       => 'unim_btn_seccondary',
-                'uni_btn_seccondary_inner' => 'unim_btn_seccondary_inner',
-                'uni_meseci_txt'           => $texts['months_mobile'] ?? '',
-                'uni_vnoska_txt'           => $texts['installment_mobile'] ?? '',
-            ];
-        }
-
         return [
-            'modalpayment_content_uni' => 'modalpayment_content_uni',
-            'uni_body'                 => 'uni_body',
-            'uni_title_head'           => 'uni_title_head',
-            'uni_title'                => 'uni_title',
-            'uni_calc'                 => 'uni_calc',
-            'uni_calc_back'            => 'uni_calc_back',
-            'uni_gpr_container'        => 'uni_gpr_container',
-            'uni_gpr_container_row'    => 'uni_gpr_container_row',
-            'uni_gpr_column'           => 'uni_gpr_column',
-            'uni_gpr_column_right'     => 'uni_gpr_column_right',
-            'uni_txt_right'            => 'uni_txt_right',
-            'uni_panel_help_text'      => 'uni_panel_help_text',
-            'uni_btn_primary'          => 'uni_btn_primary',
-            'uni_btn_primary_inner'    => 'uni_btn_primary_inner',
-            'notify_badge'             => 'notify-badge',
-            'uni_btn_seccondary'       => 'uni_btn_seccondary',
-            'uni_btn_seccondary_inner' => 'uni_btn_seccondary_inner',
             'uni_meseci_txt'           => $texts['months_desktop'] ?? '',
             'uni_vnoska_txt'           => $texts['installment_desktop'] ?? '',
         ];
