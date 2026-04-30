@@ -48,6 +48,20 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         $taxed = (float) $this->tax->calculate($rawPrice, (int) $productInfo['tax_class_id'], $this->config->get('config_tax'));
         $displayPrice = (float) $this->currency->convert($taxed, $this->config->get('config_currency'), $currencyCode);
 
+        $minQty = (float) str_replace(',', '.', (string) ($productInfo['minimum'] ?? '1'));
+        if ($minQty < 1.0) {
+            $minQty = 1.0;
+        }
+        $qtyGet = $this->request->get['quantity'] ?? null;
+        if ($qtyGet === null || $qtyGet === '') {
+            $initialQty = $minQty;
+        } else {
+            $initialQty = (float) str_replace(',', '.', (string) $qtyGet);
+        }
+        if ($initialQty < $minQty) {
+            $initialQty = $minQty;
+        }
+
         $lang = 'language=' . $this->config->get('config_language');
         $calculateUrlJs = $this->url->link('extension/mt_uni_credit/product/uni_calculate', $lang, true);
         $optionCheckUrlJs = $this->url->link('extension/mt_uni_credit/product/uni_option', $lang, true);
@@ -84,12 +98,19 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             $cartPageUrlJs,
             $texts,
             $installmentIntentUrlJs,
-            $checkoutPageUrlJs
+            $checkoutPageUrlJs,
+            $initialQty
         );
 
         if ($assign === null) {
             return;
         }
+
+        $assign['uni_kimb_refresh_url'] = $this->url->link(
+            'extension/mt_uni_credit/product/uni_kimb_refresh',
+            $lang,
+            true
+        );
 
         $stepsKey = 'text_steps_' . (int) ($assign['uni_eur'] ?? 0);
         $intro = $this->language->get($stepsKey);

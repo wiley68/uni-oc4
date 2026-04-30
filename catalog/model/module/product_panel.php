@@ -17,6 +17,9 @@ class ProductPanel extends Model
     /** @var list<int> */
     private const KIMB_BANK_INSTALLMENT_COUNTS = [3, 4, 5, 6, 9, 10, 12, 18, 24, 30, 36];
 
+    /** Ключ в stats JSON: редова сума (сесийна валута), за която са изчислени последните KIMB — за преход промо ↔ стандарт. */
+    private const STAT_LINE_TOTAL_USED_FOR_KIMB = '_uni_line_total_used';
+
     /** @var list<int> */
     private const PRODUCT_INSTALLMENT_MONTHS = [3, 4, 5, 6, 9, 10, 12, 15, 18, 24, 30, 36];
 
@@ -31,6 +34,7 @@ class ProductPanel extends Model
 
     /**
      * @param array<string, string> $texts Езикови низове за UI (desktop/mobile етикети и пр.)
+     * @param float                 $initialQuantity начална бройка (GET quantity / minimum); за KOP/промо и KIMB се ползва редова сума = ед. цена × бройка
      *
      * @return array<string, mixed>|null null = не показвай блока
      */
@@ -46,7 +50,8 @@ class ProductPanel extends Model
         string $cartPageUrlJs,
         array $texts,
         string $installmentIntentSaveUrlJs = '',
-        string $checkoutPageUrlJs = ''
+        string $checkoutPageUrlJs = '',
+        float $initialQuantity = 1.0
     ): ?array {
         $uniStatus = (int) $this->config->get($this->module . '_status');
         if ($uniStatus <= 0 || ($currencyCode !== 'EUR' && $currencyCode !== 'BGN')) {
@@ -74,6 +79,13 @@ class ProductPanel extends Model
             return null;
         }
 
+        $unitDisplayPrice = $displayPrice;
+        $qty = $initialQuantity > 0 ? $initialQuantity : 1.0;
+        if ($qty > 99999.0) {
+            $qty = 99999.0;
+        }
+        $lineTotalForCoefficients = $unitDisplayPrice * $qty;
+
         $uniShemaCurrent = (int) ($paramsuni['uni_shema_current'] ?? 12);
         $uniService = (int) ($paramsuni['uni_testenv'] ?? 0) === 1
             ? (string) ($paramsuni['uni_test_service'] ?? '')
@@ -82,7 +94,7 @@ class ProductPanel extends Model
         $uniPassword = html_entity_decode((string) ($paramsuni['uni_password'] ?? ''), ENT_QUOTES, 'UTF-8');
         $useCert = (($paramsuni['uni_sertificat'] ?? '') === 'Yes');
 
-        $uniKop = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $displayPrice, $uniShemaCurrent);
+        $uniKop = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalForCoefficients, $uniShemaCurrent);
         if ($uniKop === '') {
             return null;
         }
@@ -106,7 +118,7 @@ class ProductPanel extends Model
                     $row['stats'] = [];
                 }
                 foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $cnt) {
-                    $kopForCnt = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $displayPrice, $cnt);
+                    $kopForCnt = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalForCoefficients, $cnt);
                     if ($kopForCnt === '') {
                         continue;
                     }
@@ -119,6 +131,12 @@ class ProductPanel extends Model
                 $kimbForCurrent = $this->kimbFromStatsForInstallments($row['stats'], $uniShemaCurrent);
                 $row['kimb'] = $kimbForCurrent > 0 ? (string) $kimbForCurrent : '';
                 $row['kimb_time'] = (string) time();
+                $row['stats'][self::STAT_LINE_TOTAL_USED_FOR_KIMB] = number_format(
+                    $lineTotalForCoefficients,
+                    2,
+                    '.',
+                    ''
+                );
                 $this->persistKopRuntimeData($row);
             }
             $stats = isset($row['stats']) && is_array($row['stats']) ? $row['stats'] : [];
@@ -136,21 +154,21 @@ class ProductPanel extends Model
         $glpArr = $kg['glp'];
 
         $uniEur = (int) $paramsuni['uni_eur'];
-        $uniPrice = $displayPrice;
+        $uniLineAmount = $lineTotalForCoefficients;
 
-        $uniMesecna = number_format($uniPrice * $kimb, 2, '.', '');
-        $uniMesecna3 = number_format($uniPrice * (float) ($kimbArr['3'] ?? ''), 2, '.', '');
-        $uniMesecna4 = number_format($uniPrice * (float) ($kimbArr['4'] ?? ''), 2, '.', '');
-        $uniMesecna5 = number_format($uniPrice * (float) ($kimbArr['5'] ?? ''), 2, '.', '');
-        $uniMesecna6 = number_format($uniPrice * (float) ($kimbArr['6'] ?? ''), 2, '.', '');
-        $uniMesecna9 = number_format($uniPrice * (float) ($kimbArr['9'] ?? ''), 2, '.', '');
-        $uniMesecna10 = number_format($uniPrice * (float) ($kimbArr['10'] ?? ''), 2, '.', '');
-        $uniMesecna12 = number_format($uniPrice * (float) ($kimbArr['12'] ?? ''), 2, '.', '');
-        $uniMesecna15 = number_format($uniPrice * (float) ($kimbArr['15'] ?? ''), 2, '.', '');
-        $uniMesecna18 = number_format($uniPrice * (float) ($kimbArr['18'] ?? ''), 2, '.', '');
-        $uniMesecna24 = number_format($uniPrice * (float) ($kimbArr['24'] ?? ''), 2, '.', '');
-        $uniMesecna30 = number_format($uniPrice * (float) ($kimbArr['30'] ?? ''), 2, '.', '');
-        $uniMesecna36 = number_format($uniPrice * (float) ($kimbArr['36'] ?? ''), 2, '.', '');
+        $uniMesecna = number_format($uniLineAmount * $kimb, 2, '.', '');
+        $uniMesecna3 = number_format($uniLineAmount * (float) ($kimbArr['3'] ?? ''), 2, '.', '');
+        $uniMesecna4 = number_format($uniLineAmount * (float) ($kimbArr['4'] ?? ''), 2, '.', '');
+        $uniMesecna5 = number_format($uniLineAmount * (float) ($kimbArr['5'] ?? ''), 2, '.', '');
+        $uniMesecna6 = number_format($uniLineAmount * (float) ($kimbArr['6'] ?? ''), 2, '.', '');
+        $uniMesecna9 = number_format($uniLineAmount * (float) ($kimbArr['9'] ?? ''), 2, '.', '');
+        $uniMesecna10 = number_format($uniLineAmount * (float) ($kimbArr['10'] ?? ''), 2, '.', '');
+        $uniMesecna12 = number_format($uniLineAmount * (float) ($kimbArr['12'] ?? ''), 2, '.', '');
+        $uniMesecna15 = number_format($uniLineAmount * (float) ($kimbArr['15'] ?? ''), 2, '.', '');
+        $uniMesecna18 = number_format($uniLineAmount * (float) ($kimbArr['18'] ?? ''), 2, '.', '');
+        $uniMesecna24 = number_format($uniLineAmount * (float) ($kimbArr['24'] ?? ''), 2, '.', '');
+        $uniMesecna30 = number_format($uniLineAmount * (float) ($kimbArr['30'] ?? ''), 2, '.', '');
+        $uniMesecna36 = number_format($uniLineAmount * (float) ($kimbArr['36'] ?? ''), 2, '.', '');
 
         switch ($uniEur) {
             case 1:
@@ -174,13 +192,13 @@ class ProductPanel extends Model
             case 0:
                 break;
             case 1:
-                $uniPriceSecond = number_format($uniPrice / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniLineAmount / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniMesecnaSecond = number_format((float) $uniMesecna / UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'лева';
                 $uniSignSecond = 'евро';
                 break;
             case 2:
-                $uniPriceSecond = number_format($uniPrice * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
+                $uniPriceSecond = number_format($uniLineAmount * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniMesecnaSecond = number_format((float) $uniMesecna * UnicreditConfig::EUR_BGN_RATE, 2, '.', '');
                 $uniSign = 'евро';
                 $uniSignSecond = 'лева';
@@ -229,15 +247,7 @@ class ProductPanel extends Model
             ];
         }
 
-        $uniKimbHiddenFields = [];
-        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $m) {
-            $ms = (string) $m;
-            $uniKimbHiddenFields[] = [
-                'm'    => $m,
-                'glp'  => (string) ($glpArr[$ms] ?? ''),
-                'kimb' => (string) ($kimbArr[$ms] ?? ''),
-            ];
-        }
+        $uniKimbHiddenFields = $this->buildUniKimbHiddenFieldsFromStatsArray($stats);
 
         $classes = $this->resolveUiTexts($texts);
 
@@ -268,7 +278,8 @@ class ProductPanel extends Model
             'uni_picture'                     => $uniPicture,
             'uni_mesecna_second'              => $uniMesecnaSecond,
             'uni_price_second'                => $uniPriceSecond,
-            'uni_price'                       => $uniPrice,
+            'uni_unit_price'                  => $unitDisplayPrice,
+            'uni_price'                       => $uniLineAmount,
             'uni_shema_current'               => $uniShemaCurrent,
             'uni_product_installment_options' => $uniProductInstallmentOptions,
             'uni_mini_logo'                   => $uniMiniLogo,
@@ -281,7 +292,7 @@ class ProductPanel extends Model
             ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP),
         ], $classes);
 
-        $shouldDisplay = $uniPrice <= $uniMaxstojnost && $uniPrice >= $uniMinstojnost;
+        $shouldDisplay = $uniLineAmount <= $uniMaxstojnost && $uniLineAmount >= $uniMinstojnost;
         if (!$shouldDisplay) {
             return null;
         }
@@ -844,6 +855,245 @@ class ProductPanel extends Model
         }
 
         return ['kimb' => $kimb, 'glp' => $glp];
+    }
+
+    /**
+     * Скрити полета за KIMB/GLP по срокове (като assign за продуктовия блок).
+     *
+     * @param array<string, mixed> $stats
+     *
+     * @return list<array{m: int, glp: string, kimb: string}>
+     */
+    private function buildUniKimbHiddenFieldsFromStatsArray(array $stats): array
+    {
+        $kg = $this->kimbGlpArraysFromStats($stats);
+        $kimbArr = $kg['kimb'];
+        $glpArr = $kg['glp'];
+        $uniKimbHiddenFields = [];
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $m) {
+            $ms = (string) $m;
+            $uniKimbHiddenFields[] = [
+                'm'    => $m,
+                'glp'  => (string) ($glpArr[$ms] ?? ''),
+                'kimb' => (string) ($kimbArr[$ms] ?? ''),
+            ];
+        }
+
+        return $uniKimbHiddenFields;
+    }
+
+    /**
+     * При промяна на редова сума (бройка/опции): ако за някой срок стандартният/промо KOP
+     * при тази сума се различава от този при единичната цена, презарежда коефициентите от банката
+     * и обновява кеша в DB; иначе връща текущите stats без банково повикване.
+     *
+     * @return array{success: bool, refreshed?: bool, uni_kimb_hidden_fields?: list<array{m: int, glp: string, kimb: string}>}
+     */
+    public function refreshKimbHiddenFieldsForProductLine(int $productId, float $lineTotalDisplayCurrency): array
+    {
+        if ($productId <= 0 || $lineTotalDisplayCurrency <= 0) {
+            return ['success' => false];
+        }
+
+        $uniStatus = (int) $this->config->get($this->module . '_status');
+        if ($uniStatus <= 0) {
+            return ['success' => false];
+        }
+
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return ['success' => false];
+        }
+
+        $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, false);
+        if (!is_array($paramsuni) || (($paramsuni['uni_status'] ?? '') !== 'Yes')) {
+            return ['success' => false];
+        }
+
+        $currencyCode = (string) ($this->session->data['currency'] ?? 'BGN');
+        if ($currencyCode !== 'EUR' && $currencyCode !== 'BGN') {
+            return ['success' => false];
+        }
+
+        $this->load->model('catalog/product');
+        $productInfo = $this->model_catalog_product->getProduct($productId);
+        if (!$productInfo) {
+            return ['success' => false];
+        }
+
+        $rawPrice = (float) ($productInfo['special'] ?: $productInfo['price']);
+        $taxed = (float) $this->tax->calculate($rawPrice, (int) $productInfo['tax_class_id'], $this->config->get('config_tax'));
+        $unitDisplayPrice = (float) $this->currency->convert($taxed, $this->config->get('config_currency'), $currencyCode);
+
+        $productCategoryRoots = $this->getProductRootCategoryIdsOrdered($productId);
+        if ($productCategoryRoots === []) {
+            return ['success' => false];
+        }
+
+        $uniCategoriesKop = $this->loadKopMappingFromDb();
+        $uniKey = $this->findKopRowIndexForProductCategories($uniCategoriesKop, $productCategoryRoots);
+        if ($uniKey === false) {
+            return ['success' => false];
+        }
+
+        $row = &$uniCategoriesKop[$uniKey];
+        $stats = isset($row['stats']) && is_array($row['stats']) ? $row['stats'] : [];
+
+        $uniShemaCurrent = (int) ($paramsuni['uni_shema_current'] ?? 12);
+        $uniService = (int) ($paramsuni['uni_testenv'] ?? 0) === 1
+            ? (string) ($paramsuni['uni_test_service'] ?? '')
+            : (string) ($paramsuni['uni_production_service'] ?? '');
+        $uniUser = html_entity_decode((string) ($paramsuni['uni_user'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $uniPassword = html_entity_decode((string) ($paramsuni['uni_password'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $useCert = (($paramsuni['uni_sertificat'] ?? '') === 'Yes');
+
+        $lastLineFloat = $this->lineTotalUsedForStoredKimbMeta($stats, $unitDisplayPrice);
+
+        $mustRefetch = false;
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $cnt) {
+            $kopNow = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalDisplayCurrency, $cnt);
+            $kopLast = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lastLineFloat, $cnt);
+            if ($kopNow !== $kopLast) {
+                $mustRefetch = true;
+
+                break;
+            }
+        }
+
+        if (
+            !$mustRefetch
+            && $this->canUseBankCoeffApi($uniService, $uniUser, $uniPassword)
+            && $this->statsHasAnyKimbSlot($stats)
+            && $this->storedKimbDriftsFromBankCacheForLine(
+                $stats,
+                $uniCategoriesKop,
+                $uniKey,
+                $paramsuni,
+                $lineTotalDisplayCurrency,
+                $uniUser,
+                $useCert
+            )
+        ) {
+            $mustRefetch = true;
+        }
+
+        if (!$mustRefetch) {
+            return [
+                'success'                => true,
+                'refreshed'              => false,
+                'uni_kimb_hidden_fields' => $this->buildUniKimbHiddenFieldsFromStatsArray($stats),
+            ];
+        }
+
+        if (!$this->canUseBankCoeffApi($uniService, $uniUser, $uniPassword)) {
+            return [
+                'success'                => true,
+                'refreshed'              => false,
+                'uni_kimb_hidden_fields' => $this->buildUniKimbHiddenFieldsFromStatsArray($stats),
+            ];
+        }
+
+        if (!isset($row['stats']) || !is_array($row['stats'])) {
+            $row['stats'] = [];
+        }
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $cnt) {
+            $kopForCnt = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalDisplayCurrency, $cnt);
+            if ($kopForCnt === '') {
+                continue;
+            }
+            $fetched = $this->fetchCoeffWithFileCache($uniService, $uniUser, $uniPassword, $kopForCnt, $cnt, $useCert);
+            if ($fetched !== null && $fetched['kimb'] > 0) {
+                $row['stats']['kimb_' . $cnt] = (string) $fetched['kimb'];
+                $row['stats']['glp_' . $cnt] = (string) $fetched['glp'];
+            }
+        }
+        $kimbForCurrent = $this->kimbFromStatsForInstallments($row['stats'], $uniShemaCurrent);
+        $row['kimb'] = $kimbForCurrent > 0 ? (string) $kimbForCurrent : '';
+        $row['kimb_time'] = (string) time();
+        $row['stats'][self::STAT_LINE_TOTAL_USED_FOR_KIMB] = number_format(
+            $lineTotalDisplayCurrency,
+            2,
+            '.',
+            ''
+        );
+        $this->persistKopRuntimeData($row);
+        $statsAfter = isset($row['stats']) && is_array($row['stats']) ? $row['stats'] : [];
+
+        return [
+            'success'                => true,
+            'refreshed'              => true,
+            'uni_kimb_hidden_fields' => $this->buildUniKimbHiddenFieldsFromStatsArray($statsAfter),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $stats
+     */
+    private function lineTotalUsedForStoredKimbMeta(array $stats, float $unitDisplayPrice): float
+    {
+        $raw = $stats[self::STAT_LINE_TOTAL_USED_FOR_KIMB] ?? null;
+        if ($raw === null || trim((string) $raw) === '') {
+            return $unitDisplayPrice;
+        }
+        $f = (float) str_replace(',', '.', (string) $raw);
+
+        return $f > 0 ? $f : $unitDisplayPrice;
+    }
+
+    /**
+     * @param array<string, mixed> $stats
+     */
+    private function statsHasAnyKimbSlot(array $stats): bool
+    {
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $m) {
+            $raw = trim((string) ($stats['kimb_' . $m] ?? ''));
+            if ($raw !== '' && (float) str_replace(',', '.', $raw) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Записаните KIMB в stats съвпадат ли с кеша за KOP, избран по текущата редова сума (лови стари промо KIMB при връщане под репер без meta).
+     *
+     * @param array<string, mixed>              $stats
+     * @param array<int, array<string, mixed>> $uniCategoriesKop
+     * @param array<string, mixed>              $paramsuni
+     */
+    private function storedKimbDriftsFromBankCacheForLine(
+        array $stats,
+        array $uniCategoriesKop,
+        int|string $uniKey,
+        array $paramsuni,
+        float $lineTotalDisplayCurrency,
+        string $uniUser,
+        bool $useCert
+    ): bool {
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $cnt) {
+            $kop = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalDisplayCurrency, $cnt);
+            if ($kop === '') {
+                continue;
+            }
+            $cached = $this->readBankCoeffCache($uniUser, $kop, $cnt, $useCert);
+            if ($cached === null) {
+                continue;
+            }
+            $storedRaw = trim((string) ($stats['kimb_' . $cnt] ?? ''));
+            if ($storedRaw === '') {
+                continue;
+            }
+            $stored = (float) str_replace(',', '.', $storedRaw);
+            if ($stored <= 0) {
+                continue;
+            }
+            if (abs($cached['kimb'] - $stored) > 1.0e-5) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -510,268 +510,322 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
 }
 
 $(document).ready(function () {
-  const uni_price = document.getElementById("uni_price");
-  if (uni_price != null) {
-    $("#uni-product-popup-container").prependTo("body");
-    const uniProductPopupContainer = document.getElementById(
-      "uni-product-popup-container",
-    );
-    /** Единична базова цена от Twig — не я променяй; изчисленията ползват нея + опции × количество. */
-    const uniUnitBasePriceStr = String(uni_price.value);
-    let uni_price1 = uniUnitBasePriceStr;
-    let uni_quantity = 1;
-    let uni_priceall = uniLineTotalFromPartsFloat(uni_price1, 0, uni_quantity);
-    const uni_buy_buttons_submit = document.querySelectorAll("#button-cart");
-    let uniCreditsRecalcTimer = null;
+  const uniUnitBaseEl = document.getElementById("uni_unit_base");
+  const uniPriceLineEl = document.getElementById("uni_price");
+  if (uniUnitBaseEl == null && uniPriceLineEl == null) {
+    return;
+  }
+  $("#uni-product-popup-container").prependTo("body");
+  const uniProductPopupContainer = document.getElementById(
+    "uni-product-popup-container",
+  );
+  /** Единична базова цена: #uni_unit_base (ако има); иначе съвместимост със стари шаблони (#uni_price = ед. цена). */
+  const uniUnitBasePriceStr = String(
+    uniUnitBaseEl && uniUnitBaseEl.value !== ""
+      ? uniUnitBaseEl.value
+      : uniPriceLineEl
+        ? uniPriceLineEl.value
+        : "",
+  ).trim();
+  let uni_price1 = uniUnitBasePriceStr;
+  let uni_quantity = 1;
+  let uni_priceall = uniLineTotalFromPartsFloat(uni_price1, 0, uni_quantity);
+  const uni_buy_buttons_submit = document.querySelectorAll("#button-cart");
+  let uniCreditsRecalcTimer = null;
 
-    function uniRunFullCreditPriceFlow(showPopup, silent) {
-      let total_opts_sum = 0;
-      uni_price1 = uniUnitBasePriceStr;
-      if (document.getElementById("input-quantity") !== null) {
-        uni_quantity = parseFloat(
-          document.getElementById("input-quantity").value,
-        );
-      } else {
-        uni_quantity = 1;
+  function uniRunFullCreditPriceFlow(showPopup, silent) {
+    let total_opts_sum = 0;
+    uni_price1 = uniUnitBasePriceStr;
+    if (document.getElementById("input-quantity") !== null) {
+      uni_quantity = parseFloat(
+        document.getElementById("input-quantity").value,
+      );
+    } else {
+      uni_quantity = 1;
+    }
+    function finishLineTotal(lineBeforeEur) {
+      uni_priceall = uniApplyEurConversion(lineBeforeEur);
+      uniUpdatePopupLineTotalDisplay(uni_priceall);
+      if (showPopup && uniProductPopupContainer) {
+        uniProductPopupContainer.style.display = "block";
       }
-      function finishLineTotal(lineBeforeEur) {
-        uni_priceall = uniApplyEurConversion(lineBeforeEur);
-        uniUpdatePopupLineTotalDisplay(uni_priceall);
-        if (showPopup && uniProductPopupContainer) {
-          uniProductPopupContainer.style.display = "block";
-        }
-        uni_pogasitelni_vnoski_input_change(uni_priceall);
+      uni_pogasitelni_vnoski_input_change(uni_priceall);
+    }
+    function uniAfterLineComputedThenDisplay(lineBeforeEur) {
+      const refreshUrlEl = document.getElementById("uni_kimb_refresh_url");
+      const refreshUrl =
+        refreshUrlEl && refreshUrlEl.value
+          ? String(refreshUrlEl.value).trim()
+          : "";
+      const productIdEl = document.getElementById("product_id");
+      const productId = productIdEl
+        ? String(productIdEl.value || "").trim()
+        : "";
+      if (!refreshUrl || !productId || typeof $ === "undefined") {
+        finishLineTotal(lineBeforeEur);
+        return;
       }
-      if (document.querySelectorAll("[id*='input-option']").length > 0) {
-        if ($ != null) {
-          $.ajax({
-            url:
-              (document.getElementById("uni_option_check_url") || {}).value ||
-              "",
-            type: "post",
-            data: $(
-              "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
-            ),
-            dataType: "json",
-            success: function (json) {
-              $(".alert, .text-danger").remove();
-              if (json["error"]) {
-                if (json["error"]["option"]) {
-                  for (var i in json["error"]["option"]) {
-                    if (
-                      !Object.prototype.hasOwnProperty.call(
-                        json["error"]["option"],
-                        i,
-                      )
-                    ) {
-                      continue;
-                    }
-                    var element = $("#input-option-" + i);
-                    if (!element.length) {
-                      element = $("#input-option" + i.replace("_", "-"));
-                    }
-                    if (!silent) {
-                      if (element.parent().hasClass("input-group")) {
-                        element
-                          .parent()
-                          .after(
-                            '<div class="text-danger">' +
-                              json["error"]["option"][i] +
-                              "</div>",
-                          );
-                      } else {
-                        element.after(
+      $.ajax({
+        url: refreshUrl,
+        type: "post",
+        dataType: "json",
+        data: { product_id: productId, line_total: String(lineBeforeEur) },
+        success: function (resp) {
+          if (
+            resp &&
+            resp.success &&
+            resp.uni_kimb_hidden_fields &&
+            resp.uni_kimb_hidden_fields.length
+          ) {
+            let i;
+            for (i = 0; i < resp.uni_kimb_hidden_fields.length; i++) {
+              const row = resp.uni_kimb_hidden_fields[i];
+              const m = row.m;
+              const kEl = document.getElementById("uni_param_kimb_" + m);
+              const gEl = document.getElementById("uni_param_glp_" + m);
+              if (kEl) {
+                kEl.value = row.kimb != null ? String(row.kimb) : "";
+              }
+              if (gEl) {
+                gEl.value = row.glp != null ? String(row.glp) : "";
+              }
+            }
+          }
+          finishLineTotal(lineBeforeEur);
+        },
+        error: function () {
+          finishLineTotal(lineBeforeEur);
+        },
+      });
+    }
+    if (document.querySelectorAll("[id*='input-option']").length > 0) {
+      if ($ != null) {
+        $.ajax({
+          url:
+            (document.getElementById("uni_option_check_url") || {}).value || "",
+          type: "post",
+          data: $(
+            "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
+          ),
+          dataType: "json",
+          success: function (json) {
+            $(".alert, .text-danger").remove();
+            if (json["error"]) {
+              if (json["error"]["option"]) {
+                for (var i in json["error"]["option"]) {
+                  if (
+                    !Object.prototype.hasOwnProperty.call(
+                      json["error"]["option"],
+                      i,
+                    )
+                  ) {
+                    continue;
+                  }
+                  var element = $("#input-option-" + i);
+                  if (!element.length) {
+                    element = $("#input-option" + i.replace("_", "-"));
+                  }
+                  if (!silent) {
+                    if (element.parent().hasClass("input-group")) {
+                      element
+                        .parent()
+                        .after(
                           '<div class="text-danger">' +
                             json["error"]["option"][i] +
                             "</div>",
                         );
-                      }
+                    } else {
+                      element.after(
+                        '<div class="text-danger">' +
+                          json["error"]["option"][i] +
+                          "</div>",
+                      );
                     }
                   }
                 }
-                if (!silent) {
-                  $(".text-danger").parent().addClass("has-error");
-                  alert(
-                    "Моля изберете стойност за задължителните опции за продукта!",
-                  );
-                }
-                return;
               }
-              if (json["success"]) {
-                total_opts_sum = uniSumOptionPricesFromJson(json);
-                const line = uniLineTotalFromPartsFloat(
-                  uni_price1,
-                  total_opts_sum,
-                  uni_quantity,
+              if (!silent) {
+                $(".text-danger").parent().addClass("has-error");
+                alert(
+                  "Моля изберете стойност за задължителните опции за продукта!",
                 );
-                finishLineTotal(line);
               }
-            },
-          });
-        } else {
-          const line = uniLineTotalFromPartsFloat(
-            uni_price1,
-            total_opts_sum,
-            uni_quantity,
-          );
-          finishLineTotal(line);
-        }
+              return;
+            }
+            if (json["success"]) {
+              total_opts_sum = uniSumOptionPricesFromJson(json);
+              const line = uniLineTotalFromPartsFloat(
+                uni_price1,
+                total_opts_sum,
+                uni_quantity,
+              );
+              uniAfterLineComputedThenDisplay(line);
+            }
+          },
+        });
       } else {
         const line = uniLineTotalFromPartsFloat(
           uni_price1,
           total_opts_sum,
           uni_quantity,
         );
-        finishLineTotal(line);
+        uniAfterLineComputedThenDisplay(line);
       }
+    } else {
+      const line = uniLineTotalFromPartsFloat(
+        uni_price1,
+        total_opts_sum,
+        uni_quantity,
+      );
+      uniAfterLineComputedThenDisplay(line);
     }
+  }
 
-    function uniScheduleFullCreditPriceFlow() {
-      const cartEl = document.getElementById("uni_cart");
-      if (cartEl && parseInt(cartEl.value, 10) === 1) {
-        return;
-      }
-      const btnUni = document.getElementById("btn_uni");
-      if (!btnUni || !btnUni.classList.contains("uni_button")) {
-        return;
-      }
-      if (uniCreditsRecalcTimer) {
-        clearTimeout(uniCreditsRecalcTimer);
-      }
-      uniCreditsRecalcTimer = setTimeout(function () {
-        uniCreditsRecalcTimer = null;
-        uniRunFullCreditPriceFlow(false, true);
-      }, 280);
+  function uniScheduleFullCreditPriceFlow() {
+    const cartEl = document.getElementById("uni_cart");
+    if (cartEl && parseInt(cartEl.value, 10) === 1) {
+      return;
     }
-
-    $(document).on("change", "#form-product", uniScheduleFullCreditPriceFlow);
-    $(document).on(
-      "input change",
-      "#input-quantity",
-      uniScheduleFullCreditPriceFlow,
-    );
-
-    setTimeout(function () {
+    const btnUni = document.getElementById("btn_uni");
+    if (!btnUni || !btnUni.classList.contains("uni_button")) {
+      return;
+    }
+    if (uniCreditsRecalcTimer) {
+      clearTimeout(uniCreditsRecalcTimer);
+    }
+    uniCreditsRecalcTimer = setTimeout(function () {
+      uniCreditsRecalcTimer = null;
       uniRunFullCreditPriceFlow(false, true);
-    }, 150);
+    }, 280);
+  }
 
-    $(document).on("click", "#btn_uni", function () {
-      if (parseInt($("#uni_cart").val(), 10) === 1) {
-        if (uni_buy_buttons_submit.length) {
-          uni_buy_buttons_submit.item(0).click();
-        }
-      } else {
-        uniRunFullCreditPriceFlow(true, false);
+  $(document).on("change", "#form-product", uniScheduleFullCreditPriceFlow);
+  $(document).on(
+    "input change",
+    "#input-quantity",
+    uniScheduleFullCreditPriceFlow,
+  );
+
+  setTimeout(function () {
+    uniRunFullCreditPriceFlow(false, true);
+  }, 150);
+
+  $(document).on("click", "#btn_uni", function () {
+    if (parseInt($("#uni_cart").val(), 10) === 1) {
+      if (uni_buy_buttons_submit.length) {
+        uni_buy_buttons_submit.item(0).click();
       }
-    });
+    } else {
+      uniRunFullCreditPriceFlow(true, false);
+    }
+  });
 
-    $("#uni_pogasitelni_vnoski_input").on("change", function () {
-      uni_pogasitelni_vnoski_input_change(uni_priceall);
-    });
+  $("#uni_pogasitelni_vnoski_input").on("change", function () {
+    uni_pogasitelni_vnoski_input_change(uni_priceall);
+  });
 
-    $(document).on("focus", "#uni_pogasitelni_vnoski_input", function () {
-      uni_old_vnoski = $(this).val();
-    });
+  $(document).on("focus", "#uni_pogasitelni_vnoski_input", function () {
+    uni_old_vnoski = $(this).val();
+  });
 
-    $(document).on("click", "#uni_back_unicredit", function () {
-      $("#uni-product-popup-container").hide("slow");
-    });
+  $(document).on("click", "#uni_back_unicredit", function () {
+    $("#uni-product-popup-container").hide("slow");
+  });
 
-    $(document).on("click", "#uni_buy_unicredit", function (e) {
-      e.preventDefault();
-      $.ajax({
-        url: (document.getElementById("uni_cart_add_url") || {}).value || "",
-        type: "post",
-        dataType: "json",
-        data: $(
-          "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
-        ),
-        success: function (json) {
-          if (uniMtCreditCartAddShowErrors(json)) {
-            return;
-          }
-          if (json["success"]) {
-            var cartPage =
-              (document.getElementById("uni_cart_page_url") || {}).value || "";
-            window.location = cartPage || "index.php?route=checkout/cart";
-          }
-        },
-        error: function (xhr, ajaxOptions, thrownError) {
-          alert(
-            thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText,
-          );
-        },
-      });
+  $(document).on("click", "#uni_buy_unicredit", function (e) {
+    e.preventDefault();
+    $.ajax({
+      url: (document.getElementById("uni_cart_add_url") || {}).value || "",
+      type: "post",
+      dataType: "json",
+      data: $(
+        "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
+      ),
+      success: function (json) {
+        if (uniMtCreditCartAddShowErrors(json)) {
+          return;
+        }
+        if (json["success"]) {
+          var cartPage =
+            (document.getElementById("uni_cart_page_url") || {}).value || "";
+          window.location = cartPage || "index.php?route=checkout/cart";
+        }
+      },
+      error: function (xhr, ajaxOptions, thrownError) {
+        alert(
+          thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText,
+        );
+      },
     });
+  });
 
-    $(document).on("click", "#uni_buy_on_installment", function (e) {
-      e.preventDefault();
-      var intentUrl =
-        (document.getElementById("uni_prepare_installmentcheckout_url") || {})
-          .value || "";
-      var checkoutFallback =
-        (document.getElementById("uni_checkout_url") || {}).value || "";
-      var monthsEl = document.getElementById("uni_pogasitelni_vnoski_input");
-      var months = monthsEl ? monthsEl.value : "12";
-      $.ajax({
-        url: (document.getElementById("uni_cart_add_url") || {}).value || "",
-        type: "post",
-        dataType: "json",
-        data: $(
-          "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
-        ),
-        success: function (json) {
-          if (uniMtCreditCartAddShowErrors(json)) {
-            return;
-          }
-          if (!json["success"]) {
-            return;
-          }
-          uniMtCreditSetInstallmentCookies("uni.uni", months);
-          if (!intentUrl) {
-            window.location =
-              checkoutFallback || "index.php?route=checkout/checkout";
-            return;
-          }
-          $.ajax({
-            url: intentUrl,
-            type: "post",
-            data: { installment_months: months },
-            dataType: "json",
-            success: function (j2) {
-              if (j2.error) {
-                alert(j2.error);
-                return;
-              }
-              if (j2.redirect) {
-                window.location = j2.redirect;
-              } else if (j2.success && checkoutFallback) {
-                window.location = checkoutFallback;
-              } else {
-                alert(
-                  uniMtCreditGetShopString(
-                    "installmentIntentFailed",
-                    "Checkout setup failed.",
-                  ),
-                );
-              }
-            },
-            error: function (xhr, ajaxOptions, thrownError) {
+  $(document).on("click", "#uni_buy_on_installment", function (e) {
+    e.preventDefault();
+    var intentUrl =
+      (document.getElementById("uni_prepare_installmentcheckout_url") || {})
+        .value || "";
+    var checkoutFallback =
+      (document.getElementById("uni_checkout_url") || {}).value || "";
+    var monthsEl = document.getElementById("uni_pogasitelni_vnoski_input");
+    var months = monthsEl ? monthsEl.value : "12";
+    $.ajax({
+      url: (document.getElementById("uni_cart_add_url") || {}).value || "",
+      type: "post",
+      dataType: "json",
+      data: $(
+        "#form-product input[type='text'], #form-product input[type='hidden'], #form-product input[type='radio']:checked, #form-product input[type='checkbox']:checked, #form-product select, #form-product textarea",
+      ),
+      success: function (json) {
+        if (uniMtCreditCartAddShowErrors(json)) {
+          return;
+        }
+        if (!json["success"]) {
+          return;
+        }
+        uniMtCreditSetInstallmentCookies("uni.uni", months);
+        if (!intentUrl) {
+          window.location =
+            checkoutFallback || "index.php?route=checkout/checkout";
+          return;
+        }
+        $.ajax({
+          url: intentUrl,
+          type: "post",
+          data: { installment_months: months },
+          dataType: "json",
+          success: function (j2) {
+            if (j2.error) {
+              alert(j2.error);
+              return;
+            }
+            if (j2.redirect) {
+              window.location = j2.redirect;
+            } else if (j2.success && checkoutFallback) {
+              window.location = checkoutFallback;
+            } else {
               alert(
                 uniMtCreditGetShopString(
                   "installmentIntentFailed",
-                  thrownError || "Error",
+                  "Checkout setup failed.",
                 ),
               );
-            },
-          });
-        },
-        error: function (xhr, ajaxOptions, thrownError) {
-          alert(
-            thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText,
-          );
-        },
-      });
+            }
+          },
+          error: function (xhr, ajaxOptions, thrownError) {
+            alert(
+              uniMtCreditGetShopString(
+                "installmentIntentFailed",
+                thrownError || "Error",
+              ),
+            );
+          },
+        });
+      },
+      error: function (xhr, ajaxOptions, thrownError) {
+        alert(
+          thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText,
+        );
+      },
     });
-  }
+  });
 });

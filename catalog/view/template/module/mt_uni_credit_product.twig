@@ -1,76 +1,83 @@
-<input type="hidden" id="uni_cart" value="{{ uni_cart }}"/>
-<input type="hidden" id="uni_csrf_token" value="{{ uni_csrf_token|e('html_attr') }}"/>
-<input type="hidden" id="uni_prepare_installmentcheckout_url" value="{{ uni_prepare_installmentcheckout_url|e('html_attr') }}"/>
-<input type="hidden" id="uni_get_product_link" value="{{ uni_get_product_link|e('html_attr') }}"/>
-<input type="hidden" id="uni_option_check_url" value="{{ uni_option_check_url|e('html_attr') }}"/>
-<input type="hidden" id="uni_cart_add_url" value="{{ uni_cart_add_url|e('html_attr') }}"/>
-<input type="hidden" id="uni_cart_page_url" value="{{ uni_cart_page_url|e('html_attr') }}"/>
-<input type="hidden" id="uni_checkout_url" value="{{ uni_checkout_url|e('html_attr') }}"/>
+<input type="hidden" id="uni_cart" value="{{ uni_cart }}" />
+<input type="hidden" id="uni_csrf_token" value="{{ uni_csrf_token|e('html_attr') }}" />
+<input type="hidden" id="uni_prepare_installmentcheckout_url"
+  value="{{ uni_prepare_installmentcheckout_url|e('html_attr') }}" />
+<input type="hidden" id="uni_get_product_link" value="{{ uni_get_product_link|e('html_attr') }}" />
+<input type="hidden" id="uni_option_check_url" value="{{ uni_option_check_url|e('html_attr') }}" />
+<input type="hidden" id="uni_kimb_refresh_url" value="{{ uni_kimb_refresh_url|default('')|e('html_attr') }}" />
+<input type="hidden" id="uni_cart_add_url" value="{{ uni_cart_add_url|e('html_attr') }}" />
+<input type="hidden" id="uni_cart_page_url" value="{{ uni_cart_page_url|e('html_attr') }}" />
+<input type="hidden" id="uni_checkout_url" value="{{ uni_checkout_url|e('html_attr') }}" />
 {% for kf in uni_kimb_hidden_fields %}
-  <input type="hidden" id="uni_param_glp_{{ kf.m }}" value="{{ kf.glp|e('html_attr') }}"/>
-  <input type="hidden" id="uni_param_kimb_{{ kf.m }}" value="{{ kf.kimb|e('html_attr') }}"/>
+<input type="hidden" id="uni_param_glp_{{ kf.m }}" value="{{ kf.glp|e('html_attr') }}" />
+<input type="hidden" id="uni_param_kimb_{{ kf.m }}" value="{{ kf.kimb|e('html_attr') }}" />
 {% endfor %}
-<input type="hidden" id="uni_eur" value="{{ uni_eur }}"/>
-<input type="hidden" id="uni_eur_bgn_rate" value="{{ uni_eur_bgn_rate|e('html_attr') }}"/>
-<input type="hidden" id="uni_currency_code" value="{{ uni_currency_code|e('html_attr') }}"/>
-<input type="hidden" id="uni_sign" value="{{ uni_sign|e('html_attr') }}"/>
-<input type="hidden" id="uni_sign_second" value="{{ uni_sign_second|e('html_attr') }}"/>
+<input type="hidden" id="uni_eur" value="{{ uni_eur }}" />
+<input type="hidden" id="uni_eur_bgn_rate" value="{{ uni_eur_bgn_rate|e('html_attr') }}" />
+<input type="hidden" id="uni_currency_code" value="{{ uni_currency_code|e('html_attr') }}" />
+<input type="hidden" id="uni_sign" value="{{ uni_sign|e('html_attr') }}" />
+<input type="hidden" id="uni_sign_second" value="{{ uni_sign_second|e('html_attr') }}" />
 {% if uni_js_shop_strings %}
-  {# JSON извън JS блока — иначе вграденият JS линтер чупи се на {{ ... }} #}
-  <textarea id="uni-payment-shop-strings-json" hidden readonly>{{ uni_js_shop_strings|raw }}</textarea>
-  <script>
-(function () {
-  var el = document.getElementById('uni-payment-shop-strings-json');
-  if (!el || !el.value) {
-    return;
-  }
-  try {
-    window.uniPaymentShopStrings = JSON.parse(el.value);
-  } catch (e) {
-    window.uniPaymentShopStrings = {};
-  }
-})();
-  </script>
+{# JSON извън JS блока — иначе вграденият JS линтер чупи се на {{ ... }} #}
+<textarea id="uni-payment-shop-strings-json" hidden readonly>{{ uni_js_shop_strings|raw }}</textarea>
+<script>
+  (function () {
+    var el = document.getElementById('uni-payment-shop-strings-json');
+    if (!el || !el.value) {
+      return;
+    }
+    try {
+      window.uniPaymentShopStrings = JSON.parse(el.value);
+    } catch (e) {
+      window.uniPaymentShopStrings = {};
+    }
+  })();
+</script>
 {% endif %}
-<div id="uni-product-button-container"{% if uni_gap > 0 %} style="margin-top: {{ uni_gap }}px;"{% endif %}>
+<div id="uni-product-button-container" {% if uni_gap> 0 %} style="margin-top: {{ uni_gap }}px;"{% endif %}>
   {% if uni_zaglavie %}
-    <div class="uni_zaglavie">{{ uni_zaglavie|e }}</div>
+  <div class="uni_zaglavie">{{ uni_zaglavie|e }}</div>
   {% endif %}
   {% if uni_vnoska == 'Yes' %}
-    <div id="btn_uni" class="uni_button">
-      <div class="uni_button_body">
-        <div class="uni_button_body_left">
-          <div class="uni_button_txt1"><span id="uni_button_installments_label">{{ uni_shema_current|e }}</span> {{ text_installments }}
-          </div>
-          <div class="uni_button_line"></div>
-          <div class="uni_button_txt2">
-            <span id="uni_button_mesecna_main">{{ uni_mesecna|number_format(2, '.', '') }} {{ uni_sign|e }}</span>
-            <span id="uni_button_mesecna_second" {% if uni_eur == 0 or uni_eur == 3 %}style="display:none;"{% else %}style="font-size:80%;"{% endif %}>
-              {% if uni_mesecna_second != 0 and uni_mesecna_second != '0' %}
-                ({{ uni_mesecna_second|number_format(2, '.', '') }} {{ uni_sign_second|e }})
-              {% endif %}
-            </span>
-          </div>
+  <div id="btn_uni" class="uni_button">
+    <div class="uni_button_body">
+      <div class="uni_button_body_left">
+        <div class="uni_button_txt1"><span id="uni_button_installments_label">{{ uni_shema_current|e }}</span> {{
+          text_installments }}
         </div>
-        <div class="uni_button_body_right">
-          <img src="{{ uni_mini_logo|e('html_attr') }}" style="width:100%;float:right;" alt="" loading="lazy"/>
+        <div class="uni_button_line"></div>
+        <div class="uni_button_txt2">
+          <span id="uni_button_mesecna_main">{{ uni_mesecna|number_format(2, '.', '') }} {{ uni_sign|e }}</span>
+          <span id="uni_button_mesecna_second" {% if uni_eur==0 or uni_eur==3 %}style="display:none;" {% else
+            %}style="font-size:80%;" {% endif %}>
+            {% if uni_mesecna_second != 0 and uni_mesecna_second != '0' %}
+            ({{ uni_mesecna_second|number_format(2, '.', '') }} {{ uni_sign_second|e }})
+            {% endif %}
+          </span>
         </div>
       </div>
+      <div class="uni_button_body_right">
+        <img src="{{ uni_mini_logo|e('html_attr') }}" style="width:100%;float:right;" alt="" loading="lazy" />
+      </div>
     </div>
+  </div>
   {% else %}
-    <div id="btn_uni" class="uni_button_without"></div>
+  <div id="btn_uni" class="uni_button_without"></div>
   {% endif %}
 </div>
-<input type="hidden" name="product_id" id="product_id" value="{{ uni_product_id }}"/>
+<input type="hidden" name="product_id" id="product_id" value="{{ uni_product_id }}" />
 <div id="uni-product-popup-container" class="modalpayment_uni">
   <div class="modalpayment_content_uni">
     <div id="uni_body" class="uni_body">
       <div>
         <div class="uni_body">
           {% if uni_reklama_url %}
-            <a target="_blank" rel="noopener noreferrer" href="{{ uni_reklama_url|e('html_attr') }}"><img class="uni_image" title="{{ text_title_calc|e('html_attr') }}" src="{{ uni_picture|e('html_attr') }}" alt="{{ text_title_calc|e('html_attr') }}" loading="lazy"/></a>
+          <a target="_blank" rel="noopener noreferrer" href="{{ uni_reklama_url|e('html_attr') }}"><img
+              class="uni_image" title="{{ text_title_calc|e('html_attr') }}" src="{{ uni_picture|e('html_attr') }}"
+              alt="{{ text_title_calc|e('html_attr') }}" loading="lazy" /></a>
           {% else %}
-            <img class="uni_image" title="{{ text_title_calc|e('html_attr') }}" src="{{ uni_picture|e('html_attr') }}" alt="{{ text_title_calc|e('html_attr') }}" loading="lazy"/>
+          <img class="uni_image" title="{{ text_title_calc|e('html_attr') }}" src="{{ uni_picture|e('html_attr') }}"
+            alt="{{ text_title_calc|e('html_attr') }}" loading="lazy" />
           {% endif %}
           <div class="uni_body_txt">
             <div class="uni_gpr_container">
@@ -87,23 +94,27 @@
                   <div class="uni_gpr_container_row">
                     <div class="uni_gpr_column">{{ text_item_price|e }}</div>
                     <div class="uni_gpr_column_right">
-                      <input type="hidden" id="uni_price" value="{{ uni_price|e('html_attr') }}"/>
+                      <input type="hidden" id="uni_unit_base" value="{{ uni_unit_price|e('html_attr') }}" />
+                      <input type="hidden" id="uni_price" value="{{ uni_price|e('html_attr') }}" />
                       {% set uniPriceArr = (uni_price|number_format(2, '.', ''))|split('.') %}
                       {% set uniPriceSecondArr = (uni_price_second|number_format(2, '.', ''))|split('.') %}
                       {% if uni_eur == 0 or uni_eur == 3 %}
-                        <span class="uni_red">
-                          <span id="uni_price_int">{{ uniPriceArr[0]|default('0') }}</span>.
-                          <span class="uni_sub"><span id="uni_price_dec">{{ uniPriceArr[1]|default('00')|e }}</span>&nbsp;{{ uni_sign|e }}</span>
-                        </span>
+                      <span class="uni_red">
+                        <span id="uni_price_int">{{ uniPriceArr[0]|default('0') }}</span>.
+                        <span class="uni_sub"><span id="uni_price_dec">{{ uniPriceArr[1]|default('00')|e
+                            }}</span>&nbsp;{{ uni_sign|e }}</span>
+                      </span>
                       {% else %}
-                        <span class="uni_red">
-                          <span id="uni_price_int">{{ uniPriceArr[0]|default('0') }}</span>
-                          <span class="uni_sub">.<span id="uni_price_dec">{{ uniPriceArr[1]|default('00')|e }}</span>&nbsp;{{ uni_sign|e }}</span>
-                          <span style="font-size:70%;">
-                            (<span id="uni_price_second_int">{{ uniPriceSecondArr[0]|default('0') }}</span>
-                            <span class="uni_sub">.<span id="uni_price_second_dec">{{ uniPriceSecondArr[1]|default('00')|e }}</span>&nbsp;{{ uni_sign_second|e }}</span>)
-                          </span>
+                      <span class="uni_red">
+                        <span id="uni_price_int">{{ uniPriceArr[0]|default('0') }}</span>
+                        <span class="uni_sub">.<span id="uni_price_dec">{{ uniPriceArr[1]|default('00')|e
+                            }}</span>&nbsp;{{ uni_sign|e }}</span>
+                        <span style="font-size:70%;">
+                          (<span id="uni_price_second_int">{{ uniPriceSecondArr[0]|default('0') }}</span>
+                          <span class="uni_sub">.<span id="uni_price_second_dec">{{ uniPriceSecondArr[1]|default('00')|e
+                              }}</span>&nbsp;{{ uni_sign_second|e }}</span>)
                         </span>
+                      </span>
                       {% endif %}
                     </div>
                   </div>
@@ -112,9 +123,10 @@
                     <div class="uni_gpr_column_right">
                       <select id="uni_pogasitelni_vnoski_input" class="uni_txt_right">
                         {% for pio in uni_product_installment_options %}
-                          {% if pio.show_in_select %}
-                            <option value="{{ pio.months }}" {% if uni_shema_current == pio.months %}selected{% endif %}>{{ pio.months }} {{ text_months|e }}</option>
-                          {% endif %}
+                        {% if pio.show_in_select %}
+                        <option value="{{ pio.months }}" {% if uni_shema_current==pio.months %}selected{% endif %}>{{
+                          pio.months }} {{ text_months|e }}</option>
+                        {% endif %}
                         {% endfor %}
                       </select>
                     </div>
@@ -123,19 +135,20 @@
                     <div class="uni_gpr_column">{{ uni_vnoska_txt|e }}</div>
                     <div class="uni_gpr_column_right">
                       {% if uni_eur == 0 or uni_eur == 3 %}
-                        <span class="uni_red">
-                          <span id="uni_vnoska_int"></span>
-                          <span class="uni_sub">.<span id="uni_vnoska_dec"></span>&nbsp;{{ uni_sign|e }}</span>
-                        </span>
+                      <span class="uni_red">
+                        <span id="uni_vnoska_int"></span>
+                        <span class="uni_sub">.<span id="uni_vnoska_dec"></span>&nbsp;{{ uni_sign|e }}</span>
+                      </span>
                       {% else %}
-                        <span class="uni_red">
-                          <span id="uni_vnoska_int"></span>
-                          <span class="uni_sub">.<span id="uni_vnoska_dec"></span>&nbsp;{{ uni_sign|e }}</span>
-                          <span style="font-size:70%;">
-                            (<span id="uni_vnoska_second_int"></span>
-                            <span class="uni_sub">.<span id="uni_vnoska_second_dec"></span>&nbsp;{{ uni_sign_second|e }}</span>)
-                          </span>
+                      <span class="uni_red">
+                        <span id="uni_vnoska_int"></span>
+                        <span class="uni_sub">.<span id="uni_vnoska_dec"></span>&nbsp;{{ uni_sign|e }}</span>
+                        <span style="font-size:70%;">
+                          (<span id="uni_vnoska_second_int"></span>
+                          <span class="uni_sub">.<span id="uni_vnoska_second_dec"></span>&nbsp;{{ uni_sign_second|e
+                            }}</span>)
                         </span>
+                      </span>
                       {% endif %}
                     </div>
                   </div>
