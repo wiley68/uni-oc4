@@ -1,5 +1,10 @@
 @import url('roboto-condensed.css');
 
+/* SSR: под min/над max — JS маха класа при допустим ред */
+#uni-product-button-container.uni-product-button-container--ssr-hidden {
+    display: none;
+}
+
 .uni_zaglavie {
     font-family: 'Roboto Condensed', sans-serif !important;
     font-size: 16px !important;
@@ -27,6 +32,61 @@
 
 .uni_button:hover :nth-child(n) {
     display: none;
+}
+
+/* Индикатор при преизчисляване (без плътен overlay върху прозрачния PNG) */
+@keyframes uni_credit_btn_spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#btn_uni.uni_button {
+    position: relative;
+}
+
+.uni-credit-btn__busy {
+    box-sizing: border-box;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 48px;
+    height: 48px;
+    margin: auto;
+    border: 4px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: uni_credit_btn_spin 0.85s linear infinite;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+}
+
+#btn_uni.uni_button.uni-credit-btn--calculating {
+    cursor: wait !important;
+    pointer-events: none;
+}
+
+#btn_uni.uni_button.uni-credit-btn--calculating .uni_button_body {
+    opacity: 0.2;
+    transition: opacity 0.12s ease;
+}
+
+#btn_uni.uni_button.uni-credit-btn--calculating .uni-credit-btn__busy {
+    opacity: 1;
+    visibility: visible;
+}
+
+.uni_button.uni-credit-btn--calculating:hover .uni_button_body {
+    display: flex !important;
+}
+
+.uni_button.uni-credit-btn--calculating:hover .uni-credit-btn__busy {
+    display: block !important;
 }
 
 .uni_button_body {

@@ -293,9 +293,9 @@ class ProductPanel extends Model
         ], $classes);
 
         $shouldDisplay = $uniLineAmount <= $uniMaxstojnost && $uniLineAmount >= $uniMinstojnost;
-        if (!$shouldDisplay) {
-            return null;
-        }
+        $assign['uni_minstojnost'] = $uniMinstojnost;
+        $assign['uni_maxstojnost'] = $uniMaxstojnost;
+        $assign['uni_show_credit_block'] = $shouldDisplay;
 
         return $assign;
     }

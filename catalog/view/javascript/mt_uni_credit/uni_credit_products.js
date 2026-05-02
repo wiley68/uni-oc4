@@ -1,5 +1,47 @@
 let uni_old_vnoski;
 
+/** Монотонно нараства при всяко ново преизчисляване на ред (количество/опции) — остарели AJAX отговори се отхвърлят. */
+let uniCreditPriceFlowGeneration = 0;
+
+/**
+ * Референтно броене: при паралелни заявки (ред + смяна на месеци) индикаторът остава, докато всички текущи операции не приключат.
+ */
+let uniCreditProductBtnBusyRef = 0;
+
+/**
+ * Индикатор върху #btn_uni: по време на option/kimb/преизчисляване (меден нет / клик преди отговор).
+ */
+function uniCreditSetProductButtonBusy(on) {
+  const btn = document.getElementById("btn_uni");
+  if (!btn || !btn.classList.contains("uni_button")) {
+    return;
+  }
+  if (on) {
+    btn.classList.add("uni-credit-btn--calculating");
+    btn.setAttribute("aria-busy", "true");
+  } else {
+    btn.classList.remove("uni-credit-btn--calculating");
+    btn.removeAttribute("aria-busy");
+  }
+}
+
+function uniCreditAcquireProductButtonBusy() {
+  uniCreditProductBtnBusyRef++;
+  if (uniCreditProductBtnBusyRef === 1) {
+    uniCreditSetProductButtonBusy(true);
+  }
+}
+
+function uniCreditReleaseProductButtonBusy() {
+  if (uniCreditProductBtnBusyRef <= 0) {
+    return;
+  }
+  uniCreditProductBtnBusyRef--;
+  if (uniCreditProductBtnBusyRef === 0) {
+    uniCreditSetProductButtonBusy(false);
+  }
+}
+
 function uniGetEurBgnRate() {
   const el = document.getElementById("uni_eur_bgn_rate");
   const n = el ? parseFloat(String(el.value).replace(",", ".")) : NaN;
@@ -216,6 +258,42 @@ function uniUpdateButtonInstallmentLabels(uni_mesecna, months) {
   second.textContent = "(" + secVal.toFixed(2) + " " + signSecond + ")";
 }
 
+/**
+ * Min/max спрямо кешираните bank params (като buildAssignForProductPage): редова сума в сесийната валута.
+ */
+function uniLineEligibleForCreditLineShop(lineShop) {
+  const minEl = document.getElementById("uni_minstojnost");
+  const maxEl = document.getElementById("uni_maxstojnost");
+  if (!minEl || !maxEl) {
+    return true;
+  }
+  const min = uniParseMoney(minEl.value);
+  const max = uniParseMoney(maxEl.value);
+  const x = uniRoundMoney2(Number(lineShop));
+  if (!Number.isFinite(x)) {
+    return false;
+  }
+  return x <= max && x >= min;
+}
+
+function uniSetCreditButtonContainerVisibility(lineShop, popupContainer) {
+  const wrap = document.getElementById("uni-product-button-container");
+  if (!wrap) {
+    return;
+  }
+  const ssrHidden = "uni-product-button-container--ssr-hidden";
+  if (uniLineEligibleForCreditLineShop(lineShop)) {
+    wrap.classList.remove(ssrHidden);
+    wrap.style.display = "";
+  } else {
+    wrap.classList.add(ssrHidden);
+    wrap.style.display = "none";
+    if (popupContainer) {
+      popupContainer.style.display = "none";
+    }
+  }
+}
+
 function uniChangeContainer() {
   var uni_label_container = document.getElementsByClassName(
     "uni-label-container",
@@ -318,7 +396,10 @@ function uniMtCreditCartAddShowErrors(json) {
   return true;
 }
 
-function uni_pogasitelni_vnoski_input_change(_uni_price) {
+function uni_pogasitelni_vnoski_input_change(_uni_price, flowOpts) {
+  flowOpts = flowOpts || {};
+  const fromParentFlow = flowOpts.fromParentFlow === true;
+  const parentFlowGen = flowOpts.flowGen;
   const uni_vnoski = parseFloat(
     document.getElementById("uni_pogasitelni_vnoski_input").value,
   );
@@ -359,8 +440,17 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
   const calcHolder = document.getElementById("uni_get_product_link");
   const calcUrl =
     calcHolder && calcHolder.value ? String(calcHolder.value).trim() : "";
+  let standaloneGen = null;
   if (!calcUrl) {
+    if (fromParentFlow) {
+      uniCreditReleaseProductButtonBusy();
+    }
     return;
+  }
+
+  if (!fromParentFlow) {
+    standaloneGen = ++uniCreditPriceFlowGeneration;
+    uniCreditAcquireProductButtonBusy();
   }
 
   $.ajax({
@@ -383,6 +473,19 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
       uni_param_kimb_36: uni_param_kimb_36,
     },
     success: function (json) {
+      if (
+        fromParentFlow &&
+        parentFlowGen !== undefined &&
+        parentFlowGen !== uniCreditPriceFlowGeneration
+      ) {
+        return;
+      }
+      if (
+        standaloneGen !== null &&
+        standaloneGen !== uniCreditPriceFlowGeneration
+      ) {
+        return;
+      }
       const uni_eur = parseInt(document.getElementById("uni_eur").value);
       let uni_mesecna = 0;
       let uni_glp = 0;
@@ -506,6 +609,9 @@ function uni_pogasitelni_vnoski_input_change(_uni_price) {
       uniUpdateButtonInstallmentLabels(uni_mesecna, uni_vnoski);
       uni_old_vnoski = uni_vnoski;
     },
+    complete: function () {
+      uniCreditReleaseProductButtonBusy();
+    },
   });
 }
 
@@ -543,15 +649,35 @@ $(document).ready(function () {
     } else {
       uni_quantity = 1;
     }
+    const flowGen = ++uniCreditPriceFlowGeneration;
+    uniCreditAcquireProductButtonBusy();
+    function isStaleFlow() {
+      return flowGen !== uniCreditPriceFlowGeneration;
+    }
     function finishLineTotal(lineBeforeEur) {
+      if (isStaleFlow()) {
+        uniCreditReleaseProductButtonBusy();
+        return;
+      }
+      uniSetCreditButtonContainerVisibility(
+        lineBeforeEur,
+        uniProductPopupContainer,
+      );
       uni_priceall = uniApplyEurConversion(lineBeforeEur);
       uniUpdatePopupLineTotalDisplay(uni_priceall);
       if (showPopup && uniProductPopupContainer) {
         uniProductPopupContainer.style.display = "block";
       }
-      uni_pogasitelni_vnoski_input_change(uni_priceall);
+      uni_pogasitelni_vnoski_input_change(uni_priceall, {
+        fromParentFlow: true,
+        flowGen: flowGen,
+      });
     }
     function uniAfterLineComputedThenDisplay(lineBeforeEur) {
+      if (isStaleFlow()) {
+        uniCreditReleaseProductButtonBusy();
+        return;
+      }
       const refreshUrlEl = document.getElementById("uni_kimb_refresh_url");
       const refreshUrl =
         refreshUrlEl && refreshUrlEl.value
@@ -650,9 +776,14 @@ $(document).ready(function () {
                   "Моля изберете стойност за задължителните опции за продукта!",
                 );
               }
+              uniCreditReleaseProductButtonBusy();
               return;
             }
             if (json["success"]) {
+              if (isStaleFlow()) {
+                uniCreditReleaseProductButtonBusy();
+                return;
+              }
               total_opts_sum = uniSumOptionPricesFromJson(json);
               const line = uniLineTotalFromPartsFloat(
                 uni_price1,
@@ -660,7 +791,12 @@ $(document).ready(function () {
                 uni_quantity,
               );
               uniAfterLineComputedThenDisplay(line);
+            } else {
+              uniCreditReleaseProductButtonBusy();
             }
+          },
+          error: function () {
+            uniCreditReleaseProductButtonBusy();
           },
         });
       } else {
@@ -711,6 +847,10 @@ $(document).ready(function () {
   }, 150);
 
   $(document).on("click", "#btn_uni", function () {
+    const btnUniEl = document.getElementById("btn_uni");
+    if (btnUniEl && btnUniEl.getAttribute("aria-busy") === "true") {
+      return false;
+    }
     if (parseInt($("#uni_cart").val(), 10) === 1) {
       if (uni_buy_buttons_submit.length) {
         uni_buy_buttons_submit.item(0).click();
