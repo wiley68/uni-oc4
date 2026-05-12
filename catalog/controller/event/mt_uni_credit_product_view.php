@@ -112,6 +112,21 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             true
         );
 
+        $bankDataNeedsBackgroundRefresh = $this->model_extension_mt_uni_credit_module_product_panel->bankDataNeedsBackgroundRefresh();
+        $canFinishRequestEarly = \function_exists('fastcgi_finish_request');
+        $useJsWarmer = $bankDataNeedsBackgroundRefresh && !$canFinishRequestEarly;
+
+        $assign['uni_cache_warmcache_url'] = $useJsWarmer
+            ? $this->url->link('extension/mt_uni_credit/api/warmcache', $lang, true)
+            : '';
+        $assign['uni_cache_needs_warm'] = $useJsWarmer;
+        $assign['uni_cache_line_total'] = number_format(
+            $displayPrice * $initialQty,
+            2,
+            '.',
+            ''
+        );
+
         $stepsKey = 'text_steps_' . (int) ($assign['uni_eur'] ?? 0);
         $intro = $this->language->get($stepsKey);
         if ($intro === $stepsKey) {
@@ -145,5 +160,40 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
                 $output = substr($output, 0, $positionHook2After) . $this->load->view($this->path, $assign) . substr($output, $positionHook2After);
             }
         }
+
+        if ($bankDataNeedsBackgroundRefresh && $canFinishRequestEarly) {
+            $this->scheduleBankBackgroundRefresh(
+                $productId,
+                $userAgent,
+                $displayPrice * $initialQty
+            );
+        }
+    }
+
+    /**
+     * Регистрира shutdown handler, който след `fastcgi_finish_request()` (отговорът към клиента вече е flush-нат)
+     * пуска синхронен refresh на кеша с банката. Така cold-cache първото зареждане за клиента остава бързо
+     * (сервират се stale данни), а свежите данни се пишат във фон за следващите посетители.
+     */
+    private function scheduleBankBackgroundRefresh(int $productId, string $userAgent, float $lineTotalDisplayCurrency): void
+    {
+        $registry = $this->registry;
+
+        register_shutdown_function(static function () use ($registry, $productId, $userAgent, $lineTotalDisplayCurrency): void {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+
+            try {
+                /** @var \Opencart\System\Engine\Loader $loader */
+                $loader = $registry->get('load');
+                $loader->model('extension/mt_uni_credit/module/product_panel');
+                /** @var \Opencart\Catalog\Model\Extension\MtUniCredit\Module\ProductPanel $model */
+                $model = $registry->get('model_extension_mt_uni_credit_module_product_panel');
+                $model->performBackgroundRefresh($productId, $userAgent, $lineTotalDisplayCurrency);
+            } catch (\Throwable) {
+                // Фоновата задача е „best effort". Грешките не трябва да повлияват на отговора.
+            }
+        });
     }
 }

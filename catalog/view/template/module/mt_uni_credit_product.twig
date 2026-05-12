@@ -86,6 +86,54 @@
   })();
 </script>
 {% endif %}
+{% if uni_cache_needs_warm and uni_cache_warmcache_url %}
+{# Fallback warm-up за хостове без fastcgi_finish_request: след page load, без да блокираме DOM-а, пускаме refetch на
+банковия кеш. #}
+<input type="hidden" id="uni_cache_warmcache_url" value="{{ uni_cache_warmcache_url|e('html_attr') }}" />
+<input type="hidden" id="uni_cache_line_total" value="{{ uni_cache_line_total|default('0')|e('html_attr') }}" />
+<script>
+  (function () {
+    var urlEl = document.getElementById('uni_cache_warmcache_url');
+    var pidEl = document.getElementById('product_id');
+    var lineEl = document.getElementById('uni_cache_line_total');
+    if (!urlEl || !pidEl) {
+      return;
+    }
+    var url = urlEl.value;
+    var pid = pidEl.value;
+    var lineTotal = lineEl ? lineEl.value : '0';
+    if (!url || !pid) {
+      return;
+    }
+    var fire = function () {
+      try {
+        var body = new URLSearchParams();
+        body.set('product_id', pid);
+        body.set('line_total', lineTotal);
+        if (window.fetch) {
+          fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            keepalive: true
+          }).catch(function () { /* fire-and-forget */ });
+        } else {
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', url, true);
+          xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+          xhr.send(body.toString());
+        }
+      } catch (e) { /* ignore */ }
+    };
+    if (document.readyState === 'complete') {
+      setTimeout(fire, 0);
+    } else {
+      window.addEventListener('load', function () { setTimeout(fire, 0); });
+    }
+  })();
+</script>
+{% endif %}
 <input type="hidden" name="product_id" id="product_id" value="{{ uni_product_id }}" />
 <div id="uni-product-popup-container" class="modalpayment_uni">
   <div class="modalpayment_content_uni">

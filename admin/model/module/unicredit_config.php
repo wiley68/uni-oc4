@@ -34,6 +34,25 @@ final class UnicreditConfig
     /** TTL на кеша за коефициентите от банката (секунди). */
     public const API_CACHE_TTL_COEFF = 600;
 
+    /**
+     * Stale-While-Revalidate граница за getparameters/getcalculation (секунди).
+     * Между API_CACHE_TTL_PARAMS и API_CACHE_TTL_PARAMS_HARD данните се сервират stale,
+     * а в същия процес/AJAX warm-up се пуска фонова refetch заявка към банката.
+     */
+    public const API_CACHE_TTL_PARAMS_HARD = 86400 * 7;
+
+    /** Stale-While-Revalidate граница за coeff кеша (секунди). */
+    public const API_CACHE_TTL_COEFF_HARD = 86400 * 7;
+
+    /** Soft TTL за kop_mapping.kimb_time — над него сме „stale" и пускаме фонов refresh, но все още сервираме съществуващите KIMB. */
+    public const KIMB_TIME_TTL_SOFT = 86400;
+
+    /** Hard TTL за kop_mapping.kimb_time — над него блокираме (като сега) и викаме банката синхронно. */
+    public const KIMB_TIME_TTL_HARD = 86400 * 7;
+
+    /** TTL на „lock" реда в api_cache, който пази от паралелни фонови refresh-и (секунди). */
+    public const BACKGROUND_REFRESH_LOCK_TTL = 30;
+
     /** Предпочитани месеци в чекаута — съвпада с PrestaShop UniPayment::BROWSER_COOKIE_CHECKOUT_INSTALLMENTS. */
     public const BROWSER_COOKIE_CHECKOUT_INSTALLMENTS = 'unipayment_pc_inst';
 

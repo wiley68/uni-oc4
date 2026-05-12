@@ -28,6 +28,13 @@ class ProductPanel extends Model
     private string $module = UnicreditConfig::MODULE_SETTING_KEY;
 
     /**
+     * Маркер от текущия read-pipeline: има ли стойност, която е била сервирана stale (между soft и hard TTL).
+     * Чете се от извикващия event (виж mt_uni_credit_product_view), за да реши дали да пусне фонов refresh
+     * след `fastcgi_finish_request()` или да попълни флага за JS warmer.
+     */
+    private bool $bankDataNeedsBackgroundRefresh = false;
+
+    /**
      * Публичен URL-път (след shop base). Файловете идват от extension/.../view/stylesheet/mt_uni_credit/ и се копират в catalog/ при install/запис на модула.
      */
     private const PUBLIC_STYLESHEET_ASSETS = '/catalog/view/stylesheet/mt_uni_credit';
@@ -110,9 +117,17 @@ class ProductPanel extends Model
         $stats = isset($row['stats']) && is_array($row['stats']) ? $row['stats'] : [];
 
         $uniParamKimbTime = ($row['kimb_time'] ?? '') === '' ? 0 : (int) $row['kimb_time'];
-        $currentTime = time() - 86400;
+        $kimbAgeSeconds = $uniParamKimbTime > 0 ? (time() - $uniParamKimbTime) : PHP_INT_MAX;
+        $kimbIsSoftExpired = $kimbAgeSeconds >= UnicreditConfig::KIMB_TIME_TTL_SOFT;
+        $kimbIsHardExpired = $kimbAgeSeconds >= UnicreditConfig::KIMB_TIME_TTL_HARD || $uniParamKimbTime <= 0;
+        $kimbHasUsableStats = $this->statsHasAnyKimbSlot($stats);
 
-        if ($currentTime > $uniParamKimbTime) {
+        if (!$kimbHasUsableStats) {
+            // Никога не сме теглили коефициенти за тази категория — трябва да блокираме веднъж, иначе калкулаторът показва нули.
+            $kimbIsHardExpired = true;
+        }
+
+        if ($kimbIsHardExpired) {
             if ($this->canUseBankCoeffApi($uniService, $uniUser, $uniPassword)) {
                 if (!isset($row['stats']) || !is_array($row['stats'])) {
                     $row['stats'] = [];
@@ -145,6 +160,10 @@ class ProductPanel extends Model
                 $kimb = (float) str_replace(',', '.', (string) $row['kimb']);
             }
         } else {
+            // Soft expired (между 24h и 7d): сервираме старите KIMB, но маркираме за фонов refresh.
+            if ($kimbIsSoftExpired) {
+                $this->bankDataNeedsBackgroundRefresh = true;
+            }
             $kimb = (float) str_replace(',', '.', (string) ($uniParamKimb ?? ''));
         }
 
@@ -375,6 +394,170 @@ class ProductPanel extends Model
         }
 
         return (int) ($paramsuni['uni_meseci_' . $months] ?? 0) !== 0;
+    }
+
+    /**
+     * Беше ли част от данните, сервирани в текущия read-pipeline, „stale" (между soft и hard TTL)?
+     * Викащият (event handler) използва това решение, за да пусне фонов refresh след
+     * `fastcgi_finish_request()` или да маркира страницата за client-side warm-up.
+     */
+    public function bankDataNeedsBackgroundRefresh(): bool
+    {
+        return $this->bankDataNeedsBackgroundRefresh;
+    }
+
+    /**
+     * Изпълнява пълен refresh pipeline към банката (params/calc + KIMB за дадения продукт),
+     * предназначен за извикване СЛЕД като отговорът към клиента е изпратен (виж
+     * `mt_uni_credit_product_view::dispatchBackgroundRefresh`). Защитен с DB lock срещу
+     * паралелни фонови викания за един и същ магазин.
+     *
+     * @return array{ran: bool, refreshed_params: bool, refreshed_kimb: bool}
+     */
+    public function performBackgroundRefresh(int $productId, string $userAgent, float $lineTotalDisplayCurrency): array
+    {
+        @ignore_user_abort(true);
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(60);
+        }
+        if (function_exists('session_write_close') && function_exists('session_status') && session_status() === \PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+
+        $result = ['ran' => false, 'refreshed_params' => false, 'refreshed_kimb' => false];
+
+        $unicid = trim((string) $this->config->get($this->module . '_unicid'));
+        if ($unicid === '') {
+            return $result;
+        }
+
+        $lockName = 'bg:refresh:' . md5($unicid);
+        if (!$this->tryAcquireBackgroundRefreshLock($lockName)) {
+            return $result;
+        }
+        $result['ran'] = true;
+
+        $paramsuni = $this->fetchUniParamsFromBankAndCache($unicid, true);
+        if (is_array($paramsuni)) {
+            $result['refreshed_params'] = true;
+        } else {
+            return $result;
+        }
+
+        $deviceis = $this->detectDevice($userAgent);
+        $this->fetchUniCalculationFromBankAndCache($unicid, $deviceis, true);
+
+        if ($productId > 0 && $lineTotalDisplayCurrency > 0 && ($paramsuni['uni_status'] ?? '') === 'Yes') {
+            $result['refreshed_kimb'] = $this->refreshKimbForProductCategory($productId, $lineTotalDisplayCurrency, $paramsuni);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Пресвято преизчисление на KIMB/GLP за категорията на даден продукт.
+     * Логиката е аналогична на синхронния KIMB блок в `buildAssignForProductPage`,
+     * но без render-страничните странични ефекти.
+     *
+     * @param array<string, mixed> $paramsuni
+     */
+    private function refreshKimbForProductCategory(int $productId, float $lineTotalDisplayCurrency, array $paramsuni): bool
+    {
+        $productCategoryRoots = $this->getProductRootCategoryIdsOrdered($productId);
+        if ($productCategoryRoots === []) {
+            return false;
+        }
+
+        $uniCategoriesKop = $this->loadKopMappingFromDb();
+        $uniKey = $this->findKopRowIndexForProductCategories($uniCategoriesKop, $productCategoryRoots);
+        if ($uniKey === false) {
+            return false;
+        }
+
+        $uniService = (int) ($paramsuni['uni_testenv'] ?? 0) === 1
+            ? (string) ($paramsuni['uni_test_service'] ?? '')
+            : (string) ($paramsuni['uni_production_service'] ?? '');
+        $uniUser = html_entity_decode((string) ($paramsuni['uni_user'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $uniPassword = html_entity_decode((string) ($paramsuni['uni_password'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $useCert = (($paramsuni['uni_sertificat'] ?? '') === 'Yes');
+
+        if (!$this->canUseBankCoeffApi($uniService, $uniUser, $uniPassword)) {
+            return false;
+        }
+
+        $row = &$uniCategoriesKop[$uniKey];
+        if (!isset($row['stats']) || !is_array($row['stats'])) {
+            $row['stats'] = [];
+        }
+        $uniShemaCurrent = (int) ($paramsuni['uni_shema_current'] ?? 12);
+
+        $anyFetched = false;
+        foreach (self::KIMB_BANK_INSTALLMENT_COUNTS as $cnt) {
+            $kopForCnt = $this->resolveKopCode($uniCategoriesKop, $uniKey, $paramsuni, $lineTotalDisplayCurrency, $cnt);
+            if ($kopForCnt === '') {
+                continue;
+            }
+            $fetched = $this->fetchCoeffFromBank($uniService, $uniUser, $uniPassword, $kopForCnt, $cnt, $useCert);
+            if ($fetched !== null && $fetched['kimb'] > 0) {
+                $row['stats']['kimb_' . $cnt] = (string) $fetched['kimb'];
+                $row['stats']['glp_' . $cnt] = (string) $fetched['glp'];
+                $this->writeBankCoeffCache($uniUser, $kopForCnt, $cnt, $useCert, $fetched);
+                $anyFetched = true;
+            }
+        }
+
+        if (!$anyFetched) {
+            return false;
+        }
+
+        $kimbForCurrent = $this->kimbFromStatsForInstallments($row['stats'], $uniShemaCurrent);
+        $row['kimb'] = $kimbForCurrent > 0 ? (string) $kimbForCurrent : '';
+        $row['kimb_time'] = (string) time();
+        $row['stats'][self::STAT_LINE_TOTAL_USED_FOR_KIMB] = number_format(
+            $lineTotalDisplayCurrency,
+            2,
+            '.',
+            ''
+        );
+        $this->persistKopRuntimeData($row);
+
+        return true;
+    }
+
+    /**
+     * Опит за прихващане на „lock" ред в api_cache, който пази от паралелни фонови refresh-и.
+     * Lock-ът се самоосвобождава по BACKGROUND_REFRESH_LOCK_TTL (без явно release).
+     */
+    private function tryAcquireBackgroundRefreshLock(string $name): bool
+    {
+        $cacheKey = 'lock:' . md5($name);
+        $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
+        $now = date('Y-m-d H:i:s');
+
+        $q = $this->db->query(
+            "SELECT `date_upd` FROM `{$table}` WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "' LIMIT 1"
+        );
+        if ($q->num_rows) {
+            $existingTs = (int) strtotime((string) ($q->row['date_upd'] ?? ''));
+            if ($existingTs > 0 && (time() - $existingTs) < UnicreditConfig::BACKGROUND_REFRESH_LOCK_TTL) {
+                return false;
+            }
+            $this->db->query(
+                "UPDATE `{$table}` SET `cache_group` = 'lock', `payload` = '', `date_upd` = '" . $this->db->escape($now) . "' WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "'"
+            );
+
+            return true;
+        }
+
+        try {
+            $this->db->query(
+                "INSERT INTO `{$table}` SET `cache_group` = 'lock', `cache_key` = '" . $this->db->escape($cacheKey) . "', `payload` = '', `date_add` = '" . $this->db->escape($now) . "', `date_upd` = '" . $this->db->escape($now) . "'"
+            );
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -1340,19 +1523,19 @@ class ProductPanel extends Model
     private function readBankCoeffCache(string $user, string $kop, int $installments, bool $useCert): ?array
     {
         $cacheKey = $this->bankCoeffCacheKey($user, $kop, $installments, $useCert);
-        $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
-        $q = $this->db->query(
-            "SELECT `payload`, `date_upd` FROM `{$table}` WHERE `cache_key` = '" . $this->db->escape($cacheKey) . "' LIMIT 1"
+        $cached = $this->readApiCachePayloadWithFreshness(
+            $cacheKey,
+            UnicreditConfig::API_CACHE_TTL_COEFF,
+            UnicreditConfig::API_CACHE_TTL_COEFF_HARD
         );
-        if (!$q->num_rows) {
+        if ($cached === null) {
             return null;
         }
-        $updatedTs = strtotime((string) ($q->row['date_upd'] ?? ''));
-        if ($updatedTs === false || (time() - (int) $updatedTs) >= UnicreditConfig::API_CACHE_TTL_COEFF) {
-            return null;
+        if ($cached['is_stale']) {
+            $this->bankDataNeedsBackgroundRefresh = true;
         }
-        $data = json_decode((string) ($q->row['payload'] ?? ''), true);
-        if (!is_array($data) || !isset($data['kimb'])) {
+        $data = $cached['data'];
+        if (!isset($data['kimb'])) {
             return null;
         }
 
@@ -1519,9 +1702,17 @@ class ProductPanel extends Model
         }
         $cacheKey = 'params:' . md5($unicid);
         if (!$forceReload) {
-            $cached = $this->readApiCachePayload($cacheKey, UnicreditConfig::API_CACHE_TTL_PARAMS);
-            if (is_array($cached)) {
-                return $cached;
+            $cached = $this->readApiCachePayloadWithFreshness(
+                $cacheKey,
+                UnicreditConfig::API_CACHE_TTL_PARAMS,
+                UnicreditConfig::API_CACHE_TTL_PARAMS_HARD
+            );
+            if ($cached !== null) {
+                if ($cached['is_stale']) {
+                    $this->bankDataNeedsBackgroundRefresh = true;
+                }
+
+                return $cached['data'];
             }
         }
         $url = rtrim(UnicreditConfig::LIVE_URL, '/') . UnicreditConfig::BANK_GETPARAMETERS_PATH . '?cid=' . rawurlencode($unicid);
@@ -1559,9 +1750,17 @@ class ProductPanel extends Model
         }
         $cacheKey = 'calc:' . md5($unicid . '_' . $deviceis);
         if (!$forceReload) {
-            $cached = $this->readApiCachePayload($cacheKey, UnicreditConfig::API_CACHE_TTL_PARAMS);
-            if (is_array($cached)) {
-                return $cached;
+            $cached = $this->readApiCachePayloadWithFreshness(
+                $cacheKey,
+                UnicreditConfig::API_CACHE_TTL_PARAMS,
+                UnicreditConfig::API_CACHE_TTL_PARAMS_HARD
+            );
+            if ($cached !== null) {
+                if ($cached['is_stale']) {
+                    $this->bankDataNeedsBackgroundRefresh = true;
+                }
+
+                return $cached['data'];
             }
         }
         $url = rtrim(UnicreditConfig::LIVE_URL, '/') . '/function/getcalculation.php?cid=' . rawurlencode($unicid) . '&deviceis=' . rawurlencode($deviceis);
@@ -1589,9 +1788,24 @@ class ProductPanel extends Model
     }
 
     /**
+     * Чете кеша при стария двоичен (fresh/expired) модел.
+     *
      * @return array<string, mixed>|null
      */
     private function readApiCachePayload(string $cacheKey, int $ttlSeconds): ?array
+    {
+        $row = $this->readApiCachePayloadWithFreshness($cacheKey, $ttlSeconds, $ttlSeconds);
+
+        return $row === null ? null : $row['data'];
+    }
+
+    /**
+     * SWR четец: разграничава „fresh" (под soft TTL), „stale" (между soft и hard TTL — все още връща данни)
+     * и „expired" (над hard TTL или липсва — връща null).
+     *
+     * @return array{data: array<string, mixed>, is_stale: bool}|null
+     */
+    private function readApiCachePayloadWithFreshness(string $cacheKey, int $softTtlSeconds, int $hardTtlSeconds): ?array
     {
         $table = $this->table(UnicreditConfig::TABLE_API_CACHE);
         $q = $this->db->query(
@@ -1601,12 +1815,22 @@ class ProductPanel extends Model
             return null;
         }
         $updatedTs = strtotime((string) ($q->row['date_upd'] ?? ''));
-        if ($updatedTs === false || (time() - $updatedTs) >= $ttlSeconds) {
+        if ($updatedTs === false) {
+            return null;
+        }
+        $age = time() - $updatedTs;
+        if ($hardTtlSeconds > 0 && $age >= $hardTtlSeconds) {
             return null;
         }
         $payload = json_decode((string) ($q->row['payload'] ?? ''), true);
+        if (!is_array($payload)) {
+            return null;
+        }
 
-        return is_array($payload) ? $payload : null;
+        return [
+            'data'     => $payload,
+            'is_stale' => $softTtlSeconds > 0 && $age >= $softTtlSeconds,
+        ];
     }
 
     /**
