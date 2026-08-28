@@ -31,9 +31,14 @@ final class Phase4TestHarness
         return new InMemoryModuleSettingStore();
     }
 
+    public static function derivedTestKey(): string
+    {
+        return (new ModuleEncryptionKeyProvider())->resolveDerivedKey(ModuleEncryptionKeyProvider::testSecretInput());
+    }
+
     public static function cipher(): ModuleSettingCipher
     {
-        return new ModuleSettingCipher(ModuleEncryptionKeyProvider::testKeyMaterial());
+        return new ModuleSettingCipher(self::derivedTestKey());
     }
 
     public static function prepareCredentials(ModuleSettingStore $settings, int $storeId = self::TEST_STORE_ID): void
@@ -79,7 +84,7 @@ final class Phase4TestHarness
             $transport,
             new PersistenceClock(static fn(): int => $now),
             static fn(): int => $now,
-            ModuleEncryptionKeyProvider::testKeyMaterial()
+            ModuleEncryptionKeyProvider::testSecretInput()
         );
     }
 

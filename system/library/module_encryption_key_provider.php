@@ -5,26 +5,43 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Stable installation-scoped key material for encrypting module settings at rest.
+ * Derives the AES-256 key for encrypting module settings at rest.
  *
- * Mirrors the role of PrestaShop {@see _NEW_COOKIE_KEY_} in uni-ps9: auto-derived from the
- * deployed OpenCart installation, not an operator-managed deployment secret file.
+ * OpenCart 4.1 has no native installation encryption secret (unlike PrestaShop
+ * {@see _NEW_COOKIE_KEY_}). The provider uses the standard {@see DB_PASSWORD}
+ * constant from config.php — a genuine deployment secret outside oc_setting.
  */
 final class ModuleEncryptionKeyProvider
 {
-    private const DERIVATION_SUFFIX = 'mt_uni_credit_module_encryption_v1';
+    public const DERIVATION_INFO = 'mt_uni_credit/settings-encryption/v1';
 
-    public function resolveKeyMaterial(): string
+    private const KEY_LENGTH = 32;
+
+    public function resolveSecretInput(): string
     {
-        if (defined('DB_PREFIX') && defined('DB_DATABASE') && defined('DIR_STORAGE')) {
-            return \DB_PREFIX . '|' . \DB_DATABASE . '|' . \DIR_STORAGE . '|' . self::DERIVATION_SUFFIX;
+        if (defined('DB_PASSWORD') && \DB_PASSWORD !== '') {
+            return \DB_PASSWORD;
         }
 
-        return self::testKeyMaterial();
+        throw new \RuntimeException('Module encryption secret unavailable.');
     }
 
-    public static function testKeyMaterial(): string
+    /**
+     * @param string|null $secretInputOverride PHPUnit-only override of the installation secret.
+     */
+    public function resolveDerivedKey(?string $secretInputOverride = null): string
     {
-        return 'phase4-test-installation|' . self::DERIVATION_SUFFIX;
+        $secret = $secretInputOverride ?? $this->resolveSecretInput();
+        $derived = hash_hkdf('sha256', $secret, self::KEY_LENGTH, self::DERIVATION_INFO);
+        if ($derived === false) {
+            throw new \RuntimeException('Module encryption key derivation failed.');
+        }
+
+        return $derived;
+    }
+
+    public static function testSecretInput(): string
+    {
+        return 'phase4-test-installation-db-password-secret';
     }
 }

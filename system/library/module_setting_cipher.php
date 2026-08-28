@@ -7,8 +7,7 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * AES-256-GCM encryption for values stored in oc_setting.
  *
- * Key material comes from {@see ModuleEncryptionKeyProvider} (installation-scoped),
- * decoupled from the CP login secret.
+ * Accepts a 32-byte key from {@see ModuleEncryptionKeyProvider::resolveDerivedKey()}.
  */
 final class ModuleSettingCipher
 {
@@ -16,9 +15,13 @@ final class ModuleSettingCipher
 
     private string $key;
 
-    public function __construct(string $keyMaterial)
+    public function __construct(string $derivedKey)
     {
-        $this->key = hash('sha256', $keyMaterial . '|mt_uni_credit_setting_cipher_v1', true);
+        if (strlen($derivedKey) !== 32) {
+            throw new \InvalidArgumentException('AES-256 key must be exactly 32 bytes.');
+        }
+
+        $this->key = $derivedKey;
     }
 
     public static function encryptedPrefix(): string

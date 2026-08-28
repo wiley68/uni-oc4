@@ -28,11 +28,10 @@ final class CpServiceFactory
         ?CpHttpTransport $transport = null,
         ?PersistenceClock $clock = null,
         ?callable $wallClock = null,
-        ?string $encryptionKeyMaterialOverride = null
+        ?string $encryptionSecretInputOverride = null
     ): array {
-        $keyMaterial = $encryptionKeyMaterialOverride
-            ?? (new ModuleEncryptionKeyProvider())->resolveKeyMaterial();
-        $cipher = new ModuleSettingCipher($keyMaterial);
+        $keyProvider = new ModuleEncryptionKeyProvider();
+        $cipher = new ModuleSettingCipher($keyProvider->resolveDerivedKey($encryptionSecretInputOverride));
         $credentials = new ModuleCredentialsRepository($settings, $cipher);
         $tokens = new CpTokenRepository($settings, $cipher, $storeId);
         $shopName = (new CanonicalShopUrlProvider())->resolve($catalogSslUrl, $catalogPlainUrl);

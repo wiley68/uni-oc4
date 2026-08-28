@@ -286,16 +286,16 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 
 Подробности: `docs/PHASE4.md`.
 
-| Елемент          | Стойност                                                   |
-| ---------------- | ---------------------------------------------------------- |
-| HTTP transport   | `CurlCpHttpTransport`, TLS verify, connect 5s / total 15s  |
-| Login body       | `unicid`, `name` (canonical shop URL), `secret`            |
-| CP secret        | admin setting `module_mt_uni_credit_secret` (encrypted)    |
-| UNICID           | admin setting `module_mt_uni_credit_unicid`                |
-| Token storage    | encrypted `oc_setting`, store-scoped, prefix `enc:v1:`     |
-| Encryption key   | `ModuleEncryptionKeyProvider` (installation-scoped)        |
-| 401 retry        | exactly once after re-auth; second 401 invalidates         |
-| Shop fetch       | `GET /api/v1/shop` → validate → `mt_uni_credit_shop_cache` |
-| Cache TTL        | 86400 s                                                    |
-| Invalid snapshot | does **not** overwrite known-good cache                    |
-| CP orders        | **not implemented** in Phase 4                             |
+| Елемент          | Стойност                                                               |
+| ---------------- | ---------------------------------------------------------------------- |
+| HTTP transport   | `CurlCpHttpTransport`, TLS verify, connect 5s / total 15s              |
+| Login body       | `unicid`, `name` (canonical shop URL), `secret`                        |
+| CP secret        | admin setting `module_mt_uni_credit_secret` (encrypted)                |
+| UNICID           | admin setting `module_mt_uni_credit_unicid`                            |
+| Token storage    | encrypted `oc_setting`, store-scoped, prefix `enc:v1:`                 |
+| Encryption key   | `ModuleEncryptionKeyProvider` — HKDF from `DB_PASSWORD` (`config.php`) |
+| 401 retry        | exactly once after re-auth; second 401 invalidates                     |
+| Shop fetch       | `GET /api/v1/shop` → validate → `mt_uni_credit_shop_cache`             |
+| Cache TTL        | 86400 s                                                                |
+| Invalid snapshot | does **not** overwrite known-good cache                                |
+| CP orders        | **not implemented** in Phase 4                                         |

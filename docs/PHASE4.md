@@ -29,10 +29,24 @@ Deployment files (`secrets/smartucf-key.php`, PEM keys) are **only** for SmartUC
 
 ## Token / setting encryption key
 
-- `ModuleEncryptionKeyProvider` derives stable key material from OpenCart installation constants (`DB_PREFIX`, `DB_DATABASE`, `DIR_STORAGE`)
-- Same key encrypts CP secret and bearer token at rest
-- **Decoupled** from CP login secret value (no extra deployment file)
-- Role analogous to PrestaShop `_NEW_COOKIE_KEY_` in uni-ps9
+- **Source:** `DB_PASSWORD` from OpenCart `config.php` (standard deployment credential, not stored in `oc_setting`)
+- **Provider:** `ModuleEncryptionKeyProvider::resolveSecretInput()` → `resolveDerivedKey()`
+- **Derivation:** `hash_hkdf('sha256', DB_PASSWORD, 32, 'mt_uni_credit/settings-encryption/v1')`
+- Same derived key encrypts CP secret and bearer token at rest (`enc:v1:` via `ModuleSettingCipher`)
+- **Decoupled** from CP login secret value and from predictable metadata (`DB_PREFIX`, `DB_DATABASE`, `DIR_STORAGE`, URLs, UNICID)
+- No extra UniCredit deployment secret file; role analogous to PrestaShop `_NEW_COOKIE_KEY_` (installation secret outside module settings)
+
+### At-rest protection model
+
+| Attacker has                 | Can decrypt CP secret / token? |
+| ---------------------------- | ------------------------------ |
+| Database dump only           | **No** (needs `config.php`)    |
+| Database dump + `config.php` | Yes (same as full app access)  |
+| Admin UI / health presenter  | **No** (never rendered)        |
+
+### Development invalidation (pre-release)
+
+Earlier Phase 4 development builds derived keys from `DB_PREFIX|DB_DATABASE|DIR_STORAGE` metadata. That scheme is **removed**. Existing `enc:v1:` CP secret and bearer token values from those builds **will not decrypt** after this remediation. Re-enter the CP secret in admin and reconnect; no `enc:v0` migration path.
 
 ## Shop cache
 

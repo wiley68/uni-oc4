@@ -53,7 +53,7 @@ final class Phase4AdminPresenterTest extends TestCase
 
     public function testTokenAndSecretUseInstallationEncryptionKey(): void
     {
-        $key = ModuleEncryptionKeyProvider::testKeyMaterial();
+        $key = (new ModuleEncryptionKeyProvider())->resolveDerivedKey(ModuleEncryptionKeyProvider::testSecretInput());
         $cipher = new ModuleSettingCipher($key);
         $encrypted = $cipher->encrypt('token-value');
         self::assertStringStartsWith(ModuleSettingCipher::encryptedPrefix(), $encrypted);
