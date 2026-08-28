@@ -70,10 +70,23 @@ Both paths are idempotent (`deleteEventByCode` before `addEvent`; defaults only 
 
 Languages: `admin/language/bg-bg/module/mt_uni_credit.php`, `admin/language/en-gb/module/mt_uni_credit.php`.
 
+## Remediation: no stubs in scanned component directories
+
+Manual testing on OpenCart 4.1.0.3 confirmed that `admin/controller/module/index.php` (generic exit stub) was glob-discovered as a second module with code `index`, breaking Extensions → Modules. **Never** add generic `index.php` files under `admin/controller/{type}/`.
+
 ## Security baseline
 
-- `index.php` exit stubs in admin/system subtrees
-- Root `.htaccess` blocks `vendor/`, `tests/`, `docs/`, `scripts/`
+OpenCart 4.1 **glob-scans** `admin/controller/{type}/*.php` for extension discovery (Modules, Payments, etc.). Every `.php` basename becomes a component code (e.g. a stray `index.php` is discovered as module code `index` and can break Extensions → Modules).
+
+**Do not** place generic `index.php` exit stubs in:
+
+- `admin/controller/module/` (and other scanned `admin/controller/{type}/` dirs)
+- `admin/model/module/` or `admin/language/*/module/` (companion paths for the same code)
+
+Use instead:
+
+- Root `.htaccess` blocks direct web access to `vendor/`, `tests/`, `docs/`, `scripts/`, `admin/`, and `system/`
+- `index.php` stubs only in non-scanned paths (e.g. `docs/`, `tests/`) where they cannot be interpreted as OpenCart components
 - Admin actions require OpenCart user token + `access`/`modify` on the module route
 
 ## Explicitly not in Phase 1

@@ -245,3 +245,5 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 | Compatibility   | `system/library/open_cart_compatibility.php`           |
 | Events Phase 1  | **0** (само `EventRegistry` инфраструктура)            |
 | Autoload        | native OpenCart; **без** runtime Composer              |
+
+**Remediation:** OpenCart glob-сканира `admin/controller/{type}/*.php` за discovery. Generic `index.php` в `admin/controller/module/` се интерпретира като модул с code `index` и може да счупи Extensions → Modules. Не слагай exit stubs в scanned component namespaces; виж `docs/PHASE1.md` §Remediation.

@@ -7,6 +7,6 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(vendor|tests|docs|scripts)/ - [F,L]
+    RewriteRule ^(vendor|tests|docs|scripts|admin|system)/ - [F,L]
     RewriteRule ^\.phpunit\.cache/ - [F,L]
 </IfModule>
