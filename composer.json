@@ -1,0 +1,28 @@
+{
+  "name": "wiley68/uni-oc4",
+  "description": "UniCredit financing module for OpenCart 4.x (development harness and contract tests)",
+  "type": "opencart-extension",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2 <8.5"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.5"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "MtUniCredit\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit --colors=always",
+    "test:php84": "/usr/bin/php8.4 vendor/bin/phpunit --colors=always",
+    "lint:php82": "bash scripts/lint-php82.sh"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true,
+    "prepend-autoloader": false
+  }
+}

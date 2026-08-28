@@ -1,0 +1,37 @@
+{
+  "opencart_version": "4.1.0.3",
+  "source_root": "/var/www/open40.avalonbg.com",
+  "files": {
+    "confirm": "catalog/controller/checkout/confirm.php",
+    "success": "catalog/controller/checkout/success.php",
+    "order_model": "catalog/model/checkout/order.php",
+    "payment_method": "catalog/controller/checkout/payment_method.php",
+    "db_schema": "system/helper/db_schema.php",
+    "jet_payment_model": "extension/mt_jet_credit/catalog/model/payment/jet.php",
+    "jet_payment_controller": "extension/mt_jet_credit/catalog/controller/payment/jet.php"
+  },
+  "findings": {
+    "addOrder_called_from_confirm_index": true,
+    "addOrder_requires_status_true": true,
+    "session_order_id_set_immediately_after_addOrder": true,
+    "payment_controller_rendered_after_order_create_or_edit": true,
+    "status_0_order_reused_via_editOrder": true,
+    "editOrder_first_voids_via_addHistory": true,
+    "after_first_edit_status_no_longer_zero": true,
+    "payment_method_identifier_format": "{code}.{option}",
+    "payment_method_stored_as_json_in_order_row": true,
+    "addHistory_updates_order_status_and_inserts_order_history": true,
+    "checkout_success_clears_cart_and_session_not_db": true,
+    "addOrder_omits_order_status_id_insert_uses_db_default_0": true
+  },
+  "snippets": {
+    "addOrder_or_editOrder": "if (!$order_id) {\n\t\t\t\t$this->session->data['order_id'] = $this->model_checkout_order->addOrder($order_data);\n\t\t\t} elseif ($order_info && !$order_info['order_status_id']) {\n\t\t\t\t$this->model_checkout_order->editOrder($order_id, $order_data);\n\t\t\t}",
+    "payment_render": "$data['payment'] = $this->load->controller('extension/' . $extension_info['extension'] . '/payment/' . $extension_info['code']);",
+    "payment_code_prefix": "oc_substr($this->session->data['payment_method']['code'], 0, strpos($this->session->data['payment_method']['code'], '.'))",
+    "editOrder_void": "$this->addHistory($order_id, (int)$this->config->get('config_void_status_id'));",
+    "payment_select": "$payment = explode('.', $this->request->post['payment_method']);",
+    "success_cleanup": "unset($this->session->data['order_id']);"
+  },
+  "jet_payment_option_code": "jet.jet",
+  "planned_module_model_from_stub": "extension/mt_uni_credit/module/unicredit"
+}

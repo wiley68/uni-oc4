@@ -26,7 +26,7 @@ namespace {
         define('DIR_CATALOG', '');
     }
     if (!defined('VERSION')) {
-        define('VERSION', '4.0.2.0');
+        define('VERSION', '4.1.0.3');
     }
 
     /**

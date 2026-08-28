@@ -1,0 +1,15 @@
+{
+  "code": "mt_uni_credit",
+  "version": "2.0.2",
+  "type": "module",
+  "author": "Авалон ООД",
+  "namespace_segment": "MtUniCredit",
+  "admin_namespace": "Opencart\\Admin\\Controller\\Extension\\MtUniCredit",
+  "catalog_namespace": "Opencart\\Catalog\\Controller\\Extension\\MtUniCredit",
+  "route_prefix": "extension/mt_uni_credit/",
+  "install_hook_json": "admin/controller/module/mt_uni_credit::install",
+  "uninstall_hook_json": "admin/controller/module/mt_uni_credit::uninstall",
+  "runtime_install_route_4103": "extension/mt_uni_credit/module/mt_uni_credit.install",
+  "php_target": "8.2",
+  "tests_php": "8.4"
+}

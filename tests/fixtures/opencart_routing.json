@@ -1,0 +1,63 @@
+{
+  "opencart_version": "4.1.0.3",
+  "event_method_separator_on_4103": ".",
+  "http_route_pipe_normalized_to_dot": true,
+  "event_action_pipe_not_normalized": true,
+  "jet_separator_rule": "VERSION >= '4.0.2' ? '.' : '|'",
+  "files": {
+    "action": "system/engine/action.php",
+    "loader": "system/engine/loader.php",
+    "framework": "system/framework.php",
+    "factory": "system/engine/factory.php",
+    "catalog_event_startup": "catalog/controller/startup/event.php",
+    "catalog_extension_startup": "catalog/controller/startup/extension.php",
+    "jet_module_controller": "extension/mt_jet_credit/admin/controller/module/mt_jet_credit.php",
+    "marketplace_installer": "admin4/controller/marketplace/installer.php",
+    "module_install": "admin4/controller/extension/module.php",
+    "payment_install": "admin4/controller/extension/payment.php"
+  },
+  "namespace_map": {
+    "extension_code": "mt_uni_credit",
+    "php_namespace_segment": "MtUniCredit",
+    "formula": "str_replace(['_', '/'], ['', '\\\\'], ucwords($extension, '_/'))",
+    "admin": "Opencart\\Admin\\Controller\\Extension\\MtUniCredit\\",
+    "catalog": "Opencart\\Catalog\\Controller\\Extension\\MtUniCredit\\",
+    "catalog_model": "Opencart\\Catalog\\Model\\Extension\\MtUniCredit\\",
+    "route_prefix": "extension/mt_uni_credit/"
+  },
+  "language_twig": {
+    "language_load": "extension/{code}/{type}/{name}",
+    "language_files": "{admin|catalog}/language/{locale}/{type}/{name}.php",
+    "twig_load": "extension/{code}/{type}/{name}",
+    "twig_files": "{admin|catalog}/view/template/{type}/{name}.twig"
+  },
+  "install_json_marketplace_keys": [
+    "extension_id",
+    "extension_download_id",
+    "name",
+    "description",
+    "code",
+    "version",
+    "author",
+    "link"
+  ],
+  "install_json_keys_ignored_by_4103_marketplace": ["status", "type", "install", "uninstall"],
+  "actual_module_install_call": "extension/{extension}/module/{code}.install",
+  "actual_payment_install_call": "extension/{extension}/payment/{code}.install",
+  "examples": {
+    "dot_splits_method": {
+      "route": "extension/mt_uni_credit/event/demo.init",
+      "controller": "extension/mt_uni_credit/event/demo",
+      "method": "init"
+    },
+    "pipe_does_not_split_in_Action": {
+      "route": "extension/mt_uni_credit/event/demo|init",
+      "controller": "extension/mt_uni_credit/event/demo|init",
+      "method": "index"
+    },
+    "loader_http_pipe_becomes_dot": {
+      "input": "extension/mt_uni_credit/module/mt_uni_credit|save",
+      "after_loader": "extension/mt_uni_credit/module/mt_uni_credit.save"
+    }
+  }
+}

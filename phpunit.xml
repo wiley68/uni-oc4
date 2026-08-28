@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         beStrictAboutOutputDuringTests="true"
+         failOnWarning="true">
+    <testsuites>
+        <testsuite name="phase0">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="OPENCART_ROOT" value="/var/www/open40.avalonbg.com"/>
+        <env name="JET_OC4_ROOT" value="/var/www/open40.avalonbg.com/extension/mt_jet_credit"/>
+    </php>
+</phpunit>
