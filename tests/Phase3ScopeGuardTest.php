@@ -27,12 +27,11 @@ final class Phase3ScopeGuardTest extends TestCase
         'mt_uni_credit_checkout_lock',
     ];
 
-    public function testNoPhase4PlusControllersOrClients(): void
+    public function testNoPhase4PlusPaymentControllersOrClients(): void
     {
         $root = dirname(__DIR__);
-        foreach ([$root . '/catalog', $root . '/admin/controller/payment'] as $path) {
-            self::assertDirectoryDoesNotExist($path);
-        }
+        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
+        self::assertDirectoryDoesNotExist($root . '/admin/controller/payment');
 
         foreach ([$root . '/admin', $root . '/system'] as $dir) {
             $iterator = new \RecursiveIteratorIterator(

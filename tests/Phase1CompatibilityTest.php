@@ -37,13 +37,14 @@ final class Phase1CompatibilityTest extends TestCase
         );
     }
 
-    public function testPhase1EventRegistryIsEmptyAndScoped(): void
+    public function testEventRegistryIsScopedAndProductOnly(): void
     {
-        self::assertSame([], EventRegistry::definitions());
-        self::assertSame([], EventRegistry::eventCodes());
-        self::assertSame([], EventRegistry::openCartEventRows('4.1.0.3'));
+        $codes = EventRegistry::eventCodes();
+        self::assertContains('module_mt_uni_credit_before_product_controller', $codes);
+        self::assertContains('module_mt_uni_credit_after_product_view', $codes);
         self::assertTrue(EventRegistry::isScopedEventCode('module_mt_uni_credit_example'));
         self::assertFalse(EventRegistry::isScopedEventCode('other_module_event'));
+        self::assertStringContainsString('.init', EventRegistry::openCartEventRows('4.1.0.3')[0]['action']);
     }
 
     public function testControllerDoesNotEmbedVersionChecks(): void

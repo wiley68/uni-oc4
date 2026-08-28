@@ -46,8 +46,11 @@ final class Phase1StructureTest extends TestCase
         self::assertSame('extension/mt_uni_credit/payment/mt_uni_credit', 'extension/' . ModuleConstants::EXTENSION_CODE . '/payment/' . ModuleConstants::PAYMENT_CODE);
     }
 
-    public function testCatalogTreeNotCreatedPrematurely(): void
+    public function testCatalogProductTreeExistsForPhase7(): void
     {
-        self::assertDirectoryDoesNotExist(dirname(__DIR__) . '/catalog');
+        $root = dirname(__DIR__);
+        self::assertDirectoryExists($root . '/catalog/controller/module');
+        self::assertFileExists($root . '/catalog/controller/module/mt_uni_credit_product.php');
+        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
     }
 }

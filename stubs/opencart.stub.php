@@ -152,9 +152,12 @@ namespace Opencart\System\Engine {
      * @property \Opencart\System\Library\Url $url
      * @property Document $document
      * @property \Opencart\System\Library\Cart\User $user
+     * @property \Opencart\System\Library\Cart\Customer $customer
+     * @property \Opencart\System\Library\Cart\Currency $currency
      * @property \Opencart\System\Library\Log $log
      * @property Proxy $model_setting_setting
      * @property Proxy $model_extension_mt_uni_credit_module_unicredit
+     * @property \Opencart\Catalog\Model\Extension\MtUniCredit\Module\MtUniCreditProduct $model_extension_mt_uni_credit_module_mt_uni_credit_product
      */
     class Controller
     {
@@ -175,6 +178,7 @@ namespace Opencart\System\Engine {
      * @property Config $config
      * @property \Opencart\System\Library\Request $request
      * @property \Opencart\System\Library\Session $session
+     * @property \Opencart\System\Library\Cart\Customer $customer
      * @property Loader $load
      * @property Proxy $model_catalog_category
      */
@@ -263,6 +267,11 @@ namespace Opencart\System\Library {
     {
         /** @var array<string, mixed> */
         public array $data = [];
+
+        public function getId(): string
+        {
+            return '';
+        }
     }
 
     class Url
@@ -299,6 +308,47 @@ namespace Opencart\System\Library\Cart {
         public function hasPermission(string $type, string $route): bool
         {
             return false;
+        }
+
+        public function getId(): int
+        {
+            return 0;
+        }
+    }
+
+    class Customer
+    {
+        public function isLogged(): bool
+        {
+            return false;
+        }
+
+        public function getId(): int
+        {
+            return 0;
+        }
+
+        public function getEmail(): string
+        {
+            return '';
+        }
+    }
+
+    class Currency
+    {
+        public function getId(string $currency): int
+        {
+            return 0;
+        }
+
+        public function getValue(string $currency): float
+        {
+            return 1.0;
+        }
+
+        public function convert(float $value, string $from, string $to): float
+        {
+            return $value;
         }
     }
 }

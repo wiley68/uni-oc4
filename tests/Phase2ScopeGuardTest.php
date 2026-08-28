@@ -19,8 +19,7 @@ final class Phase2ScopeGuardTest extends TestCase
 
     /** @var list<string> */
     private const FORBIDDEN_PATHS = [
-        '/catalog/controller',
-        '/catalog/model',
+        '/catalog/controller/payment',
         '/admin/controller/payment',
         '/admin/controller/event',
     ];

@@ -17,13 +17,13 @@ final class Phase0ScopeGuardTest extends TestCase
         foreach (
             [
                 $root . '/catalog/controller/payment',
-                $root . '/catalog/controller/module',
-                $root . '/catalog/model',
                 $root . '/catalog/view/template/payment',
             ] as $path
         ) {
             self::assertDirectoryDoesNotExist($path, $path);
         }
+        self::assertDirectoryExists($root . '/catalog/controller/module');
+        self::assertDirectoryDoesNotExist($root . '/catalog/controller/module/mt_uni_credit_cart');
     }
 
     public function testNoDatabaseSchemaOrCpClientClasses(): void

@@ -24,7 +24,26 @@ final class EventRegistry
      */
     public static function definitions(): array
     {
-        return [];
+        return [
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_before_product_controller',
+                'description' => 'UniCredit product page assets',
+                'trigger'     => 'catalog/controller/product/product/before',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_product_controller',
+                'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_product_view',
+                'description' => 'UniCredit product calculator placement',
+                'trigger'     => 'catalog/view/product/product/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_product_view',
+                'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+        ];
     }
 
     /**

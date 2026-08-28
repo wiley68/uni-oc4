@@ -1,0 +1,63 @@
+<div id="mt-uni-credit-product-modal"
+     class="mt-uni-credit-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="mt-uni-credit-modal-title"
+     aria-hidden="true"
+     hidden>
+  <div class="mt-uni-credit-modal__overlay" data-mtuc-dismiss></div>
+  <div class="mt-uni-credit-modal__panel" tabindex="-1">
+    <header class="mt-uni-credit-modal__header">
+      <h2 id="mt-uni-credit-modal-title">{{ text_modal_title }}</h2>
+      <button type="button" class="mt-uni-credit-modal__close" aria-label="{{ text_close }}" data-mtuc-dismiss>&times;</button>
+    </header>
+
+    <div class="mt-uni-credit-modal__body" aria-live="polite">
+      <section class="mt-uni-credit-summary" aria-label="Financing summary">
+        <div data-mtuc-summary></div>
+      </section>
+
+      <form id="mt-uni-credit-product-form" novalidate>
+        <fieldset class="mt-uni-credit-customer">
+          <legend>{{ text_customer_details }}</legend>
+          <label>{{ text_firstname }}<input type="text" name="firstname" autocomplete="given-name" value="{{ mt_uni_credit.modal.customer.firstname }}"></label>
+          <label>{{ text_lastname }}<input type="text" name="lastname" autocomplete="family-name" value="{{ mt_uni_credit.modal.customer.lastname }}"></label>
+          <label>{{ text_email }}<input type="email" name="email" autocomplete="email" value="{{ mt_uni_credit.modal.customer.email }}"></label>
+          <label>{{ text_telephone }}<input type="tel" name="telephone" autocomplete="tel" value="{{ mt_uni_credit.modal.customer.telephone }}"></label>
+        </fieldset>
+
+        <fieldset class="mt-uni-credit-address">
+          <legend>{{ text_address_details }}</legend>
+          <label>{{ text_address_1 }}<input type="text" name="address_1" autocomplete="street-address" value="{{ mt_uni_credit.modal.customer.address_1 }}"></label>
+          <label>{{ text_city }}<input type="text" name="city" autocomplete="address-level2" value="{{ mt_uni_credit.modal.customer.city }}"></label>
+          <label>{{ text_postcode }}<input type="text" name="postcode" autocomplete="postal-code" value="{{ mt_uni_credit.modal.customer.postcode }}"></label>
+          <label>{{ text_country_id }}<input type="number" name="country_id" min="1" value="{{ mt_uni_credit.modal.customer.country_id|default(33) }}"></label>
+          <label>{{ text_zone_id }}<input type="number" name="zone_id" min="1" value="{{ mt_uni_credit.modal.customer.zone_id|default(4239) }}"></label>
+        </fieldset>
+
+        {% if mt_uni_credit.modal.consents %}
+        <fieldset class="mt-uni-credit-consents">
+          <legend>{{ text_consents }}</legend>
+          {% for consent in mt_uni_credit.modal.consents %}
+            <label>
+              <input type="checkbox" name="consent[]" value="{{ consent.id }}"{% if consent.mandatory %} required{% endif %}>
+              {% if consent.url %}
+                <a href="{{ consent.url }}" target="_blank" rel="noopener noreferrer">{{ consent.name }}</a>
+              {% else %}
+                {{ consent.name }}
+              {% endif %}
+            </label>
+          {% endfor %}
+        </fieldset>
+        {% endif %}
+
+        <div class="mt-uni-credit-form-errors" role="alert" aria-live="assertive" hidden></div>
+
+        <footer class="mt-uni-credit-modal__footer">
+          <button type="button" class="btn btn-secondary" data-mtuc-dismiss>{{ text_close }}</button>
+          <button type="submit" class="btn btn-primary mt-uni-credit-submit" aria-busy="false">{{ text_submit }}</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+</div>

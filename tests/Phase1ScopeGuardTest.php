@@ -19,7 +19,6 @@ final class Phase1ScopeGuardTest extends TestCase
     /** @var list<string> */
     private const FORBIDDEN_PATH_SUFFIXES = [
         '/catalog/controller/payment',
-        '/catalog/controller/event',
         '/catalog/model/payment',
         '/admin/controller/payment',
     ];

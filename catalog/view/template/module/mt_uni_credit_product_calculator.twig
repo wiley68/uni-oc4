@@ -1,0 +1,46 @@
+{% if mt_uni_credit.enabled %}
+<div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="{{ mt_uni_credit.product_id }}">
+  <div class="mt-uni-credit-calculator" aria-live="polite" aria-busy="false">
+    {% if mt_uni_credit.calculator.heading %}
+      <div class="mt-uni-credit-heading">{{ mt_uni_credit.calculator.heading }}</div>
+    {% endif %}
+    <div class="mt-uni-credit-offers">
+      {% for offer_type, offer in mt_uni_credit.calculator.offers %}
+        <button type="button"
+                class="mt-uni-credit-offer-btn{% if offer_type == 'promo' %} is-promo{% endif %}"
+                data-offer-type="{{ offer_type }}"
+                data-preferred-key="{{ offer.preferred_scheme_key }}">
+          <span class="mt-uni-credit-offer-label">{{ offer.installment_label }}</span>
+        </button>
+      {% endfor %}
+    </div>
+    <button type="button"
+            class="mt-uni-credit-open-modal"
+            aria-haspopup="dialog"
+            aria-controls="mt-uni-credit-product-modal">
+      {% if mt_uni_credit.calculator.show_installment %}
+        {{ text_button_financing }}
+      {% else %}
+        {{ text_button_financing_image }}
+      {% endif %}
+    </button>
+  </div>
+
+  {% include 'extension/mt_uni_credit/module/mt_uni_credit_product_modal' with {
+    mt_uni_credit: mt_uni_credit,
+    text_modal_title: text_modal_title,
+    text_submit: text_submit,
+    text_close: text_close
+  } %}
+</div>
+
+<script type="application/json" id="mt-uni-credit-bootstrap">{{ {
+  product_id: mt_uni_credit.product_id,
+  calculator: mt_uni_credit.calculator,
+  modal: mt_uni_credit.modal,
+  calculate_url: mt_uni_credit.calculate_url,
+  issue_url: mt_uni_credit.issue_url,
+  submit_url: mt_uni_credit.submit_url,
+  csrf_token: mt_uni_credit.csrf_token
+}|json_encode|raw }}</script>
+{% endif %}

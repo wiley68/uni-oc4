@@ -16,7 +16,7 @@ final class Phase6ScopeGuardTest extends TestCase
         'createOrder(',
         'SmartUCF',
         'catalog/controller/payment',
-        'catalog/controller/module',
+        'catalog/controller/module/mt_uni_credit_cart',
         'Process1',
         'Process2',
     ];
@@ -69,9 +69,8 @@ final class Phase6ScopeGuardTest extends TestCase
     public function testNoPhase7PlusMarkersOutsideAllowedDomains(): void
     {
         $root = dirname(__DIR__);
-        foreach ([$root . '/catalog', $root . '/admin/controller/payment'] as $path) {
-            self::assertDirectoryDoesNotExist($path);
-        }
+        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
+        self::assertDirectoryDoesNotExist($root . '/admin/controller/payment');
 
         $allowed = array_merge(self::ALLOWED_PHASE6_FILES, self::ALLOWED_CALCULATOR_FILES);
         foreach ([$root . '/admin', $root . '/system'] as $dir) {

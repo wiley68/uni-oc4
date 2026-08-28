@@ -1,0 +1,102 @@
+.mt-uni-credit-product {
+  margin-top: 1rem;
+}
+
+.mt-uni-credit-offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mt-uni-credit-offer-btn,
+.mt-uni-credit-open-modal {
+  border: 1px solid #003b71;
+  background: #fff;
+  color: #003b71;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mt-uni-credit-offer-btn.is-promo {
+  border-color: #c8922e;
+  color: #c8922e;
+}
+
+.mt-uni-credit-modal[hidden] {
+  display: none !important;
+}
+
+.mt-uni-credit-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+}
+
+.mt-uni-credit-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mt-uni-credit-modal__panel {
+  position: relative;
+  max-width: 640px;
+  width: calc(100% - 2rem);
+  margin: 4vh auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 90vh;
+  overflow: auto;
+  z-index: 1;
+}
+
+.mt-uni-credit-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.mt-uni-credit-modal__close {
+  border: 0;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mt-uni-credit-customer label,
+.mt-uni-credit-address label,
+.mt-uni-credit-consents label {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.mt-uni-credit-customer input,
+.mt-uni-credit-address input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.mt-uni-credit-form-errors {
+  color: #b00020;
+  margin: 0.75rem 0;
+}
+
+.mt-uni-credit-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 576px) {
+  .mt-uni-credit-modal__panel {
+    width: calc(100% - 1rem);
+    margin-top: 2vh;
+  }
+}
