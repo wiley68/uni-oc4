@@ -107,7 +107,7 @@ Minimal module-owned table (Phase 6 remediation):
 
 | Column                        | Role                                               |
 | ----------------------------- | -------------------------------------------------- |
-| `store_id`                    | Multistore scope                                   |
+| `store_id`                    | Multistore scope (`0` = OpenCart default store)    |
 | `attempt_id`                  | UNIQUE — one correlation row per financing attempt |
 | `order_id`                    | OpenCart order created by `addOrder()`             |
 | UNIQUE `(store_id, order_id)` | Two attempts cannot claim the same order           |

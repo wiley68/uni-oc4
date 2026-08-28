@@ -90,7 +90,14 @@ Order attach: `attachOrder()` — `UPDATE … WHERE order_id IS NULL OR order_id
 
 ## Multistore
 
-All repositories require positive `store_id` where applicable. Nonces, cache, locks, and attempts are never resolved globally without store scope.
+`store_id` is an explicit non-negative OpenCart store id (`OpenCartStoreScope`):
+
+- `0` = default store (valid scope)
+- positive ids = additional stores
+- negative ids are invalid and rejected
+- missing/`null` scope is not silently coerced to `0` at the repository boundary — callers must pass an explicit store id from OpenCart context (`config_store_id`)
+
+Nonces, cache, locks, and attempts are never resolved globally without store scope.
 
 ## Cleanup
 

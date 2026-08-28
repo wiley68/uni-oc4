@@ -231,8 +231,6 @@ final class ShopCacheRepository
 
     private function requireStoreId(int $storeId): void
     {
-        if ($storeId <= 0) {
-            throw new PersistenceValidationException('Store scope is required.');
-        }
+        OpenCartStoreScope::require($storeId);
     }
 }

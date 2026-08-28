@@ -274,6 +274,80 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             LockOwnerTokenGenerator::generate()
         );
     }
+
+    public function testDefaultStoreZeroIssueLockAndMaterialization(): void
+    {
+        $storeId = ProductFinancingTestHarness::DEFAULT_STORE_ID;
+        $orders = new \MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter();
+        $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders);
+        $line = ProductFinancingTestHarness::factory()->create($storeId, 42, 1, []);
+        $actor = ProductFinancingTestHarness::actorBinding(0, 'sess-default', $storeId);
+        $scheme = ProductFinancingTestHarness::defaultSchemeSelection();
+        $selection = ProductFinancingTestHarness::selectionHash(
+            $line,
+            $scheme['scheme_key'],
+            $scheme['scheme_type'],
+            $scheme['kop_code'],
+            $scheme['months'],
+            $scheme['filter_id'],
+            $scheme['first_installment'],
+            $actor,
+            'BGN',
+            $storeId
+        );
+        $operation = ProductOperationIdentity::hash($storeId, 42, [], 1, 'BGN');
+        $owner = LockOwnerTokenGenerator::generate();
+
+        $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
+            ->issueOrReuse($storeId, $operation, $actor, $selection);
+        self::assertSame(0, (int) $attempt['store_id']);
+
+        $result = $service->submit(
+            ProductFinancingTestHarness::shop(),
+            $storeId,
+            (string) $attempt['submission_token'],
+            $actor,
+            'sess-default',
+            0,
+            1,
+            42,
+            1,
+            [],
+            'BGN',
+            'standard',
+            $scheme['scheme_type'],
+            $scheme['kop_code'],
+            $scheme['months'],
+            $scheme['filter_id'],
+            $scheme['scheme_key'],
+            $scheme['first_installment'],
+            ProductFinancingTestHarness::validPostedCustomer(),
+            'test-unicid',
+            '2026-08-28 12:00:00',
+            1,
+            'bg-bg',
+            1,
+            1.0,
+            'Store',
+            'https://example.test/',
+            'INV-',
+            $owner
+        );
+        self::assertTrue($result->success);
+        self::assertSame('local_order_prepared', $result->step);
+        self::assertGreaterThan(0, $result->orderId);
+
+        $correlations = new \Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository(
+            PersistenceIntegrationHarness::connection()
+        );
+        self::assertSame(
+            $result->orderId,
+            $correlations->findOrderIdByAttempt($storeId, (int) $attempt['attempt_id'])
+        );
+        self::assertNull(
+            $correlations->findOrderIdByAttempt(1, (int) $attempt['attempt_id'])
+        );
+    }
 }
 
 final class Phase7ActiveCartTest extends TestCase

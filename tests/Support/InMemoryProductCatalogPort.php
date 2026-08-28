@@ -33,7 +33,7 @@ final class InMemoryProductCatalogPort implements OpenCartProductCatalogPort
         int $quantity,
         array $requestedOptions
     ): OpenCartProductLine {
-        if ($storeId <= 0 || !isset($this->products[$productId])) {
+        if (!\Opencart\System\Library\Extension\MtUniCredit\OpenCartStoreScope::isValid($storeId) || !isset($this->products[$productId])) {
             throw new ProductFinancingFlowException('validation', 'Product is unavailable.');
         }
         $product = $this->products[$productId];

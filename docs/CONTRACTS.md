@@ -280,6 +280,8 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 
 Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва persistence таблици.
 
+`store_id` е explicit non-negative OpenCart store id (`OpenCartStoreScope`): `0` = default store; negative ids са невалидни; missing scope ≠ `0`.
+
 ---
 
 ## 13. Phase 4 CP auth and shop cache
@@ -311,6 +313,10 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                         |
 | Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)  |
 | Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id`                 |
+
+### Store scope (OpenCart)
+
+`store_id` is an explicit non-negative OpenCart store id (`OpenCartStoreScope`). **`0` is the default store** and a real scope. Positive ids are additional stores. Negative ids are rejected. Missing scope is not equivalent to `0`.
 
 ## 14. Phase 5 shared financing domain
 

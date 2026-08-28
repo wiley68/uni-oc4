@@ -44,6 +44,9 @@ final class ProductFinancingTestHarness
 {
     public const STORE_ID = 7;
 
+    /** OpenCart default store — must be valid for Product identity and materialization. */
+    public const DEFAULT_STORE_ID = 0;
+
     public static function shop(): array
     {
         return mt_uni_credit_valid_shop_snapshot();
@@ -79,10 +82,10 @@ final class ProductFinancingTestHarness
         );
     }
 
-    public static function actorBinding(int $customerId = 0, string $session = 'sess-a'): string
+    public static function actorBinding(int $customerId = 0, string $session = 'sess-a', int $storeId = self::STORE_ID): string
     {
         return ProductActorBinding::hash(
-            self::STORE_ID,
+            $storeId,
             $customerId,
             ProductActorBinding::sessionFingerprint($session)
         );
@@ -97,10 +100,11 @@ final class ProductFinancingTestHarness
         int $filterId,
         float $firstInstallment,
         string $actorBinding,
-        string $currency = 'BGN'
+        string $currency = 'BGN',
+        int $storeId = self::STORE_ID
     ): string {
         return ProductSelectionHash::hash(
-            self::STORE_ID,
+            $storeId,
             $line->productId,
             $line->normalizedOptions,
             $line->quantity,

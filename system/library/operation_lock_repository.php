@@ -153,9 +153,7 @@ final class OperationLockRepository
 
     private function requireStoreAndEntryPoint(int $storeId, string $entryPoint): void
     {
-        if ($storeId <= 0) {
-            throw new PersistenceValidationException('Store scope is required.');
-        }
+        OpenCartStoreScope::require($storeId);
         if (!OperationEntryPoint::isValid($entryPoint)) {
             throw new PersistenceValidationException('Unsupported operation lock entry point.');
         }

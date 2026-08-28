@@ -89,11 +89,12 @@ final class Phase4TestHarness
     }
 
     /**
+     * @param array<string, mixed> $overrides
      * @return array<string, mixed>
      */
-    public static function loginSuccessPayload(): array
+    public static function loginSuccessPayload(array $overrides = []): array
     {
-        return [
+        return array_merge([
             'success' => true,
             'access_token' => str_repeat('a', 64),
             'token_type' => 'Bearer',
@@ -103,7 +104,7 @@ final class Phase4TestHarness
                 'name' => self::TEST_SHOP_URL,
                 'unicid' => self::TEST_UNICID,
             ],
-        ];
+        ], $overrides);
     }
 
     /**

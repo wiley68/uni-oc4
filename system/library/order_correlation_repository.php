@@ -23,7 +23,8 @@ final class OrderCorrelationRepository implements OrderCorrelationStoreInterface
 
     public function linkCreatedOrder(int $storeId, int $attemptId, int $orderId): void
     {
-        if ($storeId <= 0 || $attemptId <= 0 || $orderId <= 0) {
+        OpenCartStoreScope::require($storeId);
+        if ($attemptId <= 0 || $orderId <= 0) {
             throw new PersistenceValidationException('Store, attempt and order identifiers are required for correlation.');
         }
 
@@ -58,7 +59,7 @@ final class OrderCorrelationRepository implements OrderCorrelationStoreInterface
 
     public function findOrderIdByAttempt(int $storeId, int $attemptId): ?int
     {
-        if ($storeId <= 0 || $attemptId <= 0) {
+        if (!OpenCartStoreScope::isValid($storeId) || $attemptId <= 0) {
             return null;
         }
 
@@ -81,7 +82,7 @@ final class OrderCorrelationRepository implements OrderCorrelationStoreInterface
 
     public function findAttemptIdByOrder(int $storeId, int $orderId): ?int
     {
-        if ($storeId <= 0 || $orderId <= 0) {
+        if (!OpenCartStoreScope::isValid($storeId) || $orderId <= 0) {
             return null;
         }
 

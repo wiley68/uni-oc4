@@ -173,6 +173,67 @@ final class Phase4AuthLifecycleTest extends TestCase
         }
     }
 
+    public function testDefaultStoreZeroTokenAndCredentialInvalidationIsIsolated(): void
+    {
+        if (!PersistenceIntegrationHarness::enabled()) {
+            self::markTestSkipped('Integration DB required (MT_UNI_CREDIT_INTEGRATION=1).');
+        }
+
+        $settings = Phase4TestHarness::settings();
+        $db = PersistenceIntegrationHarness::connection();
+        PersistenceIntegrationHarness::resetTables();
+
+        $storeZero = PersistenceIntegrationHarness::TEST_STORE_ID_DEFAULT;
+        $storeOne = PersistenceIntegrationHarness::TEST_STORE_ID_ONE;
+
+        $transportZero = new FakeCpHttpTransport();
+        $transportZero->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
+        $transportZero->enqueueJson(200, Phase4TestHarness::shopSuccessPayload());
+        $stackZero = Phase4TestHarness::services($transportZero, $settings, $db, $storeZero);
+        $stackZero['client']->login();
+        $stackZero['shopConfiguration']->refreshRemote();
+        self::assertTrue($stackZero['tokens']->hasToken());
+        self::assertNotNull($stackZero['shopConfiguration']->getMetadata());
+
+        $transportOne = new FakeCpHttpTransport();
+        $transportOne->enqueueJson(200, Phase4TestHarness::loginSuccessPayload([
+            'access_token' => str_repeat('b', 64),
+        ]));
+        $transportOne->enqueueJson(200, Phase4TestHarness::shopSuccessPayload());
+        Phase4TestHarness::prepareCredentials($settings, $storeOne);
+        $stackOne = Phase4TestHarness::services($transportOne, $settings, $db, $storeOne);
+        // Avoid wiping store-zero cache rows installed above.
+        $stackOne['client']->login();
+        $cache = new ShopCacheRepository($db);
+        $cache->replaceValidated($storeOne, Phase4TestHarness::TEST_UNICID, ['shop' => 'store-one']);
+        self::assertTrue($stackOne['tokens']->hasToken());
+        self::assertNotNull($cache->findLatest($storeOne, Phase4TestHarness::TEST_UNICID));
+        self::assertNotNull($cache->findLatest($storeZero, Phase4TestHarness::TEST_UNICID));
+
+        $stackZero['credentialChange']->onCredentialsChanged(Phase4TestHarness::TEST_UNICID, 'changed-unicid-store-0');
+        self::assertFalse($stackZero['tokens']->hasToken());
+        self::assertNull($cache->findLatest($storeZero, Phase4TestHarness::TEST_UNICID));
+        self::assertTrue($stackOne['tokens']->hasToken());
+        self::assertNotNull($cache->findLatest($storeOne, Phase4TestHarness::TEST_UNICID));
+
+        // Reverse: store 1 credential change must not wipe store 0 token/cache after re-seed.
+        $transportZeroB = new FakeCpHttpTransport();
+        $transportZeroB->enqueueJson(200, Phase4TestHarness::loginSuccessPayload([
+            'access_token' => str_repeat('c', 64),
+        ]));
+        $transportZeroB->enqueueJson(200, Phase4TestHarness::shopSuccessPayload());
+        Phase4TestHarness::prepareCredentials($settings, $storeZero);
+        $stackZeroB = Phase4TestHarness::services($transportZeroB, $settings, $db, $storeZero);
+        $stackZeroB['client']->login();
+        $cache->replaceValidated($storeZero, Phase4TestHarness::TEST_UNICID, ['shop' => 'store-zero-again']);
+
+        $stackOne['credentialChange']->onCredentialsChanged(Phase4TestHarness::TEST_UNICID, 'changed-unicid-store-1');
+        self::assertFalse($stackOne['tokens']->hasToken());
+        self::assertNull($cache->findLatest($storeOne, Phase4TestHarness::TEST_UNICID));
+        self::assertTrue($stackZeroB['tokens']->hasToken());
+        self::assertNotNull($cache->findLatest($storeZero, Phase4TestHarness::TEST_UNICID));
+    }
+
     /** @return array{client: ControlPanelClient, tokens: CpTokenRepository, settings: \Opencart\System\Library\Extension\MtUniCredit\InMemoryModuleSettingStore} */
     private function stack(FakeCpHttpTransport $transport, int $now = 1_700_000_000): array
     {

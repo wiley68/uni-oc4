@@ -14,6 +14,12 @@ use Opencart\System\Library\Extension\MtUniCredit\PersistenceTableNames;
  */
 final class PersistenceIntegrationHarness
 {
+    /** OpenCart default store (explicit scope, not "missing"). */
+    public const TEST_STORE_ID_DEFAULT = 0;
+
+    /** Additional multistore id used for isolation checks against default. */
+    public const TEST_STORE_ID_ONE = 1;
+
     public const TEST_STORE_ID = 900001;
     public const TEST_STORE_ID_B = 900002;
     public const TEST_UNICID = 'test-unicid-phase3';

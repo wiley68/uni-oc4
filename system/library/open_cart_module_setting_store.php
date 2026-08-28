@@ -19,7 +19,7 @@ final class OpenCartModuleSettingStore implements ModuleSettingStore
 
     public function get(int $storeId, string $key): ?string
     {
-        if ($storeId < 0) {
+        if (!OpenCartStoreScope::isValid($storeId)) {
             return null;
         }
 
@@ -42,9 +42,7 @@ final class OpenCartModuleSettingStore implements ModuleSettingStore
 
     public function set(int $storeId, string $key, string $value): void
     {
-        if ($storeId < 0) {
-            throw new PersistenceValidationException('Store scope is required.');
-        }
+        OpenCartStoreScope::require($storeId);
 
         $table = $this->db->getPrefix() . 'setting';
         $existing = $this->get($storeId, $key);
@@ -73,7 +71,7 @@ final class OpenCartModuleSettingStore implements ModuleSettingStore
 
     public function delete(int $storeId, string $key): void
     {
-        if ($storeId < 0) {
+        if (!OpenCartStoreScope::isValid($storeId)) {
             return;
         }
 

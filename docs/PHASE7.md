@@ -82,6 +82,10 @@ Mismatch on price, options, quantity, scheme, or selection hash → `409 stale_s
 
 Product flow never calls `$this->cart->add()` / `clear()`. Submit response includes `cart_unchanged` contract; covered by `Phase7ActiveCartTest`.
 
+## Store scope
+
+Product attempt issuance, selection/operation hashes, locks, materialization, and correlation use explicit `config_store_id`. OpenCart default store **`store_id = 0`** is valid (`OpenCartStoreScope`). Covered by `Phase7AttemptAndSubmitTest::testDefaultStoreZeroIssueLockAndMaterialization`.
+
 ## Accessibility
 
 Modal: `role="dialog"`, `aria-modal`, labelled title, focus into panel, Tab trap, Escape dismiss, focus return, `aria-busy` on calculator/submit, `inert`/`aria-hidden` on background (JS).

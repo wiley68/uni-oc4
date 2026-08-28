@@ -179,7 +179,7 @@ final class FinancingAttemptRepository
      */
     public function findByToken(int $storeId, string $submissionToken): ?array
     {
-        if ($storeId <= 0 || !SubmissionTokenGenerator::isValidFormat($submissionToken)) {
+        if (!OpenCartStoreScope::isValid($storeId) || !SubmissionTokenGenerator::isValidFormat($submissionToken)) {
             return null;
         }
 
@@ -199,7 +199,7 @@ final class FinancingAttemptRepository
      */
     public function findByOrderId(int $storeId, int $orderId): ?array
     {
-        if ($storeId <= 0 || $orderId <= 0) {
+        if (!OpenCartStoreScope::isValid($storeId) || $orderId <= 0) {
             return null;
         }
 
@@ -219,7 +219,7 @@ final class FinancingAttemptRepository
      */
     public function findByOperationIdentity(int $storeId, string $entryPoint, string $operationKeyHash, string $state): ?array
     {
-        if ($storeId <= 0 || !OperationEntryPoint::isValid($entryPoint) || !FinancingAttemptState::isValid($state)) {
+        if (!OpenCartStoreScope::isValid($storeId) || !OperationEntryPoint::isValid($entryPoint) || !FinancingAttemptState::isValid($state)) {
             return null;
         }
         PersistenceHashValidator::requireSha256Hex($operationKeyHash, 'operation_key_hash');
@@ -346,9 +346,7 @@ final class FinancingAttemptRepository
         ?int $cartId,
         ?string $cartFingerprint
     ): void {
-        if ($storeId <= 0) {
-            throw new PersistenceValidationException('Store scope is required.');
-        }
+        OpenCartStoreScope::require($storeId);
         if (!OperationEntryPoint::isValid($entryPoint)) {
             throw new PersistenceValidationException('Unsupported financing attempt entry point.');
         }

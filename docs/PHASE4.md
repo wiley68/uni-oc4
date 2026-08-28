@@ -70,6 +70,10 @@ Earlier Phase 4 development builds derived keys from `DB_PREFIX|DB_DATABASE|DIR_
 
 - UNICID or secret change → `CredentialChangeHandler` invalidates tokens + scoped cache
 
+## Store scope
+
+Admin CP services use `config_store_id` (OpenCart default store is **`0`**). Token and shop cache rows are scoped with `OpenCartStoreScope` (`store_id >= 0`). Credential invalidation for store `0` must not touch store `1` and vice versa.
+
 ## Live smoke prerequisites
 
 1. `config/environment.php` with valid `control_panel_url`
