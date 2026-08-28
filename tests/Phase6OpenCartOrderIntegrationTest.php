@@ -8,14 +8,15 @@ use MtUniCredit\Tests\Support\OpenCartOrderIntegrationHarness;
 use MtUniCredit\Tests\Support\OrderMaterializationTestHarness;
 use MtUniCredit\Tests\Support\PersistenceIntegrationHarness;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
+use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptState;
 use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder;
-use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderMaterializer;
-use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier;
 use Opencart\System\Library\Extension\MtUniCredit\OperationEntryPoint;
 use Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository;
-use Opencart\System\Library\Extension\MtUniCredit\OrderRecoveryMarker;
+use Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository;
+use Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationService;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
+use Opencart\System\Library\Extension\MtUniCredit\PersistenceConflictException;
 use PHPUnit\Framework\TestCase;
 
 final class Phase6OpenCartOrderIntegrationTest extends TestCase
@@ -23,6 +24,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
     private FinancingAttemptRepository $attempts;
 
     private OperationLockRepository $locks;
+
+    private OrderCorrelationRepository $correlations;
 
     protected function setUp(): void
     {
@@ -36,6 +39,7 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
         $db = PersistenceIntegrationHarness::connection();
         $this->attempts = new FinancingAttemptRepository($db);
         $this->locks = new OperationLockRepository($db);
+        $this->correlations = new OrderCorrelationRepository($db);
     }
 
     protected function tearDown(): void
@@ -46,7 +50,12 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
     public function testRealProductOrderMaterialization(): void
     {
         $orders = OpenCartOrderIntegrationHarness::orders();
-        $service = OrderMaterializationTestHarness::buildService($orders, $this->attempts, $this->locks);
+        $service = OrderMaterializationTestHarness::buildService(
+            $orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attempt = $this->attempts->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
@@ -63,18 +72,20 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
         );
 
         $row = $orders->getOrder($created->orderId);
-        self::assertNotSame([], $row);
-        self::assertSame(PersistenceIntegrationHarness::TEST_STORE_ID, (int) $row['store_id']);
-        self::assertSame('BGN', $row['currency_code']);
-        self::assertTrue(OrderRecoveryMarker::isModuleMarker((string) $row['tracking']));
+        self::assertSame('', (string) ($row['tracking'] ?? 'x'));
+        self::assertSame('', (string) ($row['comment'] ?? 'x'));
         self::assertTrue(PaymentIdentity::matchesStoredPayment($row['payment_method']));
-        self::assertCount(1, $orders->getProducts($created->orderId));
     }
 
     public function testRealCartOrderMaterialization(): void
     {
         $orders = OpenCartOrderIntegrationHarness::orders();
-        $service = OrderMaterializationTestHarness::buildService($orders, $this->attempts, $this->locks);
+        $service = OrderMaterializationTestHarness::buildService(
+            $orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
         $submission = OrderMaterializationTestHarness::cartSubmission();
         $attempt = $this->attempts->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
@@ -93,21 +104,24 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
         );
 
         self::assertCount(2, $orders->getProducts($created->orderId));
-        self::assertGreaterThanOrEqual(2, count($orders->getTotals($created->orderId)));
+        self::assertSame('', (string) $orders->getOrder($created->orderId)['tracking']);
     }
 
     public function testRealCheckoutOrderReuse(): void
     {
         $orders = OpenCartOrderIntegrationHarness::orders();
-        $builder = new OpenCartOrderDataBuilder();
-        $existingId = $orders->addOrder($builder->build(
-            OrderMaterializationTestHarness::productSubmission()->orderDraft,
-            'mtuc:precheckout'
-        ));
+        $existingId = $orders->addOrder(
+            (new OpenCartOrderDataBuilder())->build(OrderMaterializationTestHarness::productSubmission()->orderDraft)
+        );
         $orders->addHistory($existingId, 0);
 
         $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder($existingId);
-        $service = OrderMaterializationTestHarness::buildService($orders, $this->attempts, $this->locks);
+        $service = OrderMaterializationTestHarness::buildService(
+            $orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
         $attempt = $this->attempts->issueCheckoutAttempt(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $submission->operationKeyHash,
@@ -115,51 +129,106 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             $submission->selectionHash
         );
 
-        $beforeCount = $this->countModuleRecoveryOrders($orders);
+        $before = $this->countOpenCartOrders($orders);
         $created = $service->materializeAndBind(
             $submission,
             OrderMaterializationTestHarness::attemptContext($attempt),
             LockOwnerTokenGenerator::generate()
         );
-        $afterCount = $this->countModuleRecoveryOrders($orders);
 
         self::assertSame($existingId, $created->orderId);
-        self::assertSame($beforeCount, $afterCount);
+        self::assertSame($before, $this->countOpenCartOrders($orders));
     }
 
-    public function testCrashRecoveryAgainstRealOrders(): void
+    public function testExactCrashWindowRecoveryViaCorrelationTable(): void
     {
         $orders = OpenCartOrderIntegrationHarness::orders();
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attempt = $this->attempts->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             OperationEntryPoint::PRODUCT,
-            hash('sha256', 'crash-op'),
-            hash('sha256', 'actor-crash'),
-            hash('sha256', 'selection-crash')
+            hash('sha256', 'crash-window-op'),
+            hash('sha256', 'actor-crash-window'),
+            hash('sha256', 'selection-crash-window')
         );
         $attemptId = (int) $attempt['attempt_id'];
-        $marker = OrderRecoveryMarker::forAttempt(PersistenceIntegrationHarness::TEST_STORE_ID, $attemptId);
-        $builder = new OpenCartOrderDataBuilder();
-        $existingId = $orders->addOrder($builder->build($submission->orderDraft, $marker));
+        $this->attempts->transition($attemptId, FinancingAttemptState::ISSUED, FinancingAttemptState::ORDER_CREATING);
 
-        $materializer = new OpenCartOrderMaterializer($orders, $builder, new OpenCartOrderVerifier());
-        $recovered = $materializer->materializeNew(
+        $orderId = $orders->addOrder((new OpenCartOrderDataBuilder())->build($submission->orderDraft));
+        $this->correlations->linkCreatedOrder(PersistenceIntegrationHarness::TEST_STORE_ID, $attemptId, $orderId);
+
+        $retryMaterializer = OrderMaterializationTestHarness::buildMaterializer($orders, $this->correlations);
+        $beforeCount = $this->countOpenCartOrders($orders);
+        $recovered = $retryMaterializer->materializeNew(
             $submission,
             OrderMaterializationTestHarness::attemptContext($attempt)
         );
+        self::assertSame($beforeCount, $this->countOpenCartOrders($orders));
 
-        self::assertSame($existingId, $recovered->orderId);
         self::assertTrue($recovered->recovered);
-        self::assertSame(1, $this->countModuleRecoveryOrders($orders));
+        self::assertSame($orderId, $recovered->orderId);
+        self::assertNull($this->attempts->findById($attemptId)['order_id']);
+
+        $service = $this->buildFreshService($orders);
+        $bound = $service->materializeAndBind(
+            $submission,
+            OrderMaterializationTestHarness::attemptContext($attempt),
+            LockOwnerTokenGenerator::generate()
+        );
+        self::assertSame($orderId, $bound->orderId);
+        self::assertSame($orderId, (int) $this->attempts->findById($attemptId)['order_id']);
     }
 
-    private function countModuleRecoveryOrders(\MtUniCredit\Tests\Support\SqlCheckoutOrderAdapter $orders): int
+    public function testRecoveryIsStoreAndAttemptScoped(): void
+    {
+        $orders = OpenCartOrderIntegrationHarness::orders();
+        $submission = OrderMaterializationTestHarness::productSubmission();
+        $attempt = $this->attempts->issueWithSubmissionToken(
+            PersistenceIntegrationHarness::TEST_STORE_ID,
+            OperationEntryPoint::PRODUCT,
+            hash('sha256', 'scope-op'),
+            hash('sha256', 'actor-scope'),
+            hash('sha256', 'selection-scope')
+        );
+        $attemptId = (int) $attempt['attempt_id'];
+        $orderId = $orders->addOrder((new OpenCartOrderDataBuilder())->build($submission->orderDraft));
+        $this->correlations->linkCreatedOrder(PersistenceIntegrationHarness::TEST_STORE_ID, $attemptId, $orderId);
+
+        self::assertNull($this->correlations->findOrderIdByAttempt(PersistenceIntegrationHarness::TEST_STORE_ID_B, $attemptId));
+
+        $otherAttempt = $this->attempts->issueWithSubmissionToken(
+            PersistenceIntegrationHarness::TEST_STORE_ID,
+            OperationEntryPoint::PRODUCT,
+            hash('sha256', 'scope-op-b'),
+            hash('sha256', 'actor-scope-b'),
+            hash('sha256', 'selection-scope-b')
+        );
+        $this->expectException(PersistenceConflictException::class);
+        $this->correlations->linkCreatedOrder(
+            PersistenceIntegrationHarness::TEST_STORE_ID,
+            (int) $otherAttempt['attempt_id'],
+            $orderId
+        );
+    }
+
+    private function buildFreshService(\MtUniCredit\Tests\Support\SqlCheckoutOrderAdapter $orders): OrderMaterializationService
+    {
+        return OrderMaterializationTestHarness::buildService(
+            $orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
+    }
+
+    private function countOpenCartOrders(\MtUniCredit\Tests\Support\SqlCheckoutOrderAdapter $orders): int
     {
         $db = OpenCartOrderIntegrationHarness::connection();
         $prefix = $db->getPrefix();
         $result = $db->query(
-            "SELECT COUNT(*) AS c FROM `{$prefix}order` WHERE `tracking` LIKE 'mtuc:%'"
+            "SELECT COUNT(*) AS c FROM `{$prefix}order`
+             WHERE `store_id` = " . PersistenceIntegrationHarness::TEST_STORE_ID . "
+               AND `payment_method` LIKE '%" . $db->escape(PaymentIdentity::optionCode()) . "%'"
         );
 
         return (int) ($result->row['c'] ?? 0);

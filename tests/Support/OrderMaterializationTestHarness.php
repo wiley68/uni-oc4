@@ -21,6 +21,8 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductOrderDraftFactory;
 use Opencart\System\Library\Extension\MtUniCredit\CartOrderDraftFactory;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutOrderModelPort;
+use Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository;
+use Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationStoreInterface;
 use Opencart\System\Library\Extension\MtUniCredit\ValidatedFinancingSubmission;
 
 final class OrderMaterializationTestHarness
@@ -211,13 +213,12 @@ final class OrderMaterializationTestHarness
     public static function buildService(
         CheckoutOrderModelPort $orders,
         \Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository $attempts,
-        \Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository $locks
+        \Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository $locks,
+        OrderCorrelationStoreInterface $correlations
     ): OrderMaterializationService {
-        $builder = new OpenCartOrderDataBuilder();
-        $verifier = new OpenCartOrderVerifier();
-        $materializer = new OpenCartOrderMaterializer($orders, $builder, $verifier);
+        $materializer = self::buildMaterializer($orders, $correlations);
         $statusPolicy = new FinancingOrderStatusPolicy(self::TEST_AWAITING_STATUS_ID);
-        $checkoutGateway = new CheckoutExistingOrderGateway($orders, $verifier, $statusPolicy);
+        $checkoutGateway = new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy);
 
         return new OrderMaterializationService(
             $attempts,
@@ -226,6 +227,18 @@ final class OrderMaterializationTestHarness
             $checkoutGateway,
             $orders,
             $statusPolicy
+        );
+    }
+
+    public static function buildMaterializer(
+        CheckoutOrderModelPort $orders,
+        OrderCorrelationStoreInterface $correlations
+    ): OpenCartOrderMaterializer {
+        return new OpenCartOrderMaterializer(
+            $orders,
+            new OpenCartOrderDataBuilder(),
+            new OpenCartOrderVerifier(),
+            $correlations
         );
     }
 

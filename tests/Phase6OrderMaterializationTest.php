@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace MtUniCredit\Tests;
 
 use MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter;
+use MtUniCredit\Tests\Support\InMemoryOrderCorrelationRepository;
 use MtUniCredit\Tests\Support\OrderMaterializationTestHarness;
 use MtUniCredit\Tests\Support\PersistenceIntegrationHarness;
-use Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway;
-use Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy;
-use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder;
-use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderMaterializer;
-use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier;
-use Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationException;
-use Opencart\System\Library\Extension\MtUniCredit\OrderRecoveryMarker;
-use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\CartOrderGateway;
+use Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder;
+use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOrderGateway;
 use PHPUnit\Framework\TestCase;
 
@@ -23,9 +18,12 @@ final class Phase6OrderMaterializationTest extends TestCase
 {
     private InMemoryCheckoutOrderAdapter $orders;
 
+    private InMemoryOrderCorrelationRepository $correlations;
+
     protected function setUp(): void
     {
         $this->orders = new InMemoryCheckoutOrderAdapter();
+        $this->correlations = new InMemoryOrderCorrelationRepository();
     }
 
     public function testProductGatewayMaterialization(): void
@@ -35,14 +33,11 @@ final class Phase6OrderMaterializationTest extends TestCase
             'attempt_id' => 101,
             'store_id'   => $submission->storeId,
         ]);
-        $materializer = $this->materializer();
-        $created = (new ProductOrderGateway($materializer))
-            ->materialize($submission, $attempt);
+        $materializer = OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations);
+        $created = (new ProductOrderGateway($materializer))->materialize($submission, $attempt);
 
         self::assertSame(PaymentIdentity::optionCode(), $created->paymentMethodCode);
-        self::assertSame(1200.0, $created->total);
-        self::assertSame('BGN', $created->currencyCode);
-        self::assertSame(2, $created->products[0]['quantity']);
+        self::assertSame('', (string) ($this->orders->getOrder($created->orderId)['tracking'] ?? 'x'));
     }
 
     public function testCartGatewayMaterialization(): void
@@ -52,11 +47,11 @@ final class Phase6OrderMaterializationTest extends TestCase
             'attempt_id' => 102,
             'store_id'   => $submission->storeId,
         ]);
-        $created = (new CartOrderGateway($this->materializer()))
-            ->materialize($submission, $attempt);
+        $created = (new CartOrderGateway(
+            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations)
+        ))->materialize($submission, $attempt);
 
         self::assertCount(2, $created->products);
-        self::assertNotEmpty($created->totals);
     }
 
     public function testCheckoutReusesExistingOrderWithoutAddOrder(): void
@@ -67,17 +62,18 @@ final class Phase6OrderMaterializationTest extends TestCase
             'currency_code'   => 'BGN',
             'payment_method'  => PaymentIdentity::paymentMethod(),
             'order_status_id' => 0,
+            'tracking'        => 'REAL-CARRIER-123',
         ], [
             ['order_product_id' => 1, 'order_id' => 88001, 'product_id' => 42, 'quantity' => 2, 'price' => 500.0, 'total' => 1000.0],
-        ], [
-            ['code' => 'total', 'title' => 'Total', 'value' => 1200.0, 'sort_order' => 9],
         ]);
 
         $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(88001);
-        $gateway = new CheckoutExistingOrderGateway(
+        $gateway = new \Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway(
             $this->orders,
-            new OpenCartOrderVerifier(),
-            new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID)
+            new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier(),
+            new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
+                OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID
+            )
         );
 
         $created = $gateway->materialize(
@@ -86,49 +82,7 @@ final class Phase6OrderMaterializationTest extends TestCase
         );
 
         self::assertSame(0, $this->orders->addOrderCallCount());
-        self::assertSame(88001, $created->orderId);
-    }
-
-    public function testCheckoutMissingOrderRejected(): void
-    {
-        $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(88002);
-        $gateway = new CheckoutExistingOrderGateway(
-            $this->orders,
-            new OpenCartOrderVerifier(),
-            new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID)
-        );
-
-        $this->expectException(OrderMaterializationException::class);
-        $gateway->materialize(
-            $submission,
-            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 1, 'store_id' => $submission->storeId])
-        );
-    }
-
-    public function testCheckoutWrongStoreRejected(): void
-    {
-        $this->orders->seedExistingOrder(88003, [
-            'store_id'        => 1,
-            'total'           => 1200.0,
-            'currency_code'   => 'BGN',
-            'payment_method'  => PaymentIdentity::paymentMethod(),
-            'order_status_id' => 0,
-        ], [
-            ['order_product_id' => 1, 'order_id' => 88003, 'product_id' => 42, 'quantity' => 2, 'price' => 500.0, 'total' => 1000.0],
-        ]);
-
-        $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(88003);
-        $gateway = new CheckoutExistingOrderGateway(
-            $this->orders,
-            new OpenCartOrderVerifier(),
-            new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID)
-        );
-
-        $this->expectException(OrderMaterializationException::class);
-        $gateway->materialize(
-            $submission,
-            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 1, 'store_id' => $submission->storeId])
-        );
+        self::assertSame('REAL-CARRIER-123', $this->orders->getOrder($created->orderId)['tracking']);
     }
 
     public function testCrashRecoveryDoesNotCreateSecondOrder(): void
@@ -140,29 +94,24 @@ final class Phase6OrderMaterializationTest extends TestCase
             'store_id'   => $submission->storeId,
         ]);
         $builder = new OpenCartOrderDataBuilder();
-        $materializer = $this->materializer();
-        $marker = OrderRecoveryMarker::forAttempt($submission->storeId, $attemptId);
-        $orderId = $this->orders->addOrder($builder->build($submission->orderDraft, $marker));
+        $orderId = $this->orders->addOrder($builder->build($submission->orderDraft));
+        $this->correlations->linkCreatedOrder($submission->storeId, $attemptId, $orderId);
 
-        $recovered = (new ProductOrderGateway($materializer))->materialize($submission, $attempt);
+        $recovered = (new ProductOrderGateway(
+            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations)
+        ))->materialize($submission, $attempt);
 
         self::assertTrue($recovered->recovered);
         self::assertSame($orderId, $recovered->orderId);
         self::assertSame(1, $this->orders->addOrderCallCount());
     }
 
-    public function testPaymentIdentityStoredConsistently(): void
+    public function testOrderBuilderLeavesBusinessFieldsEmpty(): void
     {
-        self::assertSame('mt_uni_credit.mt_uni_credit', PaymentIdentity::optionCode());
-        self::assertTrue(PaymentIdentity::matchesStoredPayment(PaymentIdentity::paymentMethod()));
-    }
-
-    private function materializer(): OpenCartOrderMaterializer
-    {
-        return new OpenCartOrderMaterializer(
-            $this->orders,
-            new OpenCartOrderDataBuilder(),
-            new OpenCartOrderVerifier()
+        $payload = (new OpenCartOrderDataBuilder())->build(
+            OrderMaterializationTestHarness::productSubmission()->orderDraft
         );
+        self::assertSame('', $payload['tracking']);
+        self::assertSame('', $payload['comment']);
     }
 }

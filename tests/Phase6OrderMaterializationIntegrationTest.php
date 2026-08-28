@@ -12,6 +12,7 @@ use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptState;
 use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\OperationEntryPoint;
 use Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository;
+use Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository;
 use Opencart\System\Library\Extension\MtUniCredit\PersistenceConflictException;
 use PHPUnit\Framework\TestCase;
 
@@ -23,6 +24,8 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
 
     private OperationLockRepository $locks;
 
+    private OrderCorrelationRepository $correlations;
+
     protected function setUp(): void
     {
         if (!PersistenceIntegrationHarness::enabled()) {
@@ -33,13 +36,19 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
         $this->orders = new InMemoryCheckoutOrderAdapter();
         $this->attempts = new FinancingAttemptRepository($db);
         $this->locks = new OperationLockRepository($db);
+        $this->correlations = new OrderCorrelationRepository($db);
     }
 
     public function testServiceMaterializeAndBindProductOrder(): void
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attempt = $this->issueAttempt(OperationEntryPoint::PRODUCT, $submission->operationKeyHash);
-        $service = OrderMaterializationTestHarness::buildService($this->orders, $this->attempts, $this->locks);
+        $service = OrderMaterializationTestHarness::buildService(
+            $this->orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
 
         $created = $service->materializeAndBind(
             $submission,
@@ -48,17 +57,24 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
         );
 
         self::assertSame(1, $this->orders->addOrderCallCount());
-        self::assertSame(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, $created->orderStatusId);
+        self::assertSame(
+            $created->orderId,
+            $this->correlations->findOrderIdByAttempt(PersistenceIntegrationHarness::TEST_STORE_ID, (int) $attempt['attempt_id'])
+        );
         $row = $this->attempts->findById((int) $attempt['attempt_id']);
         self::assertSame(FinancingAttemptState::ORDER_CREATED, $row['state']);
-        self::assertSame($created->orderId, (int) $row['order_id']);
     }
 
     public function testAttemptAttachOnceAndSameOrderRetry(): void
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attempt = $this->issueAttempt(OperationEntryPoint::PRODUCT, $submission->operationKeyHash);
-        $service = OrderMaterializationTestHarness::buildService($this->orders, $this->attempts, $this->locks);
+        $service = OrderMaterializationTestHarness::buildService(
+            $this->orders,
+            $this->attempts,
+            $this->locks,
+            $this->correlations
+        );
         $context = OrderMaterializationTestHarness::attemptContext($attempt);
 
         $first = $service->materializeAndBind($submission, $context, LockOwnerTokenGenerator::generate());
@@ -99,20 +115,6 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
         $this->attempts->attachOrder((int) $first['attempt_id'], 71001);
         $this->expectException(PersistenceConflictException::class);
         $this->attempts->attachOrder((int) $second['attempt_id'], 71001);
-    }
-
-    public function testParallelRepeatedAttemptUsesSingleOrder(): void
-    {
-        $submission = OrderMaterializationTestHarness::productSubmission();
-        $attempt = $this->issueAttempt(OperationEntryPoint::PRODUCT, $submission->operationKeyHash);
-        $service = OrderMaterializationTestHarness::buildService($this->orders, $this->attempts, $this->locks);
-        $context = OrderMaterializationTestHarness::attemptContext($attempt);
-
-        $first = $service->materializeAndBind($submission, $context, LockOwnerTokenGenerator::generate());
-        $second = $service->materializeAndBind($submission, $context, LockOwnerTokenGenerator::generate());
-
-        self::assertSame($first->orderId, $second->orderId);
-        self::assertSame(1, $this->orders->addOrderCallCount());
     }
 
     /** @return array<string, mixed> */

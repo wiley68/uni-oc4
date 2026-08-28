@@ -30,6 +30,7 @@ final class PersistenceSchemaInstaller
         $apiNonce = $prefix . PersistenceTableNames::API_NONCE;
         $operationLock = $prefix . PersistenceTableNames::OPERATION_LOCK;
         $financingAttempt = $prefix . PersistenceTableNames::FINANCING_ATTEMPT;
+        $orderCorrelation = $prefix . PersistenceTableNames::ORDER_CORRELATION;
 
         return [
             "CREATE TABLE IF NOT EXISTS `{$shopCache}` (
@@ -98,6 +99,19 @@ final class PersistenceSchemaInstaller
                 KEY `idx_mt_uni_credit_attempt_state_updated` (`state`, `updated_at`),
                 KEY `idx_mt_uni_credit_attempt_expires` (`expires_at`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+            "CREATE TABLE IF NOT EXISTS `{$orderCorrelation}` (
+                `order_correlation_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `store_id` INT UNSIGNED NOT NULL,
+                `attempt_id` INT UNSIGNED NOT NULL,
+                `order_id` INT UNSIGNED NOT NULL,
+                `created_at` DATETIME NOT NULL,
+                `updated_at` DATETIME NOT NULL,
+                PRIMARY KEY (`order_correlation_id`),
+                UNIQUE KEY `uniq_mt_uni_credit_correlation_attempt` (`attempt_id`),
+                UNIQUE KEY `uniq_mt_uni_credit_correlation_store_order` (`store_id`, `order_id`),
+                KEY `idx_mt_uni_credit_correlation_store_attempt` (`store_id`, `attempt_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         ];
     }
 
@@ -105,7 +119,7 @@ final class PersistenceSchemaInstaller
     public function installedTableNames(): array
     {
         $names = [];
-        foreach (PersistenceTableNames::phase3Tables() as $table) {
+        foreach (PersistenceTableNames::allPersistenceTables() as $table) {
             $names[] = $this->db->getPrefix() . $table;
         }
 

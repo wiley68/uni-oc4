@@ -31,7 +31,8 @@ final class Phase6ScopeGuardTest extends TestCase
         '/system/library/created_open_cart_order.php',
         '/system/library/order_materialization_exception.php',
         '/system/library/payment_identity.php',
-        '/system/library/order_recovery_marker.php',
+        '/system/library/order_correlation_repository.php',
+        '/system/library/order_correlation_store_interface.php',
         '/system/library/checkout_order_model_port.php',
         '/system/library/open_cart_order_gateway_interface.php',
         '/system/library/open_cart_order_data_builder.php',
@@ -104,6 +105,16 @@ final class Phase6ScopeGuardTest extends TestCase
     {
         $sql = implode("\n", \Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller::createTableStatements('oc_'));
         self::assertStringNotContainsString('financing_snapshot', $sql);
+        self::assertStringContainsString('mt_uni_credit_order_correlation', $sql);
+    }
+
+    public function testMaterializerDoesNotWriteInternalRecoveryToTracking(): void
+    {
+        $builder = (string) file_get_contents(dirname(__DIR__) . '/system/library/open_cart_order_data_builder.php');
+        $materializer = (string) file_get_contents(dirname(__DIR__) . '/system/library/open_cart_order_materializer.php');
+        self::assertStringContainsString("'tracking'                => ''", $builder);
+        self::assertStringNotContainsString('mtuc:', $builder);
+        self::assertStringNotContainsString('tracking', $materializer);
     }
 
     private static function isEarlierPhaseLibrary(string $relative): bool

@@ -309,7 +309,7 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway` |
 | Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`         |
 | Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                         |
-| Crash recovery          | `oc_order.tracking` = `mtuc:s{storeId}:a{attemptId}`                      |
+| Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)  |
 | Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id`                 |
 
 ## 14. Phase 5 shared financing domain

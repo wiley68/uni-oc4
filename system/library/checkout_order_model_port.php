@@ -27,6 +27,4 @@ interface CheckoutOrderModelPort
     public function getProductOptions(int $orderId, int $orderProductId): array;
 
     public function addHistory(int $orderId, int $orderStatusId, string $comment = '', bool $notify = false): void;
-
-    public function findOrderIdByRecoveryMarker(int $storeId, string $trackingMarker): ?int;
 }

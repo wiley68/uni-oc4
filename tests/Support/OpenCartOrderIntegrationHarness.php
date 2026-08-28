@@ -6,8 +6,10 @@ namespace MtUniCredit\Tests\Support;
 
 use Opencart\System\Library\Extension\MtUniCredit\MysqliDbConnection;
 
+use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
+
 /**
- * Real OpenCart order table access for Phase 6 integration (oc_ prefix, synthetic markers only).
+ * Real OpenCart order table access for Phase 6 integration (oc_ prefix, synthetic test store only).
  */
 final class OpenCartOrderIntegrationHarness
 {
@@ -52,7 +54,10 @@ final class OpenCartOrderIntegrationHarness
 
     public static function cleanupModuleTestOrders(): void
     {
-        self::orders()->deleteTestOrdersByTrackingPrefix('mtuc:');
+        self::orders()->deleteTestOrdersByStoreAndPayment(
+            PersistenceIntegrationHarness::TEST_STORE_ID,
+            PaymentIdentity::optionCode()
+        );
     }
 
     /** @return array{hostname:string,username:string,password:string,database:string,port:int,prefix:string} */

@@ -12,6 +12,8 @@ final class PersistenceTableNames
     public const OPERATION_LOCK = 'mt_uni_credit_operation_lock';
     public const FINANCING_ATTEMPT = 'mt_uni_credit_financing_attempt';
 
+    public const ORDER_CORRELATION = 'mt_uni_credit_order_correlation';
+
     /** @return list<string> */
     public static function phase3Tables(): array
     {
@@ -21,5 +23,17 @@ final class PersistenceTableNames
             self::OPERATION_LOCK,
             self::FINANCING_ATTEMPT,
         ];
+    }
+
+    /** @return list<string> */
+    public static function phase6Tables(): array
+    {
+        return [self::ORDER_CORRELATION];
+    }
+
+    /** @return list<string> */
+    public static function allPersistenceTables(): array
+    {
+        return array_merge(self::phase3Tables(), self::phase6Tables());
     }
 }

@@ -10,7 +10,7 @@ final class OpenCartOrderDataBuilder
     /**
      * @return array<string, mixed>
      */
-    public function build(OrderDraft $draft, string $recoveryTrackingMarker): array
+    public function build(OrderDraft $draft): array
     {
         $shipping = $draft->shippingAddress ?? $draft->billingAddress;
 
@@ -62,7 +62,7 @@ final class OpenCartOrderDataBuilder
             'affiliate_id'            => 0,
             'commission'              => 0.0,
             'marketing_id'            => 0,
-            'tracking'                => $recoveryTrackingMarker,
+            'tracking'                => '',
             'language_id'             => $draft->languageId,
             'language_code'           => $draft->languageCode,
             'currency_id'             => $draft->currencyId,

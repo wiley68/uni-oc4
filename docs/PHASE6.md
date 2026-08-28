@@ -87,21 +87,57 @@ issued → validating → order_creating → (materialize/recover) → attach or
 
 Uses existing `FinancingAttemptRepository` CAS transitions and `attachOrder()` attach-once semantics.
 
-## Crash recovery marker
+## Crash recovery correlation (Remediation)
 
-**Mechanism:** OpenCart `oc_order.tracking` set atomically during `addOrder()` INSERT.
+### OpenCart 4.1.0.3 investigation
 
-**Format:** `mtuc:s{storeId}:a{attemptId}` (≤64 chars, non-secret, module-scoped).
+Inspected `system/helper/db_schema.php` order-related tables:
 
-**Retry:** `OpenCartOrderMaterializer` queries by marker before calling `addOrder()` again.
+| Table                                                                                 | Suitable for module recovery?                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `order`                                                                               | **No** — `tracking` is affiliate/marketing/shipment business data; `comment` is customer-visible; `transaction_id` is payment-gateway semantics; `custom_field` JSON is storefront customer data |
+| `order_product`, `order_option`, `order_total`, `order_history`, `order_subscription` | Line/history rows only — no extension metadata slot                                                                                                                                              |
+| Dedicated order metadata / extension table                                            | **Does not exist** in OpenCart 4.1.0.3 core                                                                                                                                                      |
 
-**Why not comment:** customer-visible; **why not new table:** native field suffices and is written in same INSERT as order creation.
+**Rejected:** repurposing `oc_order.tracking` (Phase 6 initial design) — conflicts with native shipping/affiliate semantics and third-party extensions.
+
+### Selected mechanism: `mt_uni_credit_order_correlation`
+
+Minimal module-owned table (Phase 6 remediation):
+
+| Column                        | Role                                               |
+| ----------------------------- | -------------------------------------------------- |
+| `store_id`                    | Multistore scope                                   |
+| `attempt_id`                  | UNIQUE — one correlation row per financing attempt |
+| `order_id`                    | OpenCart order created by `addOrder()`             |
+| UNIQUE `(store_id, order_id)` | Two attempts cannot claim the same order           |
+
+Repository: `OrderCorrelationRepository` / `OrderCorrelationStoreInterface`.
+
+### Exact crash window sequence
+
+```text
+1. attempt exists (state → order_creating)
+2. operation lock acquired
+3. addOrder() creates order N
+4. INSERT mt_uni_credit_order_correlation (store_id, attempt_id, order_id=N)  ← durable fact
+5. [CRASH — attachOrder(N) never runs]
+6. retry: correlation.findOrderIdByAttempt(store, attempt) → N
+7. materializer.loadVerified(N) — no second addOrder()
+8. attachOrder(N) completes binding
+```
+
+**Durable fact after step 4:** row in `mt_uni_credit_order_correlation` with `(store_id, attempt_id, order_id=N)`.
+
+`attempt.order_id` alone does **not** solve the window — it is set only at `attachOrder()` (step 8).
+
+`OpenCartOrderDataBuilder` sets `tracking => ''` — UniCredit internal identifiers must not be written to native business fields.
 
 ## Idempotency layers
 
 1. Operation lock `(store_id, entry_point, operation_key_hash)`
 2. Attempt `order_id` binding (attach-once UNIQUE)
-3. Recovery marker lookup before second `addOrder()`
+3. **Order correlation lookup** before second `addOrder()`
 4. Checkout gateway never calls `addOrder()`
 
 ## Transactions
@@ -118,7 +154,7 @@ Product materialization uses isolated `OrderDraft` data only — **no** live car
 | ------------------------------------ | --------------------------------------------------------------------------------------- |
 | `Phase6ValidatedSubmissionTest`      | DTO boundary, entry points, no EGN                                                      |
 | `Phase6OrderMaterializationTest`     | Materialization, attach, crash recovery, idempotency (in-memory port + real attempt DB) |
-| `Phase6OpenCartOrderIntegrationTest` | Real `oc_order` rows with `mtuc:` cleanup                                               |
+| `Phase6OpenCartOrderIntegrationTest` | Real `oc_order` + correlation table; exact crash-window DB proof                        |
 | `Phase6ScopeGuardTest`               | No UI/CP/snapshot                                                                       |
 
 Run:

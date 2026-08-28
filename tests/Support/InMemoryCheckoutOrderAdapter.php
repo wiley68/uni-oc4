@@ -52,6 +52,8 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
             'payment_method'   => $paymentMethod,
             'order_status_id'  => 0,
             'tracking'         => (string) ($orderData['tracking'] ?? ''),
+            'comment'          => (string) ($orderData['comment'] ?? ''),
+            'shipping_method'  => $orderData['shipping_method'] ?? ['name' => '', 'code' => ''],
             'language_id'      => (int) ($orderData['language_id'] ?? 1),
         ];
 
@@ -108,16 +110,5 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
             $this->orders[$orderId]['order_status_id'] = $orderStatusId;
         }
         $this->history[] = compact('orderId', 'orderStatusId', 'comment', 'notify');
-    }
-
-    public function findOrderIdByRecoveryMarker(int $storeId, string $trackingMarker): ?int
-    {
-        foreach ($this->orders as $orderId => $order) {
-            if ((int) ($order['store_id'] ?? 0) === $storeId && ($order['tracking'] ?? '') === $trackingMarker) {
-                return (int) $orderId;
-            }
-        }
-
-        return null;
     }
 }

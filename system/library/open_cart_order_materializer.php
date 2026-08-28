@@ -12,7 +12,8 @@ final class OpenCartOrderMaterializer
     public function __construct(
         private CheckoutOrderModelPort $orders,
         private OpenCartOrderDataBuilder $builder,
-        private OpenCartOrderVerifier $verifier
+        private OpenCartOrderVerifier $verifier,
+        private OrderCorrelationStoreInterface $correlations
     ) {
     }
 
@@ -20,17 +21,19 @@ final class OpenCartOrderMaterializer
         ValidatedFinancingSubmission $submission,
         FinancingAttemptContext $attempt
     ): CreatedOpenCartOrder {
-        $marker = OrderRecoveryMarker::forAttempt($attempt->storeId(), $attempt->attemptId());
-        $existingId = $this->orders->findOrderIdByRecoveryMarker($attempt->storeId(), $marker);
+        $storeId = $attempt->storeId();
+        $attemptId = $attempt->attemptId();
+        $existingId = $this->correlations->findOrderIdByAttempt($storeId, $attemptId);
         if ($existingId !== null) {
             return $this->loadVerified($existingId, $submission, true);
         }
 
-        $orderData = $this->builder->build($submission->orderDraft, $marker);
-        $orderId = $this->orders->addOrder($orderData);
+        $orderId = $this->orders->addOrder($this->builder->build($submission->orderDraft));
         if ($orderId <= 0) {
             throw new OrderMaterializationException('OpenCart addOrder did not return a valid order identifier.');
         }
+
+        $this->correlations->linkCreatedOrder($storeId, $attemptId, $orderId);
 
         return $this->loadVerified($orderId, $submission, false);
     }

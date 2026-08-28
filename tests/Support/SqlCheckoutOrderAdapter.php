@@ -203,27 +203,13 @@ final class SqlCheckoutOrderAdapter implements CheckoutOrderModelPort
         );
     }
 
-    public function findOrderIdByRecoveryMarker(int $storeId, string $trackingMarker): ?int
+    public function deleteTestOrdersByStoreAndPayment(int $storeId, string $paymentOptionCode): void
     {
         $prefix = $this->db->getPrefix();
         $result = $this->db->query(
             "SELECT `order_id` FROM `{$prefix}order`
              WHERE `store_id` = " . (int) $storeId . "
-               AND `tracking` = '" . $this->db->escape($trackingMarker) . "'
-             LIMIT 1"
-        );
-        if (!is_object($result) || $result->num_rows !== 1) {
-            return null;
-        }
-
-        return (int) ($result->row['order_id'] ?? 0);
-    }
-
-    public function deleteTestOrdersByTrackingPrefix(string $prefixMarker = 'mtuc:'): void
-    {
-        $prefix = $this->db->getPrefix();
-        $result = $this->db->query(
-            "SELECT `order_id` FROM `{$prefix}order` WHERE `tracking` LIKE '" . $this->db->escape($prefixMarker) . "%'"
+               AND `payment_method` LIKE '%" . $this->db->escape($paymentOptionCode) . "%'"
         );
         if (!is_object($result) || !isset($result->rows)) {
             return;
@@ -239,5 +225,12 @@ final class SqlCheckoutOrderAdapter implements CheckoutOrderModelPort
             $this->db->query("DELETE FROM `{$prefix}order_history` WHERE `order_id` = {$orderId}");
             $this->db->query("DELETE FROM `{$prefix}order` WHERE `order_id` = {$orderId}");
         }
+
+        $this->db->query(
+            "UPDATE `{$prefix}order`
+             SET `tracking` = ''
+             WHERE `store_id` = " . (int) $storeId . "
+               AND `tracking` LIKE 'mtuc:%'"
+        );
     }
 }

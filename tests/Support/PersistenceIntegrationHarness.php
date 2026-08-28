@@ -58,7 +58,7 @@ final class PersistenceIntegrationHarness
     public static function resetTables(): void
     {
         $db = self::connection();
-        foreach (PersistenceTableNames::phase3Tables() as $table) {
+        foreach (PersistenceTableNames::allPersistenceTables() as $table) {
             $db->query('TRUNCATE TABLE `' . $db->getPrefix() . $table . '`');
         }
     }
