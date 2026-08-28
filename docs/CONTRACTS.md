@@ -229,3 +229,19 @@ Namespace: `str_replace(['_', '/'], ['', '\\'], ucwords($extension, '_/'))`.
 ## 9. Какво Phase 0 нарочно не съдържа
 
 Няма schema, token persistence, CP login клиент, калкулаторни продукционни класове, Product/Cart/Checkout UI, Process 1/2, SmartUCF, email, callback controller, admin order panel.
+
+---
+
+## 10. Phase 1 skeleton (admin shell)
+
+Phase 1 добавя admin module shell и install wiring. Подробности: `docs/PHASE1.md`.
+
+| Елемент         | Стойност                                               |
+| --------------- | ------------------------------------------------------ |
+| Admin route     | `extension/mt_uni_credit/module/mt_uni_credit`         |
+| Runtime install | `extension/mt_uni_credit/module/mt_uni_credit.install` |
+| Setting code    | `module_mt_uni_credit`                                 |
+| Library NS      | `Opencart\System\Library\Extension\MtUniCredit\`       |
+| Compatibility   | `system/library/open_cart_compatibility.php`           |
+| Events Phase 1  | **0** (само `EventRegistry` инфраструктура)            |
+| Autoload        | native OpenCart; **без** runtime Composer              |

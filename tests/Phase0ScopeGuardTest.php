@@ -6,26 +6,24 @@ namespace MtUniCredit\Tests;
 
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Guards frozen Phase 0 scope boundaries that must remain true after later phases.
+ */
 final class Phase0ScopeGuardTest extends TestCase
 {
-    public function testPhase0DidNotAddStorefrontOrPersistenceImplementation(): void
+    public function testStorefrontFinancingPathsStillAbsent(): void
     {
         $root = dirname(__DIR__);
-        $forbidden = [
-            $root . '/catalog/controller/payment',
-            $root . '/catalog/controller/module',
-            $root . '/catalog/model',
-            $root . '/admin/controller',
-            $root . '/admin/model',
-            $root . '/system/library',
-        ];
-
-        foreach ($forbidden as $path) {
-            self::assertDirectoryDoesNotExist($path, $path . ' must not exist in Phase 0');
+        foreach (
+            [
+                $root . '/catalog/controller/payment',
+                $root . '/catalog/controller/module',
+                $root . '/catalog/model',
+                $root . '/catalog/view/template/payment',
+            ] as $path
+        ) {
+            self::assertDirectoryDoesNotExist($path, $path);
         }
-
-        self::assertFileDoesNotExist($root . '/catalog/view/template/payment');
-        self::assertFileDoesNotExist($root . '/admin/view/template');
     }
 
     public function testNoDatabaseSchemaOrCpClientClasses(): void
@@ -47,9 +45,9 @@ final class Phase0ScopeGuardTest extends TestCase
             }
 
             $contents = (string) file_get_contents($path);
-            self::assertStringNotContainsString('CREATE TABLE', $contents);
-            self::assertStringNotContainsString('ControlPanelClient', $contents);
-            self::assertStringNotContainsString('SmartUcf', $contents);
+            self::assertStringNotContainsString('CREATE TABLE', $contents, $path);
+            self::assertStringNotContainsString('ControlPanelClient', $contents, $path);
+            self::assertStringNotContainsString('SmartUcf', $contents, $path);
         }
     }
 }
