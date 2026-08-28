@@ -89,7 +89,8 @@ final class Phase7ProductFlowTest extends TestCase
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
         self::assertStringContainsString("event.key === 'Escape'", $js);
         self::assertStringContainsString('lastTrigger.focus()', $js);
-        self::assertStringContainsString('AbortController', $js);
+        self::assertStringContainsString('renderOfferButtons', $js);
+        self::assertStringContainsString('scheduleRefreshCalculator', $js);
         self::assertStringContainsString('DOMContentLoaded', $js);
         self::assertStringContainsString('closest(TRIGGER_SELECTOR)', $js);
     }

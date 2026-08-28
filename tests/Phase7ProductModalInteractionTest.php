@@ -49,7 +49,8 @@ final class Phase7ProductModalInteractionTest extends TestCase
         self::assertStringContainsString('DOMContentLoaded', $js);
         self::assertStringContainsString('root.addEventListener(\'click\'', $js);
         self::assertStringContainsString('event.target.closest(TRIGGER_SELECTOR)', $js);
-        self::assertStringContainsString('renderOfferButtons', $js);
+        self::assertStringContainsString('scheduleRefreshCalculator', $js);
+        self::assertStringContainsString("getElementById('form-product')", $js);
         self::assertStringContainsString('document.body.appendChild(modal)', $js);
         self::assertStringContainsString('modal.removeAttribute(\'inert\')', $js);
         self::assertStringContainsString("event.key === 'Escape'", $js);

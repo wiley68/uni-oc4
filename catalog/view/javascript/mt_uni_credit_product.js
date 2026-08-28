@@ -84,9 +84,38 @@
       }
     }
 
+    function productFormEl() {
+      return document.getElementById('form-product');
+    }
+
+    function isRecalcControl(element) {
+      if (!element || !(element instanceof Element)) {
+        return false;
+      }
+      const form = productFormEl();
+      if (!form || !form.contains(element)) {
+        return false;
+      }
+      if (element.matches('#input-quantity, input[name="quantity"]')) {
+        return true;
+      }
+      return element.matches('[name^="option["]');
+    }
+
+    function recalcTriggerReason(element) {
+      if (element.matches('#input-quantity, input[name="quantity"]')) {
+        return 'quantity change';
+      }
+      return 'option change';
+    }
+
     function productOptions() {
+      const form = productFormEl();
       const options = {};
-      document.querySelectorAll('[name^="option["]').forEach((element) => {
+      if (!form) {
+        return options;
+      }
+      form.querySelectorAll('[name^="option["]').forEach((element) => {
         const match = element.name.match(/^option\[(\d+)\]/);
         if (!match) {
           return;
@@ -114,9 +143,34 @@
     }
 
     function quantityValue() {
-      const qty = document.querySelector('#input-quantity, input[name="quantity"]');
+      const form = productFormEl();
+      const qty = form
+        ? form.querySelector('#input-quantity, input[name="quantity"]')
+        : document.querySelector('#input-quantity, input[name="quantity"]');
       const parsed = qty ? parseInt(qty.value, 10) : 1;
       return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    }
+
+    function syncBootstrap() {
+      const bootstrapEl = document.getElementById(BOOTSTRAP_ID);
+      if (!bootstrapEl) {
+        return;
+      }
+      bootstrapEl.textContent = JSON.stringify({
+        product_id: state.product_id,
+        calculator: state.calculator,
+        modal: state.modal,
+        product_button_action: state.product_button_action,
+        checkout_url: state.checkout_url,
+        logo_standard_url: state.logo_standard_url,
+        logo_alternative_url: state.logo_alternative_url,
+        badge_url: state.badge_url,
+        calculate_url: state.calculate_url,
+        issue_url: state.issue_url,
+        submit_url: state.submit_url,
+        csrf_token: state.csrf_token,
+        button_top_spacing: state.button_top_spacing,
+      });
     }
 
     function selectedOffer() {
@@ -367,8 +421,25 @@
       }
       renderOfferButtons(data);
       applyRootLayoutFromData(root, state);
+      submissionToken = '';
+      lastCalculation = null;
+      syncBootstrap();
       calculator.setAttribute('aria-busy', 'false');
+      debugLog('product recalculation completed');
       debugLog('calculator refreshed');
+    }
+
+    let refreshTimer = null;
+
+    function scheduleRefreshCalculator(reason) {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        debugLog('product recalculation triggered:', reason);
+        refreshCalculator(reason);
+      }, 250);
     }
 
     async function postJson(url, payload) {
@@ -401,7 +472,7 @@
       return response.json();
     }
 
-    async function refreshCalculator() {
+    async function refreshCalculator(reason) {
       const currentSequence = ++sequence;
       if (abortController) {
         abortController.abort();
@@ -429,10 +500,12 @@
           }
         } else if (calculator) {
           calculator.setAttribute('aria-busy', 'false');
+          debugLog('product recalculation failed', reason || '', json.message || '');
         }
       } catch (error) {
         if (error.name !== 'AbortError' && calculator) {
           calculator.setAttribute('aria-busy', 'false');
+          debugLog('product recalculation failed', reason || '');
         }
       }
     }
@@ -705,10 +778,21 @@
 
     form?.addEventListener('submit', submitForm);
 
-    document.querySelectorAll('#input-quantity, input[name="quantity"], [name^="option["]').forEach((element) => {
-      element.addEventListener('change', refreshCalculator);
-      element.addEventListener('input', refreshCalculator);
-    });
+    const productForm = productFormEl();
+    if (productForm) {
+      productForm.addEventListener('change', (event) => {
+        if (isRecalcControl(event.target)) {
+          scheduleRefreshCalculator(recalcTriggerReason(event.target));
+        }
+      });
+      productForm.addEventListener('input', (event) => {
+        if (isRecalcControl(event.target)) {
+          scheduleRefreshCalculator(recalcTriggerReason(event.target));
+        }
+      });
+    } else {
+      debugLog('init warning: #form-product missing; dynamic recalculation disabled');
+    }
 
     renderCalculator(state.calculator);
   }
