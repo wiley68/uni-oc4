@@ -288,6 +288,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit {
     final class PersistenceConflictException extends PersistenceException {}
 
     final class PersistenceNotFoundException extends PersistenceException {}
+
+    final class OrderMaterializationException extends \RuntimeException {}
 }
 
 namespace Opencart\System\Library\Cart {

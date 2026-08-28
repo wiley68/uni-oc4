@@ -299,6 +299,19 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | Cache TTL        | 86400 s                                                                |
 | Invalid snapshot | does **not** overwrite known-good cache                                |
 
+## 15. Phase 6 order materialization foundation
+
+Подробности: `docs/PHASE6.md`.
+
+| Елемент                 | Стойност                                                                  |
+| ----------------------- | ------------------------------------------------------------------------- |
+| Submission DTO          | `ValidatedFinancingSubmission`                                            |
+| Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway` |
+| Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`         |
+| Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                         |
+| Crash recovery          | `oc_order.tracking` = `mtuc:s{storeId}:a{attemptId}`                      |
+| Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id`                 |
+
 ## 14. Phase 5 shared financing domain
 
 Подробности: `docs/PHASE5.md`.

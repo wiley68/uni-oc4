@@ -23,5 +23,8 @@ final class ModuleConstants
 
     public const PAYMENT_OPTION_CODE = 'mt_uni_credit.mt_uni_credit';
 
+    /** Admin setting key — order status after Product/Cart materialization (Phase 6). */
+    public const AWAITING_FINANCING_ORDER_STATUS_SETTING = 'module_mt_uni_credit_awaiting_financing_order_status_id';
+
     public const AUTHOR = 'Авалон ООД';
 }
