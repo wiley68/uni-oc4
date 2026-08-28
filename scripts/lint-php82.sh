@@ -13,7 +13,8 @@ fi
 echo "Using ${PHP82} ($("${PHP82}" -r 'echo PHP_VERSION;'))"
 
 mapfile -t files < <(
-    find "${ROOT}/admin" "${ROOT}/catalog" "${ROOT}/system" -type f -name '*.php' 2>/dev/null \
+    find "${ROOT}/admin" "${ROOT}/catalog" "${ROOT}/system" "${ROOT}/config" "${ROOT}/keys" "${ROOT}/secrets" \
+        -type f -name '*.php' 2>/dev/null \
         | sort
 )
 

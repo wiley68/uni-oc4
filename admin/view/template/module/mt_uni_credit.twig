@@ -43,10 +43,35 @@
 								<dd class="col-sm-6">{{ health.version }}</dd>
 								<dt class="col-sm-6">{{ text_extension_code }}</dt>
 								<dd class="col-sm-6"><code>{{ health.extension_code }}</code></dd>
-								<dt class="col-sm-6">{{ text_events_registered }}</dt>
-								<dd class="col-sm-6">{{ health.events_registered }}</dd>
 								<dt class="col-sm-6">{{ entry_status }}</dt>
 								<dd class="col-sm-6">{% if health.module_enabled %}{{ text_enabled }}{% else %}{{ text_disabled }}{% endif %}</dd>
+								<dt class="col-sm-6">{{ text_cp_endpoint }}</dt>
+								<dd class="col-sm-6">
+									{% if health.control_panel_configured and health.control_panel_host %}
+										{{ health.control_panel_host }}
+									{% else %}
+										{{ text_health_status_missing }}
+									{% endif %}
+								</dd>
+								<dt class="col-sm-6">{{ text_environment_config }}</dt>
+								<dd class="col-sm-6">{{ health.environment_status_label }}</dd>
+								<dt class="col-sm-6">{{ text_secret_config }}</dt>
+								<dd class="col-sm-6">{{ health.secrets_status_label }}</dd>
+								<dt class="col-sm-6">{{ text_certificate }}</dt>
+								<dd class="col-sm-6">{{ health.certificate_status_label }}</dd>
+								<dt class="col-sm-6">{{ text_private_key }}</dt>
+								<dd class="col-sm-6">{{ health.private_key_status_label }}</dd>
+								<dt class="col-sm-6">{{ text_certificate_validity }}</dt>
+								<dd class="col-sm-6">
+									{{ health.certificate_validity_label }}
+									{% if health.certificate_not_after %}
+										<br><span class="text-muted small">{{ text_certificate_not_after }}: {{ health.certificate_not_after }}</span>
+									{% endif %}
+								</dd>
+								<dt class="col-sm-6">{{ text_certificate_key_match }}</dt>
+								<dd class="col-sm-6">{{ health.certificate_key_match_label }}</dd>
+								<dt class="col-sm-6">{{ text_deployment_ready }}</dt>
+								<dd class="col-sm-6">{% if health.deployment_ready %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
 							</dl>
 						</div>
 					</div>

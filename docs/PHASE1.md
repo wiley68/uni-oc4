@@ -70,6 +70,8 @@ Both paths are idempotent (`deleteEventByCode` before `addEvent`; defaults only 
 
 Languages: `admin/language/bg-bg/module/mt_uni_credit.php`, `admin/language/en-gb/module/mt_uni_credit.php`.
 
+Phase 2 extends the health panel with deployment statuses — see `docs/PHASE2.md`.
+
 ## Remediation: no stubs in scanned component directories
 
 Manual testing on OpenCart 4.1.0.3 confirmed that `admin/controller/module/index.php` (generic exit stub) was glob-discovered as a second module with code `index`, breaking Extensions → Modules. **Never** add generic `index.php` files under `admin/controller/{type}/`.

@@ -1,4 +1,4 @@
-# Development-only paths must not be served from the public extension tree.
+# Development-only paths and deployment material must not be served from the public extension tree.
 <IfModule mod_authz_core.c>
     <FilesMatch "^(composer\.(json|lock)|phpunit\.xml)$">
         Require all denied
@@ -7,6 +7,6 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(vendor|tests|docs|scripts|admin|system)/ - [F,L]
+    RewriteRule ^(vendor|tests|docs|scripts|admin|system|config|keys|secrets)/ - [F,L]
     RewriteRule ^\.phpunit\.cache/ - [F,L]
 </IfModule>

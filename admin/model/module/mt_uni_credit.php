@@ -2,11 +2,12 @@
 
 namespace Opencart\Admin\Model\Extension\MtUniCredit\Module;
 
+use Opencart\System\Library\Extension\MtUniCredit\DeploymentHealthService;
 use Opencart\System\Library\Extension\MtUniCredit\EventRegistry;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 
 /**
- * Phase 1 module model — settings defaults and event wiring only.
+ * Module model — settings defaults, event wiring, deployment health summary.
  */
 class MtUniCredit extends \Opencart\System\Engine\Model
 {
@@ -63,15 +64,30 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     }
 
     /**
-     * @return array{extension_code: string, version: string, events_registered: int, module_enabled: bool}
+     * Safe admin health summary — never includes secrets, PEM, or passphrases.
+     *
+     * @return array<string, mixed>
      */
     public function getHealthSummary(): array
     {
+        $deployment = (new DeploymentHealthService())->evaluate();
+
         return [
-            'extension_code'    => ModuleConstants::EXTENSION_CODE,
-            'version'           => ModuleConstants::VERSION,
-            'events_registered' => count(EventRegistry::eventCodes()),
-            'module_enabled'    => (bool) $this->config->get(ModuleConstants::MODULE_SETTING_CODE . '_status'),
+            'extension_code'          => ModuleConstants::EXTENSION_CODE,
+            'version'                 => ModuleConstants::VERSION,
+            'events_registered'       => count(EventRegistry::eventCodes()),
+            'module_enabled'          => (bool) $this->config->get(ModuleConstants::MODULE_SETTING_CODE . '_status'),
+            'environment_status'      => $deployment['environment']['status'],
+            'control_panel_status'    => $deployment['control_panel']['status'],
+            'control_panel_configured' => $deployment['control_panel']['configured'],
+            'control_panel_host'      => $deployment['control_panel']['host'],
+            'secrets_status'          => $deployment['secrets']['status'],
+            'certificate_status'      => $deployment['certificate']['status'],
+            'private_key_status'      => $deployment['private_key']['status'],
+            'certificate_validity'    => $deployment['certificate_validity']['status'],
+            'certificate_not_after'   => $deployment['certificate_validity']['not_after'],
+            'certificate_key_match'   => $deployment['certificate_key_match']['status'],
+            'deployment_ready'        => $deployment['deployment_ready'],
         ];
     }
 }

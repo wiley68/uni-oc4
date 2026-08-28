@@ -247,3 +247,20 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 | Autoload        | native OpenCart; **без** runtime Composer              |
 
 **Remediation:** OpenCart glob-сканира `admin/controller/{type}/*.php` за discovery. Generic `index.php` в `admin/controller/module/` се интерпретира като модул с code `index` и може да счупи Extensions → Modules. Не слагай exit stubs в scanned component namespaces; виж `docs/PHASE1.md` §Remediation.
+
+---
+
+## 11. Phase 2 deployment configuration
+
+Подробности: `docs/PHASE2.md`.
+
+| Елемент                             | Стойност                                                 |
+| ----------------------------------- | -------------------------------------------------------- |
+| CP URL (единствен tracked източник) | `config/environment.php` → `control_panel_url`           |
+| Loader                              | `ModuleDeploymentEnvironment`                            |
+| API prefix                          | `/api/v1` (host + prefix; **без** HTTP в Phase 2)        |
+| Secrets file                        | `secrets/smartucf-key.php` → `passphrase` (Git-ignored)  |
+| Certificate                         | `keys/avalon_cert.pem` (Git-ignored, ръчно)              |
+| Private key                         | `keys/avalon_private_key.pem` (Git-ignored, ръчно)       |
+| Health                              | `DeploymentHealthService` (локално; без CP connectivity) |
+| Auto cert sync                      | **забранено** за OC4 `2.0.2`                             |

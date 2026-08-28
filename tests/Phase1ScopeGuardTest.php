@@ -66,11 +66,16 @@ final class Phase1ScopeGuardTest extends TestCase
         }
     }
 
-    public function testAdminSettingsExcludeCpAndSecrets(): void
+    public function testAdminSettingsRemainLocalOnly(): void
     {
         $twig = (string) file_get_contents(dirname(__DIR__) . '/admin/view/template/module/mt_uni_credit.twig');
-        self::assertStringNotContainsString('secret', strtolower($twig));
-        self::assertStringNotContainsString('certificate', strtolower($twig));
         self::assertStringContainsString('module_mt_uni_credit_status', $twig);
+        // CP host is display-only; must not be an editable form field.
+        self::assertStringNotContainsString('name="control_panel', $twig);
+        self::assertStringNotContainsString('name="module_mt_uni_credit_secret', $twig);
+        self::assertStringNotContainsString('type="file"', $twig);
+        self::assertStringNotContainsString('passphrase', strtolower($twig));
+        self::assertStringNotContainsString('BEGIN PRIVATE KEY', $twig);
+        self::assertStringNotContainsString('BEGIN CERTIFICATE', $twig);
     }
 }
