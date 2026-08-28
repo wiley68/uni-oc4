@@ -3,6 +3,7 @@
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingAvailability;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
 use Opencart\System\Library\Extension\MtUniCredit\StandardThemeProductPlacement;
@@ -79,14 +80,20 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
 
         $modal = $model->createModalPresenter()->present($shop, $model->customerPrefill());
         $data['mt_uni_credit'] = [
-            'enabled'        => true,
-            'product_id'     => $productId,
-            'calculator'     => $presenter,
-            'modal'          => $modal,
-            'calculate_url'  => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.calculate', 'language=' . $this->config->get('config_language')),
-            'issue_url'      => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission', 'language=' . $this->config->get('config_language')),
-            'submit_url'     => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.submit', 'language=' . $this->config->get('config_language')),
-            'csrf_token'     => $this->session->data['csrf_token'] ?? '',
+            'enabled'            => true,
+            'product_id'         => $productId,
+            'button_top_spacing' => ModuleLocalSettings::normalizeButtonTopSpacing(
+                $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)
+            ),
+            'product_button_action' => ModuleLocalSettings::normalizeProductButtonAction(
+                (string) ($this->config->get(ModuleLocalSettings::PRODUCT_BUTTON_ACTION) ?? '')
+            ),
+            'calculator'         => $presenter,
+            'modal'              => $modal,
+            'calculate_url'      => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.calculate', 'language=' . $this->config->get('config_language')),
+            'issue_url'          => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission', 'language=' . $this->config->get('config_language')),
+            'submit_url'         => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.submit', 'language=' . $this->config->get('config_language')),
+            'csrf_token'         => $this->session->data['csrf_token'] ?? '',
         ];
 
         $fragment = $this->load->view($this->viewPath, $data);

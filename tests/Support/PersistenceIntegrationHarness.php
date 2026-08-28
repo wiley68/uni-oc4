@@ -25,7 +25,14 @@ final class PersistenceIntegrationHarness
     public const TEST_UNICID = 'test-unicid-phase3';
     public const TEST_UNICID_B = 'test-unicid-phase3-b';
 
+    /** Required substring in the integration DB prefix (never production `mt_uni_credit` alone). */
+    public const INTEGRATION_PREFIX_MARKER = 'mtuni_it';
+
     private static ?DbConnection $connection = null;
+
+    private static bool $shutdownRegistered = false;
+
+    private static string $activePrefix = '';
 
     public static function enabled(): bool
     {
@@ -43,6 +50,8 @@ final class PersistenceIntegrationHarness
         }
 
         $config = self::loadDatabaseConfig();
+        self::assertSafeIntegrationPrefix($config['prefix']);
+
         $mysqli = new \mysqli(
             $config['hostname'],
             $config['username'],
@@ -56,7 +65,9 @@ final class PersistenceIntegrationHarness
         $mysqli->set_charset('utf8mb4');
 
         self::$connection = new MysqliDbConnection($mysqli, $config['prefix']);
+        self::$activePrefix = $config['prefix'];
         (new PersistenceSchemaInstaller(self::$connection))->installAll();
+        self::registerShutdownCleanup();
 
         return self::$connection;
     }
@@ -64,9 +75,80 @@ final class PersistenceIntegrationHarness
     public static function resetTables(): void
     {
         $db = self::connection();
+        // Idempotent: recreate if a prior teardown/drop removed tables mid-suite.
+        (new PersistenceSchemaInstaller($db))->installAll();
         foreach (PersistenceTableNames::allPersistenceTables() as $table) {
             $db->query('TRUNCATE TABLE `' . $db->getPrefix() . $table . '`');
         }
+    }
+
+    /**
+     * Drop only this harness's isolated tables. Never touches production `*_mt_uni_credit_*`
+     * when the active prefix lacks {@see INTEGRATION_PREFIX_MARKER}.
+     */
+    public static function dropOwnTables(): void
+    {
+        if (self::$connection === null) {
+            return;
+        }
+
+        $prefix = self::$activePrefix !== '' ? self::$activePrefix : self::$connection->getPrefix();
+        self::assertSafeIntegrationPrefix($prefix);
+
+        foreach (PersistenceTableNames::allPersistenceTables() as $table) {
+            $full = $prefix . $table;
+            self::$connection->query('DROP TABLE IF EXISTS `' . $full . '`');
+        }
+    }
+
+    /**
+     * List full table names this harness would create for the configured prefix.
+     *
+     * @return list<string>
+     */
+    public static function expectedIntegrationTableNames(): array
+    {
+        $config = self::loadDatabaseConfig();
+        self::assertSafeIntegrationPrefix($config['prefix']);
+        $names = [];
+        foreach (PersistenceTableNames::allPersistenceTables() as $table) {
+            $names[] = $config['prefix'] . $table;
+        }
+
+        return $names;
+    }
+
+    public static function assertSafeIntegrationPrefix(string $prefix): void
+    {
+        if ($prefix === '' || !str_contains($prefix, self::INTEGRATION_PREFIX_MARKER)) {
+            throw new \RuntimeException(
+                'Refusing integration DB operations: prefix must contain "'
+                . self::INTEGRATION_PREFIX_MARKER
+                . '" (got "' . $prefix . '").'
+            );
+        }
+        // Production OpenCart tables use e.g. oc_mt_uni_credit_* — never allow that bare layout.
+        if (preg_match('/(^|_)mt_uni_credit_?$/', rtrim($prefix, '_')) === 1
+            && !str_contains($prefix, self::INTEGRATION_PREFIX_MARKER)
+        ) {
+            throw new \RuntimeException('Refusing operations against a production-looking prefix.');
+        }
+    }
+
+    private static function registerShutdownCleanup(): void
+    {
+        if (self::$shutdownRegistered) {
+            return;
+        }
+
+        self::$shutdownRegistered = true;
+        register_shutdown_function(static function (): void {
+            try {
+                self::dropOwnTables();
+            } catch (\Throwable) {
+                // Teardown must not mask the original test failure.
+            }
+        });
     }
 
     /** @return array{hostname:string,username:string,password:string,database:string,port:int,prefix:string} */
@@ -83,7 +165,9 @@ final class PersistenceIntegrationHarness
             $root = getenv('OPENCART_ROOT') ?: '/var/www/open40.avalonbg.com';
             $configFile = rtrim($root, '/') . '/config.php';
             if (is_file($configFile)) {
-                require $configFile;
+                if (!defined('DB_HOSTNAME')) {
+                    require $configFile;
+                }
                 $hostname = defined('DB_HOSTNAME') ? \DB_HOSTNAME : $hostname;
                 $username = defined('DB_USERNAME') ? \DB_USERNAME : $username;
                 $password = defined('DB_PASSWORD') ? \DB_PASSWORD : $password;

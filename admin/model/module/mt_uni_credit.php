@@ -2,6 +2,7 @@
 
 namespace Opencart\Admin\Model\Extension\MtUniCredit\Module;
 
+use Opencart\System\Library\Extension\MtUniCredit\CanonicalShopUrlProvider;
 use Opencart\System\Library\Extension\MtUniCredit\CpAdminHealthPresenter;
 use Opencart\System\Library\Extension\MtUniCredit\CpAuthenticationException;
 use Opencart\System\Library\Extension\MtUniCredit\CpException;
@@ -10,6 +11,7 @@ use Opencart\System\Library\Extension\MtUniCredit\DeploymentHealthService;
 use Opencart\System\Library\Extension\MtUniCredit\EventRegistry;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotValidationException;
@@ -25,8 +27,12 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     public function getDefaultSettings(): array
     {
         return [
-            ModuleConstants::MODULE_SETTING_CODE . '_status'  => 0,
-            ModuleCredentialsRepository::UNICID_SETTING       => '',
+            ModuleConstants::MODULE_SETTING_CODE . '_status' => 0,
+            ModuleCredentialsRepository::UNICID_SETTING      => '',
+            ModuleLocalSettings::ADVERTISING_ENABLED         => ModuleLocalSettings::DEFAULT_ADVERTISING_ENABLED,
+            ModuleLocalSettings::DEBUG_ENABLED               => ModuleLocalSettings::DEFAULT_DEBUG_ENABLED,
+            ModuleLocalSettings::PRODUCT_BUTTON_ACTION       => ModuleLocalSettings::DEFAULT_PRODUCT_BUTTON_ACTION,
+            ModuleLocalSettings::BUTTON_TOP_SPACING          => ModuleLocalSettings::DEFAULT_BUTTON_TOP_SPACING,
         ];
     }
 
@@ -147,14 +153,39 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         $storeId = (int) ($this->config->get('config_store_id') ?? 0);
         $connection = new OpenCartDbConnection($this->db, DB_PREFIX);
         $settings = new OpenCartModuleSettingStore($connection);
+        [$sslUrl, $plainUrl] = $this->resolveCatalogUrls();
 
         return CpServiceFactory::create(
             $connection,
             $settings,
             $storeId,
-            (string) ($this->config->get('config_ssl') ?? ''),
-            (string) ($this->config->get('config_url') ?? '')
+            $sslUrl,
+            $plainUrl
         );
+    }
+
+    /**
+     * OpenCart default store often has empty config_ssl/config_url in oc_setting.
+     * Fall back to admin HTTP(S)_CATALOG constants so CP login `name` is never blank.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolveCatalogUrls(): array
+    {
+        $sslUrl = trim((string) ($this->config->get('config_ssl') ?? ''));
+        $plainUrl = trim((string) ($this->config->get('config_url') ?? ''));
+
+        if ($sslUrl === '' && defined('HTTPS_CATALOG')) {
+            $sslUrl = (string) \HTTPS_CATALOG;
+        }
+        if ($plainUrl === '' && defined('HTTP_CATALOG')) {
+            $plainUrl = (string) \HTTP_CATALOG;
+        }
+        if ($sslUrl === '' && $plainUrl !== '') {
+            $sslUrl = $plainUrl;
+        }
+
+        return [$sslUrl, $plainUrl];
     }
 
     /**
@@ -173,16 +204,30 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         $storeId = (int) ($this->config->get('config_store_id') ?? 0);
 
         try {
+            [$sslUrl, $plainUrl] = $this->resolveCatalogUrls();
+            $shopName = (new CanonicalShopUrlProvider())->resolve($sslUrl, $plainUrl);
+            if ($shopName === '') {
+                $this->writeRefreshLog('shop_url_missing');
+
+                return ['error' => 'shop_url_missing'];
+            }
+
             $services = $this->createCpServices();
             $credentials = $services['credentials'];
 
             if ($credentials->getUnicid($storeId) === '') {
+                $this->writeRefreshLog('unicid_missing');
+
                 return ['error' => 'unicid_missing'];
             }
             if (!$credentials->hasSecret($storeId)) {
+                $this->writeRefreshLog('secret_missing');
+
                 return ['error' => 'secret_missing'];
             }
             if (!$credentials->isSecretReadable($storeId)) {
+                $this->writeRefreshLog('secret_unreadable');
+
                 return ['error' => 'secret_unreadable'];
             }
 
@@ -193,6 +238,8 @@ class MtUniCredit extends \Opencart\System\Engine\Model
                 $schemeCount = count($shop['coeff_list']);
             }
 
+            $this->writeRefreshLog('bank_data_refreshed');
+
             return [
                 'success'      => 'bank_data_refreshed',
                 'fetched_at'   => isset($meta['fetched_at']) ? (string) $meta['fetched_at'] : null,
@@ -200,14 +247,32 @@ class MtUniCredit extends \Opencart\System\Engine\Model
                 'cache_fresh'  => (bool) ($meta['is_fresh'] ?? true),
             ];
         } catch (CpAuthenticationException $exception) {
+            $this->writeRefreshLog('authentication_failed');
+
             return ['error' => 'authentication_failed'];
         } catch (ShopSnapshotValidationException $exception) {
+            $this->writeRefreshLog('shop_snapshot_invalid');
+
             return ['error' => 'shop_snapshot_invalid'];
         } catch (CpException $exception) {
-            return ['error' => $exception->isTransient() ? 'transient_failure' : 'request_failed'];
+            $code = $exception->isTransient() ? 'transient_failure' : 'request_failed';
+            $this->writeRefreshLog($code);
+
+            return ['error' => $code];
         } catch (\Throwable $exception) {
+            $this->writeRefreshLog('request_failed:' . (new \ReflectionClass($exception))->getShortName());
+
             return ['error' => 'request_failed'];
         }
+    }
+
+    private function writeRefreshLog(string $classification): void
+    {
+        if (!isset($this->log) || !is_object($this->log) || !method_exists($this->log, 'write')) {
+            return;
+        }
+
+        $this->log->write('mt_uni_credit.refreshBankData classification=' . $classification);
     }
 
     /**
@@ -267,7 +332,19 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         unset($payload[ModuleCredentialsRepository::SECRET_SETTING]);
 
         $this->load->model('setting/setting');
-        $this->model_setting_setting->editSetting(ModuleConstants::MODULE_SETTING_CODE, $payload);
+        $existing = $this->model_setting_setting->getSetting(ModuleConstants::MODULE_SETTING_CODE, $storeId);
+        if (!is_array($existing)) {
+            $existing = [];
+        }
+
+        // editSetting() deletes all rows for the module code — preserve secret/tokens/other keys.
+        foreach ($existing as $key => $value) {
+            if (!array_key_exists($key, $payload)) {
+                $payload[$key] = $value;
+            }
+        }
+
+        $this->model_setting_setting->editSetting(ModuleConstants::MODULE_SETTING_CODE, $payload, $storeId);
 
         $secretChanged = false;
         if ($secretFieldSubmitted && $plainSecret !== null && $plainSecret !== '') {

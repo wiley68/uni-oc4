@@ -43,9 +43,11 @@ final class Phase2AdminHealthPresenterTest extends TestCase
     public function testTwigDoesNotRenderSensitiveMaterialFields(): void
     {
         $twig = (string) file_get_contents(dirname(__DIR__) . '/admin/view/template/module/mt_uni_credit.twig');
-        self::assertStringContainsString('health.secrets_status_label', $twig);
-        self::assertStringContainsString('health.certificate_status_label', $twig);
-        self::assertStringContainsString('health.control_panel_host', $twig);
+        // Deployment diagnostics remain in services/tests, not on the operator configuration page.
+        self::assertStringNotContainsString('health.secrets_status_label', $twig);
+        self::assertStringNotContainsString('health.certificate_status_label', $twig);
+        self::assertStringNotContainsString('health.control_panel_host', $twig);
+        self::assertStringNotContainsString('Диагностика', $twig);
         self::assertStringNotContainsString('passphrase', strtolower($twig));
         self::assertStringNotContainsString('BEGIN PRIVATE KEY', $twig);
         self::assertStringNotContainsString('name="control_panel_url"', $twig);

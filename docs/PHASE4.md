@@ -15,16 +15,18 @@ Phase 4 добавя outbound Control Panel HTTP transport, login/refresh/logout
 - Logout: `POST /api/v1/auth/logout`, винаги локална invalidation в `finally`
 - 401 flow: invalidate → re-auth/login → **exactly one** retry; втори 401 → permanent auth failure + invalidation
 
-**Operator workflow (admin UI):** Configure → **Запиши настройките** → **Обнови данните от банката**.  
+**Operator workflow (admin UI):** Configure → native OpenCart **Save** → **Обнови данните от банката**.  
 There are no Connect / Login / Logout buttons. CP auth is transparent inside `refreshBankData` / `ShopConfigurationService::refreshRemote()`.
 
 ## Operator admin actions
 
 | Button (BG)               | Action                                                                                                    |
 | ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Запиши настройките        | Save status / UNICID / encrypted secret (no automatic bank refresh)                                       |
+| Native OpenCart Save      | Save status / UNICID / encrypted secret / local module settings (no automatic bank refresh)               |
 | Обнови данните от банката | Validate credentials → ensure CP token → `GET /shop` → validate → replace store-scoped cache              |
 | Изтегли журнал операции   | Visible, **disabled** until bank-request diagnostic journal (later phase; PS9 equivalent is debug export) |
+
+Catalog shop URL for CP login `name` falls back to `HTTPS_CATALOG` / `HTTP_CATALOG` when store `config_ssl`/`config_url` are empty (default store).
 
 ## Credentials (operator-configured)
 
@@ -89,7 +91,7 @@ Admin CP services use `config_store_id` (OpenCart default store is **`0`**). Tok
 
 1. `config/environment.php` with valid `control_panel_url`
 2. `keys/*.pem` + `secrets/smartucf-key.php` (Phase 2 deployment; not required for CP login alone)
-3. Admin: UNICID + shop secret → **Запиши настройките**
+3. Admin: UNICID + shop secret → native OpenCart **Save**
 4. **Обнови данните от банката** → success alert + `mt_uni_credit_shop_cache` row for `store_id = 0`
 5. Diagnostics panel shows cache timestamps / connection state
 6. Storefront Product calculator can consume the refreshed cache

@@ -22,6 +22,7 @@ final class Phase4AdminBankActionsTest extends TestCase
         $bg = (string) file_get_contents(dirname(__DIR__) . '/admin/language/bg-bg/module/mt_uni_credit.php');
 
         self::assertStringContainsString('button_save', $twig);
+        self::assertStringContainsString('form="form-module"', $twig);
         self::assertStringContainsString('button_refresh_bank_data', $twig);
         self::assertStringContainsString('button_download_journal', $twig);
         self::assertStringContainsString('refresh_bank_data', $twig);
@@ -33,9 +34,9 @@ final class Phase4AdminBankActionsTest extends TestCase
         self::assertStringNotContainsString('button_cp_disconnect', $twig);
         self::assertStringNotContainsString('cp_connect', $twig);
         self::assertStringNotContainsString('cp_disconnect', $twig);
-        self::assertStringNotContainsString('type="button" formaction', $twig);
+        self::assertStringNotContainsString('Запиши настройките', $twig);
+        self::assertStringNotContainsString('Запиши настройките', $bg);
 
-        self::assertStringContainsString('Запиши настройките', $bg);
         self::assertStringContainsString('Обнови данните от банката', $bg);
         self::assertStringContainsString('Изтегли журнал операции', $bg);
         self::assertStringNotContainsString('Свързване / login', $bg);

@@ -44,7 +44,7 @@ final class Phase4AdminPresenterTest extends TestCase
     public function testTwigDoesNotRenderTokenOrSecretValues(): void
     {
         $twig = (string) file_get_contents(dirname(__DIR__) . '/admin/view/template/module/mt_uni_credit.twig');
-        self::assertStringContainsString('health.auth_state_label', $twig);
+        self::assertStringNotContainsString('health.auth_state_label', $twig);
         self::assertStringContainsString('name="' . ModuleCredentialsRepository::SECRET_SETTING . '"', $twig);
         self::assertStringContainsString('value=""', $twig);
         self::assertStringNotContainsString('access_token', strtolower($twig));
