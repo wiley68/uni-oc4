@@ -29,7 +29,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             $options = ProductOptionNormalizer::normalize($this->request->post['option'] ?? []);
             $storeId = (int) $this->config->get('config_store_id');
             $currency = (string) ($this->session->data['currency'] ?? $this->config->get('config_currency'));
-            $line = $model->createProductContextFactory()->create($storeId, $productId, $quantity, $options);
+            $line = $model->createDisplayProductContextFactory()->create($storeId, $productId, $quantity, $options);
             $presenter = $model->createCalculatorPresenter()->present($shop, $line, $currency);
             if ($presenter === null) {
                 return $this->errorPayload('no_schemes', 'Няма налични схеми за този продукт.');

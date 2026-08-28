@@ -25,5 +25,12 @@ class MtUniCreditProductController extends \Opencart\System\Engine\Controller
         $version = ModuleConstants::VERSION;
         $this->document->addStyle('extension/mt_uni_credit/catalog/view/stylesheet/mt_uni_credit_product.css?ver=' . $version);
         $this->document->addScript('extension/mt_uni_credit/catalog/view/javascript/mt_uni_credit_product.js?ver=' . $version);
+
+        $debug = (bool) $this->config->get(\Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings::DEBUG_ENABLED);
+        \Opencart\System\Library\Extension\MtUniCredit\ProductVisibilityDebugLog::write(
+            $this->log,
+            $debug,
+            'Product assets event executed route=' . $route
+        );
     }
 }

@@ -79,9 +79,18 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         return $this->shopCacheMeta ?? ['unicid' => '', 'fetched_at' => gmdate('Y-m-d H:i:s')];
     }
 
-    public function createProductContextFactory(): OpenCartProductContextFactory
+    public function createProductContextFactory(bool $requireSelectedOptions = true): OpenCartProductContextFactory
     {
-        return new OpenCartProductContextFactory($this->createProductCatalogResolver());
+        return new OpenCartProductContextFactory($this->createProductCatalogResolver($requireSelectedOptions));
+    }
+
+    /**
+     * Product page / AJAX calculate: allow missing required options (base price).
+     * Issue/submit keep strict option validation via {@see createProductContextFactory(true)}.
+     */
+    public function createDisplayProductContextFactory(): OpenCartProductContextFactory
+    {
+        return $this->createProductContextFactory(false);
     }
 
     public function createCalculatorPresenter(): ProductCalculatorPresenter
@@ -216,7 +225,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         );
     }
 
-    private function createProductCatalogResolver(): OpenCartCatalogProductResolver
+    private function createProductCatalogResolver(bool $requireSelectedOptions = true): OpenCartCatalogProductResolver
     {
         $storeId = (int) $this->config->get('config_store_id');
         $languageId = (int) $this->config->get('config_language_id');
@@ -247,8 +256,14 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
 
                 return $ids;
             },
-            function (int $productId, int $quantity, array $requestedOptions) use ($model, $languageId): array {
-                return $model->resolveProductOptions($productId, $quantity, $requestedOptions, $languageId);
+            function (int $productId, int $quantity, array $requestedOptions) use ($model, $languageId, $requireSelectedOptions): array {
+                return $model->resolveProductOptions(
+                    $productId,
+                    $quantity,
+                    $requestedOptions,
+                    $languageId,
+                    $requireSelectedOptions
+                );
             },
             function (float $price, int $taxClassId) use ($model): float {
                 return (float) $model->tax->calculate($price, $taxClassId, (bool) $model->config->get('config_tax'));
@@ -302,8 +317,13 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
      * @param array<int, int|string|list<int>> $requestedOptions
      * @return array{option_price: float, order_options: list<array<string, mixed>>, normalized: array<int, int|string|list<int>>}
      */
-    public function resolveProductOptions(int $productId, int $quantity, array $requestedOptions, int $languageId): array
-    {
+    public function resolveProductOptions(
+        int $productId,
+        int $quantity,
+        array $requestedOptions,
+        int $languageId,
+        bool $requireSelectedOptions = true
+    ): array {
         $this->load->model('catalog/product');
         $productOptions = $this->model_catalog_product->getOptions($productId);
         $optionPrice = 0.0;
@@ -313,7 +333,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         foreach ($productOptions as $option) {
             $productOptionId = (int) ($option['product_option_id'] ?? 0);
             if ($productOptionId <= 0 || !array_key_exists($productOptionId, $requestedOptions)) {
-                if ((bool) ($option['required'] ?? false)) {
+                if ($requireSelectedOptions && (bool) ($option['required'] ?? false)) {
                     throw new ProductFinancingFlowException('validation', 'Missing required product option.');
                 }
                 continue;

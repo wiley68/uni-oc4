@@ -26,12 +26,7 @@
     </button>
   </div>
 
-  {% include 'extension/mt_uni_credit/module/mt_uni_credit_product_modal' with {
-    mt_uni_credit: mt_uni_credit,
-    text_modal_title: text_modal_title,
-    text_submit: text_submit,
-    text_close: text_close
-  } %}
+  {{ mt_uni_credit_modal_html|raw }}
 </div>
 
 <script type="application/json" id="mt-uni-credit-bootstrap">{{ {
