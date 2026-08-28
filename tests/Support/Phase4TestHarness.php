@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace MtUniCredit\Tests\Support;
 
-use Opencart\System\Library\Extension\MtUniCredit\CpAuthSecretProvider;
 use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
 use Opencart\System\Library\Extension\MtUniCredit\DbConnection;
 use Opencart\System\Library\Extension\MtUniCredit\InMemoryModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleEncryptionKeyProvider;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\PersistenceClock;
 use Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller;
-use Opencart\System\Library\Extension\MtUniCredit\ShopCacheRepository;
 
 require_once dirname(__DIR__) . '/fixtures/cp_shop_snapshot.php';
 
@@ -32,14 +31,19 @@ final class Phase4TestHarness
         return new InMemoryModuleSettingStore();
     }
 
+    public static function cipher(): ModuleSettingCipher
+    {
+        return new ModuleSettingCipher(ModuleEncryptionKeyProvider::testKeyMaterial());
+    }
+
     public static function prepareCredentials(ModuleSettingStore $settings, int $storeId = self::TEST_STORE_ID): void
     {
         $settings->set($storeId, ModuleCredentialsRepository::UNICID_SETTING, self::TEST_UNICID);
-    }
-
-    public static function cipher(): ModuleSettingCipher
-    {
-        return new ModuleSettingCipher(self::TEST_SECRET);
+        $settings->set(
+            $storeId,
+            ModuleCredentialsRepository::SECRET_SETTING,
+            self::cipher()->encrypt(self::TEST_SECRET)
+        );
     }
 
     /**
@@ -75,7 +79,7 @@ final class Phase4TestHarness
             $transport,
             new PersistenceClock(static fn(): int => $now),
             static fn(): int => $now,
-            Phase4TestHarness::TEST_SECRET
+            ModuleEncryptionKeyProvider::testKeyMaterial()
         );
     }
 

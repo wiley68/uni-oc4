@@ -6,15 +6,6 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
  * Wires CP auth, shop configuration, and admin health services for a store scope.
- *
- * @return array{
- *     credentials: ModuleCredentialsRepository,
- *     tokens: CpTokenRepository,
- *     client: ControlPanelClient,
- *     shopConfiguration: ShopConfigurationService,
- *     presenter: CpAdminHealthPresenter,
- *     credentialChange: CredentialChangeHandler
- * }
  */
 final class CpServiceFactory
 {
@@ -37,17 +28,12 @@ final class CpServiceFactory
         ?CpHttpTransport $transport = null,
         ?PersistenceClock $clock = null,
         ?callable $wallClock = null,
-        ?string $cpSecretOverride = null
+        ?string $encryptionKeyMaterialOverride = null
     ): array {
-        $secretProvider = $cpSecretOverride !== null
-            ? new FixedCpAuthSecretProvider($cpSecretOverride)
-            : new CpAuthSecretProvider();
-        $credentials = new ModuleCredentialsRepository($settings, $secretProvider);
-        $secret = $secretProvider->getSecret() ?? '';
-        if ($secret === '') {
-            $secret = 'missing-cp-secret-placeholder';
-        }
-        $cipher = new ModuleSettingCipher($secret);
+        $keyMaterial = $encryptionKeyMaterialOverride
+            ?? (new ModuleEncryptionKeyProvider())->resolveKeyMaterial();
+        $cipher = new ModuleSettingCipher($keyMaterial);
+        $credentials = new ModuleCredentialsRepository($settings, $cipher);
         $tokens = new CpTokenRepository($settings, $cipher, $storeId);
         $shopName = (new CanonicalShopUrlProvider())->resolve($catalogSslUrl, $catalogPlainUrl);
         $client = new ControlPanelClient(

@@ -4,7 +4,6 @@
 
 # Deployment SmartUCF passphrase (ZIP packaging only — keep secrets/ structure tracked)
 /secrets/smartucf-key.php
-/secrets/cp-auth.php
 
 # SmartUCF certificate / private-key material (keep keys/ protection files tracked)
 /keys/*.pem

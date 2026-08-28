@@ -24,7 +24,7 @@ $_['text_certificate_not_after'] = 'Valid until';
 $_['text_certificate_key_match'] = 'Certificate / key match';
 $_['text_deployment_ready']   = 'Deployment ready';
 $_['text_cp_auth']            = 'Control Panel connection';
-$_['text_cp_secret_configured'] = 'CP secret file';
+$_['text_cp_secret_configured'] = 'CP secret (setting)';
 $_['text_cp_auth_state']      = 'CP authentication';
 $_['text_cp_token_expires']   = 'CP token expires';
 $_['text_cp_cache_present']   = 'Shop cache';
@@ -39,6 +39,10 @@ $_['text_auth_state_expired'] = 'Token expired';
 
 $_['entry_status']            = 'Status';
 $_['entry_unicid']            = 'UNICID';
+$_['entry_secret']            = 'Shop secret code';
+$_['help_secret']             = 'Control Panel shop secret. Never displayed after save.';
+$_['text_secret_configured']  = 'CP secret (setting)';
+$_['text_secret_keep_current'] = 'Leave blank to keep the current secret.';
 
 $_['button_save']             = 'Save';
 $_['button_back']             = 'Back';
@@ -55,6 +59,8 @@ $_['error_cp_authentication_failed'] = 'CP authentication failed.';
 $_['error_cp_shop_snapshot_invalid'] = 'CP shop snapshot invalid; cache unchanged.';
 $_['error_cp_transient_failure'] = 'Transient CP network error.';
 $_['error_cp_request_failed'] = 'CP request failed.';
+$_['error_secret_required']   = 'Shop secret code is required.';
+$_['error_unicid_required']   = 'UNICID is required.';
 $_['error_cp_remote_logout_failed'] = 'CP remote logout failed; local token cleared.';
 
 $_['text_health_status_healthy'] = 'OK';

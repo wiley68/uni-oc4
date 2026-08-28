@@ -51,7 +51,8 @@ final class CpAdminHealthPresenter
         return [
             'cp_host'              => $this->environment->controlPanelHost(),
             'unicid'               => $unicid !== '' ? $unicid : null,
-            'cp_secret_configured' => $this->credentials->hasSecret(),
+            'secret_configured' => $this->credentials->hasSecret($this->storeId),
+            'secret_readable'   => $this->credentials->isSecretReadable($this->storeId),
             'auth_state'           => $authState,
             'token_expires_at'     => $this->tokens->hasToken() && $expiresAt > 0
                 ? gmdate('Y-m-d H:i:s', $expiresAt) . ' UTC'

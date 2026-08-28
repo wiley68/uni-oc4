@@ -73,7 +73,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['text_no'] = $this->language->get('text_no');
         $data['text_health_status_missing'] = $this->language->get('text_health_status_missing');
         $data['text_cp_auth'] = $this->language->get('text_cp_auth');
-        $data['text_cp_secret_configured'] = $this->language->get('text_cp_secret_configured');
+        $data['text_cp_secret_configured'] = $this->language->get('text_secret_configured');
         $data['text_cp_auth_state'] = $this->language->get('text_cp_auth_state');
         $data['text_cp_token_expires'] = $this->language->get('text_cp_token_expires');
         $data['text_cp_cache_present'] = $this->language->get('text_cp_cache_present');
@@ -81,6 +81,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['text_cp_cache_expires_at'] = $this->language->get('text_cp_cache_expires_at');
         $data['text_cp_cache_fresh'] = $this->language->get('text_cp_cache_fresh');
         $data['entry_unicid'] = $this->language->get('entry_unicid');
+        $data['entry_secret'] = $this->language->get('entry_secret');
+        $data['help_secret'] = $this->language->get('help_secret');
+        $data['has_secret'] = (bool) ($health['secret_configured'] ?? false);
+        $data['secret_readable'] = (bool) ($health['secret_readable'] ?? true);
+        $data['text_secret_configured'] = $this->language->get('text_secret_configured');
         $data['button_cp_connect'] = $this->language->get('button_cp_connect');
         $data['button_cp_refresh_shop'] = $this->language->get('button_cp_refresh_shop');
         $data['button_cp_disconnect'] = $this->language->get('button_cp_disconnect');
@@ -113,6 +118,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->load->language($this->route);
 
         $json = [];
+        $payload = [];
+        $plainSecret = null;
+        $secretFieldSubmitted = false;
 
         if (!$this->user->hasPermission('modify', $this->route)) {
             $json['error'] = $this->language->get('error_permission');
@@ -134,7 +142,28 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 $payload[$key] = (int) $this->request->post[$key];
             }
 
-            $this->model_extension_mt_uni_credit_module_mt_uni_credit->saveModuleSettings($payload);
+            $secretKey = ModuleCredentialsRepository::SECRET_SETTING;
+            $secretFieldSubmitted = array_key_exists($secretKey, $this->request->post);
+            $plainSecret = $secretFieldSubmitted ? trim((string) $this->request->post[$secretKey]) : null;
+
+            if (trim((string) ($this->request->post[ModuleCredentialsRepository::UNICID_SETTING] ?? '')) === '') {
+                $json['error'] = $this->language->get('error_unicid_required');
+            }
+
+            if (!$json && $secretFieldSubmitted && $plainSecret === '') {
+                $health = $this->model_extension_mt_uni_credit_module_mt_uni_credit->getCpHealthSummary();
+                if (empty($health['secret_configured'])) {
+                    $json['error'] = $this->language->get('error_secret_required');
+                }
+            }
+        }
+
+        if (!$json) {
+            $this->model_extension_mt_uni_credit_module_mt_uni_credit->saveModuleSettings(
+                $payload,
+                $plainSecret,
+                $secretFieldSubmitted
+            );
             $this->model_extension_mt_uni_credit_module_mt_uni_credit->syncEvents();
 
             $json['success'] = $this->language->get('text_success');

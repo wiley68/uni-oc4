@@ -15,56 +15,55 @@ Phase 4 добавя outbound Control Panel HTTP transport, login/refresh/logout
 - Logout: `POST /api/v1/auth/logout`, винаги локална invalidation в `finally`
 - 401 flow: invalidate → re-auth/login → **exactly one** retry; втори 401 → permanent auth failure + invalidation
 
-## Token storage
+## Credentials (operator-configured)
 
-- **Не** plaintext bearer в admin/logs
-- Store-scoped `oc_setting` keys:
-  - `module_mt_uni_credit_cp_access_token` (AES-256-GCM, prefix `enc:v1:`)
-  - `module_mt_uni_credit_cp_token_type`
-  - `module_mt_uni_credit_cp_token_expires_at`
-- Cipher key derived from deployment CP secret (`secrets/cp-auth.php`) — същият източник като login secret
+| Material        | Source                                             | At rest                                 |
+| --------------- | -------------------------------------------------- | --------------------------------------- |
+| UNICID          | admin setting `module_mt_uni_credit_unicid`        | plaintext in `oc_setting`               |
+| CP login secret | admin password field `module_mt_uni_credit_secret` | AES-256-GCM (`enc:v1:`) in `oc_setting` |
+| Bearer token    | automatic after login                              | AES-256-GCM (`enc:v1:`) in `oc_setting` |
 
-## Credentials
+Operational model matches **uni-ps9** / **Woo mtunicredit**: operator enters UNICID + shop secret in admin; secret is never re-displayed. Empty password on save keeps the existing secret.
 
-| Material             | Source                                             |
-| -------------------- | -------------------------------------------------- |
-| UNICID               | admin setting `module_mt_uni_credit_unicid`        |
-| CP API secret        | deployment file `secrets/cp-auth.php` (gitignored) |
-| Remote shop snapshot | CP `GET /shop` → `mt_uni_credit_shop_cache`        |
+Deployment files (`secrets/smartucf-key.php`, PEM keys) are **only** for SmartUCF mTLS — not for CP login.
 
-PS9 difference: PS9 encrypts secret in PrestaShop Configuration; OC4 Phase 4 keeps CP secret in deployment file (Phase 2 policy) while UNICID remains admin-editable.
+## Token / setting encryption key
+
+- `ModuleEncryptionKeyProvider` derives stable key material from OpenCart installation constants (`DB_PREFIX`, `DB_DATABASE`, `DIR_STORAGE`)
+- Same key encrypts CP secret and bearer token at rest
+- **Decoupled** from CP login secret value (no extra deployment file)
+- Role analogous to PrestaShop `_NEW_COOKIE_KEY_` in uni-ps9
 
 ## Shop cache
 
 - TTL: **86400s** (`SecurityConstants::SHOP_CACHE_TTL_SECONDS`)
-- Full snapshot validation via ported `ShopConfigurationSnapshotValidator`
+- Full snapshot validation via `ShopConfigurationSnapshotValidator`
 - Invalid remote snapshot **does not** overwrite known-good cache
 - Permanent auth/4xx/invalid payload → purge scoped cache + tokens
 - Transient 5xx/network → preserve cache + tokens
 
 ## Canonical shop URL
 
-- `CanonicalShopUrlProvider` — HTTPS, no trailing slash, prefers `config_ssl` over `config_url`
+- `CanonicalShopUrlProvider` — HTTPS, без trailing slash, prefer `config_ssl` → `config_url`
 
 ## Admin
 
-- Safe fields: CP host, auth state, token expiry timestamp (not raw token), cache metadata
-- POST actions (modify permission + user token): connect, refreshShop, disconnect
-- UNICID editable; secret file presence only (yes/no)
+- UNICID + secret password fields (secret never shown after save)
+- Safe health: CP host, auth state, token expiry timestamp, cache metadata
+- POST actions: connect, refreshShop, disconnect
 
 ## Credential change
 
-- `CredentialChangeHandler` invalidates tokens + scoped cache for previous/new UNICID on admin save
+- UNICID or secret change → `CredentialChangeHandler` invalidates tokens + scoped cache
 
-## Live smoke test (optional)
+## Live smoke prerequisites
 
-1. Deploy `secrets/cp-auth.php` with dev secret
-2. Set UNICID in admin
-3. Connect → verify auth state + token expiry shown (not token value)
-4. Refresh shop → cache metadata populated
-5. Second read serves cache without extra CP call
-6. Disconnect → auth state disconnected
-7. Re-connect
+1. `config/environment.php` with valid `control_panel_url`
+2. `keys/*.pem` + `secrets/smartucf-key.php` (Phase 2 deployment; not required for CP login alone)
+3. Admin: UNICID + shop secret configured
+4. Connect → verify auth state + cache metadata
+5. Refresh shop → cache populated
+6. Disconnect → local token cleared
 
 Do **not** create financing orders.
 

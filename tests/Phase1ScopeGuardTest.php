@@ -71,9 +71,11 @@ final class Phase1ScopeGuardTest extends TestCase
     {
         $twig = (string) file_get_contents(dirname(__DIR__) . '/admin/view/template/module/mt_uni_credit.twig');
         self::assertStringContainsString('module_mt_uni_credit_status', $twig);
-        // CP host is display-only; must not be an editable form field.
+        // CP host is display-only; secret uses password field with empty value (never re-rendered).
         self::assertStringNotContainsString('name="control_panel', $twig);
-        self::assertStringNotContainsString('name="module_mt_uni_credit_secret', $twig);
+        self::assertStringContainsString('name="module_mt_uni_credit_secret"', $twig);
+        self::assertStringContainsString('type="password"', $twig);
+        self::assertStringContainsString('value=""', $twig);
         self::assertStringNotContainsString('type="file"', $twig);
         self::assertStringNotContainsString('passphrase', strtolower($twig));
         self::assertStringNotContainsString('BEGIN PRIVATE KEY', $twig);

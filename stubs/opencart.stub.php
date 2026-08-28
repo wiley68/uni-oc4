@@ -25,6 +25,9 @@ namespace {
     if (!defined('DB_DATABASE')) {
         define('DB_DATABASE', '');
     }
+    if (!defined('DIR_STORAGE')) {
+        define('DIR_STORAGE', '');
+    }
     if (!defined('DB_PORT')) {
         define('DB_PORT', '3306');
     }

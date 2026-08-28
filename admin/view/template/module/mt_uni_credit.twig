@@ -33,7 +33,14 @@
 							<div class="row mb-3">
 								<label class="col-sm-3 col-form-label" for="input-unicid">{{ entry_unicid }}</label>
 								<div class="col-sm-9">
-									<input type="text" name="module_mt_uni_credit_unicid" value="{{ module_mt_uni_credit_unicid }}" placeholder="123e4567-e89b-12d3-a456-426614174000" id="input-unicid" class="form-control"/>
+									<input type="text" name="module_mt_uni_credit_unicid" value="{{ module_mt_uni_credit_unicid }}" placeholder="123e4567-e89b-12d3-a456-426614174000" id="input-unicid" class="form-control" required/>
+								</div>
+							</div>
+							<div class="row mb-3">
+								<label class="col-sm-3 col-form-label" for="input-secret">{{ entry_secret }}</label>
+								<div class="col-sm-9">
+									<input type="password" name="module_mt_uni_credit_secret" value="" maxlength="64" autocomplete="new-password" id="input-secret" class="form-control"{% if not has_secret %} required{% endif %}/>
+									<div class="form-text">{{ help_secret }}{% if has_secret %} {{ text_secret_keep_current }}{% endif %}</div>
 								</div>
 							</div>
 						</div>
@@ -71,8 +78,8 @@
 										{{ text_health_status_missing }}
 									{% endif %}
 								</dd>
-								<dt class="col-sm-6">{{ text_cp_secret_configured }}</dt>
-								<dd class="col-sm-6">{% if health.cp_secret_configured %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+								<dt class="col-sm-6">{{ text_secret_configured }}</dt>
+								<dd class="col-sm-6">{% if health.secret_configured %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
 								<dt class="col-sm-6">{{ text_cp_auth_state }}</dt>
 								<dd class="col-sm-6">{{ health.auth_state_label }}</dd>
 								<dt class="col-sm-6">{{ text_cp_token_expires }}</dt>

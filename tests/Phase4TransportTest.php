@@ -15,8 +15,6 @@ use Opencart\System\Library\Extension\MtUniCredit\CpInvalidPayloadException;
 use Opencart\System\Library\Extension\MtUniCredit\CpMalformedJsonException;
 use Opencart\System\Library\Extension\MtUniCredit\CpTimeoutException;
 use Opencart\System\Library\Extension\MtUniCredit\CpTokenRepository;
-use Opencart\System\Library\Extension\MtUniCredit\FixedCpAuthSecretProvider;
-use Opencart\System\Library\Extension\MtUniCredit\InMemoryModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
 use PHPUnit\Framework\TestCase;
@@ -79,9 +77,10 @@ final class Phase4TransportTest extends TestCase
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         $settings = Phase4TestHarness::settings();
         Phase4TestHarness::prepareCredentials($settings);
+        $cipher = Phase4TestHarness::cipher();
         $client = new ControlPanelClient(
-            new ModuleCredentialsRepository($settings, new FixedCpAuthSecretProvider(Phase4TestHarness::TEST_SECRET)),
-            new CpTokenRepository($settings, Phase4TestHarness::cipher(), Phase4TestHarness::TEST_STORE_ID),
+            new ModuleCredentialsRepository($settings, $cipher),
+            new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID),
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
             Phase4TestHarness::TEST_STORE_ID,
@@ -99,8 +98,9 @@ final class Phase4TransportTest extends TestCase
     {
         $settings = Phase4TestHarness::settings();
         Phase4TestHarness::prepareCredentials($settings);
-        $credentials = new ModuleCredentialsRepository($settings, new FixedCpAuthSecretProvider(Phase4TestHarness::TEST_SECRET));
-        $tokens = new CpTokenRepository($settings, Phase4TestHarness::cipher(), Phase4TestHarness::TEST_STORE_ID);
+        $cipher = Phase4TestHarness::cipher();
+        $credentials = new ModuleCredentialsRepository($settings, $cipher);
+        $tokens = new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID);
 
         return new ControlPanelClient(
             $credentials,

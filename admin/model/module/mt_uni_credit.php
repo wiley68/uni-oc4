@@ -223,17 +223,24 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         }
     }
 
-    public function saveModuleSettings(array $payload): void
+    public function saveModuleSettings(array $payload, ?string $plainSecret, bool $secretFieldSubmitted): void
     {
         $storeId = (int) ($this->config->get('config_store_id') ?? 0);
         $services = $this->createCpServices();
         $previousUnicid = $services['credentials']->getUnicid($storeId);
+        unset($payload[ModuleCredentialsRepository::SECRET_SETTING]);
 
         $this->load->model('setting/setting');
         $this->model_setting_setting->editSetting(ModuleConstants::MODULE_SETTING_CODE, $payload);
 
+        $secretChanged = false;
+        if ($secretFieldSubmitted && $plainSecret !== null && $plainSecret !== '') {
+            $services['credentials']->saveSecret($storeId, $plainSecret);
+            $secretChanged = true;
+        }
+
         $newUnicid = trim((string) ($payload[ModuleCredentialsRepository::UNICID_SETTING] ?? ''));
-        if ($newUnicid !== $previousUnicid) {
+        if ($newUnicid !== $previousUnicid || $secretChanged) {
             $services['credentialChange']->onCredentialsChanged($previousUnicid, $newUnicid);
         }
     }
@@ -244,7 +251,8 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         return [
             'cp_host'              => null,
             'unicid'               => null,
-            'cp_secret_configured' => false,
+            'secret_configured' => false,
+            'secret_readable'   => true,
             'auth_state'           => 'missing_credentials',
             'token_expires_at'     => null,
             'token_expired'        => false,

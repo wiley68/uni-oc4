@@ -11,7 +11,6 @@ use Opencart\System\Library\Extension\MtUniCredit\CpAuthenticationException;
 use Opencart\System\Library\Extension\MtUniCredit\CpInvalidPayloadException;
 use Opencart\System\Library\Extension\MtUniCredit\CpTokenRepository;
 use MtUniCredit\Tests\Support\PersistenceIntegrationHarness;
-use Opencart\System\Library\Extension\MtUniCredit\FixedCpAuthSecretProvider;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
 use Opencart\System\Library\Extension\MtUniCredit\ShopCacheRepository;
@@ -179,8 +178,9 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $settings = Phase4TestHarness::settings();
         Phase4TestHarness::prepareCredentials($settings);
-        $credentials = new ModuleCredentialsRepository($settings, new FixedCpAuthSecretProvider(Phase4TestHarness::TEST_SECRET));
-        $tokens = new CpTokenRepository($settings, Phase4TestHarness::cipher(), Phase4TestHarness::TEST_STORE_ID);
+        $cipher = Phase4TestHarness::cipher();
+        $credentials = new ModuleCredentialsRepository($settings, $cipher);
+        $tokens = new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID);
         $client = new ControlPanelClient(
             $credentials,
             $tokens,

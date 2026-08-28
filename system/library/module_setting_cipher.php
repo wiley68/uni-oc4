@@ -7,8 +7,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * AES-256-GCM encryption for values stored in oc_setting.
  *
- * Key material is derived from the deployment CP secret (secrets/cp-auth.php),
- * matching the UniCredit policy of not storing bearer tokens in plaintext.
+ * Key material comes from {@see ModuleEncryptionKeyProvider} (installation-scoped),
+ * decoupled from the CP login secret.
  */
 final class ModuleSettingCipher
 {

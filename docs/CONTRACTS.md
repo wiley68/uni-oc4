@@ -290,9 +290,10 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | ---------------- | ---------------------------------------------------------- |
 | HTTP transport   | `CurlCpHttpTransport`, TLS verify, connect 5s / total 15s  |
 | Login body       | `unicid`, `name` (canonical shop URL), `secret`            |
-| CP secret        | `secrets/cp-auth.php` (gitignored deployment file)         |
+| CP secret        | admin setting `module_mt_uni_credit_secret` (encrypted)    |
 | UNICID           | admin setting `module_mt_uni_credit_unicid`                |
 | Token storage    | encrypted `oc_setting`, store-scoped, prefix `enc:v1:`     |
+| Encryption key   | `ModuleEncryptionKeyProvider` (installation-scoped)        |
 | 401 retry        | exactly once after re-auth; second 401 invalidates         |
 | Shop fetch       | `GET /api/v1/shop` → validate → `mt_uni_credit_shop_cache` |
 | Cache TTL        | 86400 s                                                    |

@@ -49,7 +49,7 @@ final class ControlPanelClient
     public function login(): array
     {
         $unicid = $this->credentials->getUnicid($this->storeId);
-        $secret = $this->credentials->getSecret();
+        $secret = $this->credentials->getSecret($this->storeId);
         if ($unicid === '' || $secret === null || $this->shopName === '') {
             $this->tokens->invalidate();
             throw new CpAuthenticationException('The Control Panel credentials are incomplete.');

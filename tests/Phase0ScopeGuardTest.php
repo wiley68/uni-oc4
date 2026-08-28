@@ -70,8 +70,8 @@ final class Phase0ScopeGuardTest extends TestCase
             || str_contains($path, '/system/library/credential_change_handler.php')
             || str_contains($path, '/system/library/canonical_shop_url_provider.php')
             || str_contains($path, '/system/library/module_credentials_repository.php')
+            || str_contains($path, '/system/library/module_encryption_key_provider.php')
             || str_contains($path, '/system/library/open_cart_module_setting_store.php')
-            || str_contains($path, '/system/library/fixed_cp_auth_secret_provider.php')
             || str_contains($path, '/admin/model/module/mt_uni_credit.php');
     }
 }

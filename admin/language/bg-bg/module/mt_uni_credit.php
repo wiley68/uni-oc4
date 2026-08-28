@@ -24,7 +24,7 @@ $_['text_certificate_not_after'] = 'Валиден до';
 $_['text_certificate_key_match'] = 'Съвпадение сертификат / ключ';
 $_['text_deployment_ready']   = 'Deployment готов';
 $_['text_cp_auth']            = 'Control Panel връзка';
-$_['text_cp_secret_configured'] = 'CP secret файл';
+$_['text_cp_secret_configured'] = 'CP secret (настройка)';
 $_['text_cp_auth_state']      = 'CP автентикация';
 $_['text_cp_token_expires']   = 'CP токен изтича';
 $_['text_cp_cache_present']   = 'Shop cache';
@@ -39,6 +39,10 @@ $_['text_auth_state_expired'] = 'Токен изтекъл';
 
 $_['entry_status']            = 'Статус';
 $_['entry_unicid']            = 'UNICID';
+$_['entry_secret']            = 'Секретен код на магазина';
+$_['help_secret']             = 'Секретен код от Control Panel. Никога не се показва след запазване.';
+$_['text_secret_configured']  = 'CP secret (настройка)';
+$_['text_secret_keep_current'] = 'Оставете празно, за да запазите текущия секрет.';
 
 $_['button_save']             = 'Запази';
 $_['button_back']             = 'Назад';
@@ -55,6 +59,8 @@ $_['error_cp_authentication_failed'] = 'CP автентикацията е не�
 $_['error_cp_shop_snapshot_invalid'] = 'CP shop snapshot е невалиден; cache не е променен.';
 $_['error_cp_transient_failure'] = 'Временна CP мрежова грешка.';
 $_['error_cp_request_failed'] = 'CP заявката е неуспешна.';
+$_['error_secret_required']   = 'Секретният код на магазина е задължителен.';
+$_['error_unicid_required']   = 'UNICID е задължителен.';
 $_['error_cp_remote_logout_failed'] = 'CP logout мрежата е неуспешна; локалният токен е изчистен.';
 
 $_['text_health_status_healthy'] = 'OK';

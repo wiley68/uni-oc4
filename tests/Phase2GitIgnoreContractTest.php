@@ -12,6 +12,7 @@ final class Phase2GitIgnoreContractTest extends TestCase
     {
         $gitignore = (string) file_get_contents(dirname(__DIR__) . '/.gitignore');
         self::assertStringContainsString('/secrets/smartucf-key.php', $gitignore);
+        self::assertStringNotContainsString('cp-auth.php', $gitignore);
         self::assertStringContainsString('/keys/*.pem', $gitignore);
         self::assertStringContainsString('/keys/.incoming/', $gitignore);
         self::assertStringContainsString('/keys/.ssl_state.json', $gitignore);
