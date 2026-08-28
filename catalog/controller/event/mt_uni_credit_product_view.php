@@ -7,6 +7,11 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingAvailability;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
 use Opencart\System\Library\Extension\MtUniCredit\StandardThemeProductPlacement;
 
+/**
+ * Product calculator placement — catalog/view/product/product/after.
+ *
+ * OpenCart 4.1.0.3 supplies: string &$route, array &$data, string &$output
+ */
 class MtUniCreditProductView extends \Opencart\System\Engine\Controller
 {
     private string $viewPath = 'extension/mt_uni_credit/module/mt_uni_credit_product_calculator';

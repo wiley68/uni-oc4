@@ -12,6 +12,15 @@ Phase 7 adds the OpenCart 4.1 standard-theme **Product** financing flow only. It
 
 Events are registered through `EventRegistry` on install/save (`syncEvents()`).
 
+### OpenCart 4.1.0.3 callback signatures
+
+| Trigger family    | DB trigger example                          | Arguments supplied by loader                    |
+| ----------------- | ------------------------------------------- | ----------------------------------------------- |
+| controller before | `catalog/controller/product/product/before` | `string &$route, array &$args`                  |
+| view after        | `catalog/view/product/product/after`        | `string &$route, array &$data, string &$output` |
+
+`MtUniCreditProductController::init` must use the **2-argument** controller-before contract (no `$output`). Covered by `Phase7EventCallbackContractTest`.
+
 ## AJAX routes (catalog)
 
 | Action       | Route                                                                  | Creates attempt?              |

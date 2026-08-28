@@ -30,3 +30,29 @@ spl_autoload_register(static function (string $class): void {
         require_once $file;
     }
 });
+
+spl_autoload_register(static function (string $class): void {
+    $prefixes = [
+        'Opencart\\Catalog\\Controller\\Extension\\MtUniCredit\\' => '/catalog/controller/',
+        'Opencart\\Catalog\\Model\\Extension\\MtUniCredit\\' => '/catalog/model/',
+    ];
+    foreach ($prefixes as $prefix => $base) {
+        if (!str_starts_with($class, $prefix)) {
+            continue;
+        }
+        $relative = substr($class, strlen($prefix));
+        $segments = explode('\\', $relative);
+        $fileBase = array_pop($segments);
+        $dir = '';
+        foreach ($segments as $segment) {
+            $dir .= strtolower($segment) . '/';
+        }
+        $snake = strtolower((string) preg_replace('~([a-z])([A-Z]|[0-9])~', '$1_$2', $fileBase));
+        $file = dirname(__DIR__) . $base . $dir . $snake . '.php';
+        if (is_file($file)) {
+            require_once $file;
+        }
+
+        return;
+    }
+});

@@ -4,11 +4,16 @@ namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 
+/**
+ * Product page asset registration — catalog/controller/product/product/before.
+ *
+ * OpenCart 4.1.0.3 supplies: string &$route, array &$args
+ */
 class MtUniCreditProductController extends \Opencart\System\Engine\Controller
 {
     private string $module = ModuleConstants::MODULE_SETTING_CODE;
 
-    public function init(string &$route, array &$data, mixed &$output): void
+    public function init(string &$route, array &$args): void
     {
         if ($route !== 'product/product') {
             return;
