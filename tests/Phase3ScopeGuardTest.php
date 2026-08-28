@@ -12,7 +12,6 @@ final class Phase3ScopeGuardTest extends TestCase
     private const FORBIDDEN_MARKERS = [
         'SmartUcfSession',
         'hash_hmac',
-        'Calculator\\',
         'catalog/controller/payment',
         'catalog/controller/module',
         'createOrder',

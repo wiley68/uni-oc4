@@ -83,4 +83,4 @@ Do **not** create financing orders.
 
 ## Out of scope (Phase 5+)
 
-Calculator, cart/product UI, checkout payment, CP order create/update, SmartUCF, callbacks, financing snapshots.
+Calculator implementation: see `docs/PHASE5.md`. Still out of scope here: cart/product UI, checkout payment, CP orders, SmartUCF, callbacks.

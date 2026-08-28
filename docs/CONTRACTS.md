@@ -298,4 +298,16 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | Shop fetch       | `GET /api/v1/shop` → validate → `mt_uni_credit_shop_cache`             |
 | Cache TTL        | 86400 s                                                                |
 | Invalid snapshot | does **not** overwrite known-good cache                                |
-| CP orders        | **not implemented** in Phase 4                                         |
+
+## 14. Phase 5 shared financing domain
+
+Подробности: `docs/PHASE5.md`.
+
+| Елемент           | Стойност                                                          |
+| ----------------- | ----------------------------------------------------------------- |
+| Orchestrator      | `Calculator` (single shared domain)                               |
+| Context DTOs      | `ProductContext`, `CartContext`, `CartLine`                       |
+| Cart intersection | `CartSchemeResolver`, key `type\|kopCode\|months`                 |
+| GPR split         | OfferFactory vs calculateScheme (0% promo: 0.01 vs 0.0)           |
+| Currency          | BGN/EUR via `CurrencyGate`; display rate 1.95583                  |
+| Parity            | `tests/fixtures/calculator_golden.json`, `Phase5GoldenParityTest` |

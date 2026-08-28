@@ -12,7 +12,6 @@ final class Phase1ScopeGuardTest extends TestCase
     private const FORBIDDEN_PRODUCTION_MARKERS = [
         'SmartUcfSession',
         'hash_hmac',
-        'Calculator\\',
         'orderbankstatus',
         'shopcache',
     ];

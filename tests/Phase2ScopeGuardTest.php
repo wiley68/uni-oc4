@@ -14,7 +14,6 @@ final class Phase2ScopeGuardTest extends TestCase
         'SmartUcfSession',
         'orderbankstatus',
         'shopcache',
-        'Calculator\\',
         'financing_snapshot',
     ];
 

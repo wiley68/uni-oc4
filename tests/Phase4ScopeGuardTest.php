@@ -10,8 +10,6 @@ final class Phase4ScopeGuardTest extends TestCase
 {
     /** @var list<string> */
     private const FORBIDDEN_MARKERS = [
-        'Calculator\\',
-        'FinancialCalculator',
         'SmartUcfSession',
         'hash_hmac',
         'financing_snapshot',
