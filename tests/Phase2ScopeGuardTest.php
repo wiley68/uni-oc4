@@ -12,7 +12,6 @@ final class Phase2ScopeGuardTest extends TestCase
     private const FORBIDDEN_MARKERS = [
         'ControlPanelClient',
         'CertificateSynchronizer',
-        'CREATE TABLE',
         'curl_init',
         'file_get_contents(\'http',
         'SmartUcfSession',

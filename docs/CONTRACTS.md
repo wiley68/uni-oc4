@@ -264,3 +264,18 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 | Private key                         | `keys/avalon_private_key.pem` (Git-ignored, ръчно)       |
 | Health                              | `DeploymentHealthService` (локално; без CP connectivity) |
 | Auto cert sync                      | **забранено** за OC4 `2.0.2`                             |
+
+---
+
+## 12. Phase 3 persistence foundation
+
+Подробности: `docs/PHASE3.md`.
+
+| Таблица                           | Назначение                                                         |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `mt_uni_credit_shop_cache`        | CP shop snapshot cache (validated replace; без live fetch)         |
+| `mt_uni_credit_api_nonce`         | Nonce claim `(store_id, unicid, sha256(nonce))`, retention 900 s   |
+| `mt_uni_credit_operation_lock`    | Mutex `(store_id, entry_point, operation_key_hash)`, TTL 45 s      |
+| `mt_uni_credit_financing_attempt` | Generalized attempt identity + CAS transitions + attach-once order |
+
+Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва persistence таблици.

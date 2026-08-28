@@ -43,6 +43,12 @@ final class Phase0ScopeGuardTest extends TestCase
             if (str_contains($path, '/tests/')) {
                 continue;
             }
+            if (str_ends_with($path, '/system/library/persistence_schema_installer.php')) {
+                $contents = (string) file_get_contents($path);
+                self::assertStringNotContainsString('ControlPanelClient', $contents, $path);
+                self::assertStringNotContainsString('SmartUcf', $contents, $path);
+                continue;
+            }
 
             $contents = (string) file_get_contents($path);
             self::assertStringNotContainsString('CREATE TABLE', $contents, $path);

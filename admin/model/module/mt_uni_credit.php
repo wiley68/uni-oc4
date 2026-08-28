@@ -32,12 +32,23 @@ class MtUniCredit extends \Opencart\System\Engine\Model
             $this->model_setting_setting->editSetting($code, $this->getDefaultSettings());
         }
 
+        $this->installPersistenceSchema();
         $this->syncEvents();
     }
 
     public function uninstall(): void
     {
         $this->removeEvents();
+    }
+
+    private function installPersistenceSchema(): void
+    {
+        if (!defined('DB_PREFIX')) {
+            return;
+        }
+
+        $connection = new \Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection($this->db, DB_PREFIX);
+        (new \Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller($connection))->installAll();
     }
 
     public function syncEvents(): void

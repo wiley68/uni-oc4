@@ -13,6 +13,21 @@ namespace {
     if (!defined('DB_PREFIX')) {
         define('DB_PREFIX', 'oc_');
     }
+    if (!defined('DB_HOSTNAME')) {
+        define('DB_HOSTNAME', 'localhost');
+    }
+    if (!defined('DB_USERNAME')) {
+        define('DB_USERNAME', '');
+    }
+    if (!defined('DB_PASSWORD')) {
+        define('DB_PASSWORD', '');
+    }
+    if (!defined('DB_DATABASE')) {
+        define('DB_DATABASE', '');
+    }
+    if (!defined('DB_PORT')) {
+        define('DB_PORT', '3306');
+    }
     if (!defined('DIR_EXTENSION')) {
         /** Абсолютен път към папката extension/ на OpenCart (като в config.php). */
         define('DIR_EXTENSION', '');
@@ -259,6 +274,17 @@ namespace Opencart\System\Library {
     {
         public function write(string $message): void {}
     }
+}
+
+namespace Opencart\System\Library\Extension\MtUniCredit {
+
+    class PersistenceException extends \RuntimeException {}
+
+    final class PersistenceValidationException extends PersistenceException {}
+
+    final class PersistenceConflictException extends PersistenceException {}
+
+    final class PersistenceNotFoundException extends PersistenceException {}
 }
 
 namespace Opencart\System\Library\Cart {

@@ -14,5 +14,7 @@
     <php>
         <env name="OPENCART_ROOT" value="/var/www/open40.avalonbg.com"/>
         <env name="JET_OC4_ROOT" value="/var/www/open40.avalonbg.com/extension/mt_jet_credit"/>
+        <env name="MT_UNI_CREDIT_INTEGRATION" value="1"/>
+        <env name="MT_UNI_CREDIT_DB_PREFIX" value="oc_mtuni_it_"/>
     </php>
 </phpunit>
