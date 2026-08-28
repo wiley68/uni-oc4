@@ -19,8 +19,8 @@ final class Phase7ProductModalInteractionTest extends TestCase
 
         self::assertStringContainsString('id="mt-uni-credit-product-root"', $calc);
         self::assertStringContainsString('id="mt-uni-credit-bootstrap"', $calc);
-        self::assertStringContainsString('class="mt-uni-credit-offer-btn', $calc);
-        self::assertStringContainsString('class="mt-uni-credit-open-modal"', $calc);
+        self::assertStringContainsString('class="mt-uni-credit-product-calculator__button', $calc);
+        self::assertStringNotContainsString('mt-uni-credit-open-modal', $calc);
         self::assertStringContainsString('type="button"', $calc);
         self::assertStringContainsString('data-offer-type=', $calc);
         self::assertStringContainsString('data-preferred-key=', $calc);
@@ -34,7 +34,7 @@ final class Phase7ProductModalInteractionTest extends TestCase
         self::assertStringContainsString("ROOT_ID = 'mt-uni-credit-product-root'", $js);
         self::assertStringContainsString("MODAL_ID = 'mt-uni-credit-product-modal'", $js);
         self::assertStringContainsString("BOOTSTRAP_ID = 'mt-uni-credit-bootstrap'", $js);
-        self::assertStringContainsString(".mt-uni-credit-open-modal, .mt-uni-credit-offer-btn", $js);
+        self::assertStringContainsString('.mt-uni-credit-product-calculator__button[data-offer-type]', $js);
     }
 
     public function testJsUsesFooterSafeInitAndDelegatedClicks(): void
@@ -65,7 +65,7 @@ final class Phase7ProductModalInteractionTest extends TestCase
         self::assertStringContainsString('debugEnabled()', $js);
         self::assertStringContainsString("console.info('[mt_uni_credit]'", $js);
         self::assertStringContainsString('product init', $js);
-        self::assertStringContainsString('offer buttons found:', $js);
+        self::assertStringContainsString('modal opened', $js);
     }
 
     public function testDomFixtureOpenCloseContract(): void
@@ -76,14 +76,19 @@ final class Phase7ProductModalInteractionTest extends TestCase
   <div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="40" data-mtuc-debug="0">
     <div class="mt-uni-credit-calculator">
       <div class="mt-uni-credit-offers">
-        <button type="button" class="mt-uni-credit-offer-btn" data-offer-type="standard" data-preferred-key="standard|KOP|12|1">
-          <span class="mt-uni-credit-offer-label">12 x 10</span>
+        <button type="button" class="mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--standard" data-offer-type="standard" data-preferred-key="standard|KOP|12|1">
+          <span class="mt-uni-credit-product-calculator__button-content">
+            <span class="mt-uni-credit-product-calculator__button-title">Buy</span>
+            <span class="mt-uni-credit-product-calculator__button-price">12 x 10</span>
+          </span>
         </button>
-        <button type="button" class="mt-uni-credit-offer-btn is-promo" data-offer-type="promo" data-preferred-key="promo|KOP0|6|2">
-          <span class="mt-uni-credit-offer-label">6 x 0</span>
+        <button type="button" class="mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--promo" data-offer-type="promo" data-preferred-key="promo|KOP0|6|2">
+          <span class="mt-uni-credit-product-calculator__button-content">
+            <span class="mt-uni-credit-product-calculator__button-title">Buy</span>
+            <span class="mt-uni-credit-product-calculator__button-price">6 x 0</span>
+          </span>
+          <span class="mt-uni-credit-product-calculator__badge">0%</span>
         </button>
-      </div>
-      <button type="button" class="mt-uni-credit-open-modal" aria-haspopup="dialog" aria-controls="mt-uni-credit-product-modal">Buy</button>
     </div>
     <div id="mt-uni-credit-product-modal" class="mt-uni-credit-modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
       <div class="mt-uni-credit-modal__overlay" data-mtuc-dismiss></div>
@@ -100,13 +105,13 @@ HTML;
 
         self::assertSame(1, substr_count($fixture, 'id="mt-uni-credit-product-modal"'));
         self::assertSame(1, substr_count($fixture, 'id="mt-uni-credit-product-root"'));
-        self::assertMatchesRegularExpression('/<button type="button"\s+class="mt-uni-credit-offer-btn"/', $fixture);
-        self::assertDoesNotMatchRegularExpression('/class="mt-uni-credit-offer-btn"[^>]*type="submit"/', $fixture);
+        self::assertMatchesRegularExpression('/<button type="button"\s+class="mt-uni-credit-product-calculator__button/', $fixture);
+        self::assertDoesNotMatchRegularExpression('/class="mt-uni-credit-product-calculator__button"[^>]*type="submit"/', $fixture);
         self::assertStringContainsString('aria-hidden="true"', $fixture);
         self::assertStringContainsString(' hidden>', $fixture);
 
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
-        foreach (['mt-uni-credit-product-root', 'mt-uni-credit-product-modal', 'mt-uni-credit-bootstrap', 'mt-uni-credit-offer-btn'] as $token) {
+        foreach (['mt-uni-credit-product-root', 'mt-uni-credit-product-modal', 'mt-uni-credit-bootstrap', 'mt-uni-credit-product-calculator__button'] as $token) {
             self::assertStringContainsString($token, $js);
             self::assertStringContainsString($token, $fixture);
         }
@@ -119,11 +124,11 @@ HTML;
     public function testIssueSubmissionIsTiedToModalOpenNotCalculate(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
-        self::assertStringContainsString('issueSubmissionToken()', $js);
-        self::assertStringContainsString('function openModal', $js);
-        // calculate refresh must not create attempts
-        self::assertStringNotContainsString('issueSubmissionToken();', $this->extractFunctionBody($js, 'refreshCalculator'));
-        self::assertStringContainsString('issueSubmissionToken();', $this->extractFunctionBody($js, 'openModal'));
+        self::assertStringContainsString('recalculateSelection()', $js);
+        self::assertStringContainsString('postJson(state.issue_url', $this->extractFunctionBody($js, 'recalculateSelection'));
+        self::assertStringContainsString('postJson(state.calculate_url', $this->extractFunctionBody($js, 'refreshCalculator'));
+        self::assertStringNotContainsString('postJson(state.issue_url', $this->extractFunctionBody($js, 'renderCalculator'));
+        self::assertStringContainsString('recalculateSelection();', $this->extractFunctionBody($js, 'openModal'));
     }
 
     private function extractFunctionBody(string $js, string $name): string

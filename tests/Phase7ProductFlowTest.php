@@ -80,7 +80,8 @@ final class Phase7ProductFlowTest extends TestCase
         $twig = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
         self::assertStringContainsString('role="dialog"', $twig);
         self::assertStringContainsString('aria-modal="true"', $twig);
-        self::assertStringContainsString('aria-labelledby="mt-uni-credit-modal-title"', $twig);
+        self::assertStringContainsString('data-mtuc-step', $twig);
+        self::assertStringContainsString('data-mtuc-apply', $twig);
     }
 
     public function testJavascriptHandlesEscapeAndFocusReturn(): void

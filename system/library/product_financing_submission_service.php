@@ -21,7 +21,8 @@ final class ProductFinancingSubmissionService
         private ConsentResolver $consents,
         private OpenCartProductOrderDraftBuilder $draftBuilder,
         private PersistenceClock $clock,
-        private Calculator $calculator
+        private Calculator $calculator,
+        private ProductPopupFormNormalizer $popupFormNormalizer = new ProductPopupFormNormalizer()
     ) {
     }
 
@@ -60,8 +61,10 @@ final class ProductFinancingSubmissionService
         string $storeUrl,
         string $invoicePrefix,
         string $lockOwnerToken,
-        string $ip = '127.0.0.1'
+        string $ip = '127.0.0.1',
+        array $storeAddressDefaults = []
     ): ProductFinancingResult {
+        $posted = $this->popupFormNormalizer->normalize($posted, $storeAddressDefaults);
         $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
         if ($attemptRow === null) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');

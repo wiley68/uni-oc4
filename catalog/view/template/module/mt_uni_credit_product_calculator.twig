@@ -1,29 +1,43 @@
 {% if mt_uni_credit.enabled %}
-<div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="{{ mt_uni_credit.product_id }}"{% if mt_uni_credit.debug_enabled is defined and mt_uni_credit.debug_enabled %} data-mtuc-debug="1"{% endif %}{% if mt_uni_credit.button_top_spacing is defined and mt_uni_credit.button_top_spacing > 0 %} style="margin-top: {{ mt_uni_credit.button_top_spacing }}px;"{% endif %}>
-  <div class="mt-uni-credit-calculator" aria-live="polite" aria-busy="false">
-    {% if mt_uni_credit.calculator.heading %}
-      <div class="mt-uni-credit-heading">{{ mt_uni_credit.calculator.heading }}</div>
+{% set calc = mt_uni_credit.calculator %}
+<div id="mt-uni-credit-product-root"
+     class="mt-uni-credit-product-calculator{% if calc.dark_button %} mt-uni-credit-product-calculator--dark{% endif %}{% if not calc.show_installment %} mt-uni-credit-product-calculator--no-installment{% endif %}{% if not calc.buttons_in_row %} mt-uni-credit-product-calculator--stacked{% endif %}"
+     data-product-id="{{ mt_uni_credit.product_id }}"
+     data-button-action="{{ mt_uni_credit.product_button_action }}"
+     data-checkout-url="{{ mt_uni_credit.checkout_url }}"
+     data-logo-standard="{{ mt_uni_credit.logo_standard_url }}"
+     data-logo-alternative="{{ mt_uni_credit.logo_alternative_url }}"
+     data-mtuc-button-width="{{ calc.button_width }}"
+     data-mtuc-button-height="{{ calc.button_height }}"
+     {% if mt_uni_credit.button_top_spacing > 0 %}data-mtuc-top-spacing="{{ mt_uni_credit.button_top_spacing }}"{% endif %}
+     {% if mt_uni_credit.debug_enabled %}data-mtuc-debug="1"{% endif %}>
+  <div class="mt-uni-credit-product-calculator__calculator" aria-live="polite" aria-busy="false">
+    {% if calc.heading %}
+      <p class="mt-uni-credit-product-calculator__heading">{{ calc.heading }}</p>
     {% endif %}
-    <div class="mt-uni-credit-offers">
-      {% for offer_type, offer in mt_uni_credit.calculator.offers %}
+    <div class="mt-uni-credit-product-calculator__buttons">
+      {% for offer_type, offer in calc.offers %}
         <button type="button"
-                class="mt-uni-credit-offer-btn{% if offer_type == 'promo' %} is-promo{% endif %}"
+                class="mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--{{ offer_type }}"
                 data-offer-type="{{ offer_type }}"
-                data-preferred-key="{{ offer.preferred_scheme_key }}">
-          <span class="mt-uni-credit-offer-label">{{ offer.installment_label }}</span>
+                data-preferred-key="{{ offer.preferred_scheme_key }}"
+                aria-haspopup="dialog"
+                aria-controls="mt-uni-credit-product-modal">
+          <span class="mt-uni-credit-product-calculator__button-content">
+            <span class="mt-uni-credit-product-calculator__button-title">{{ text_button_financing }}</span>
+            <span class="mt-uni-credit-product-calculator__button-price" data-mtuc-preferred-price>{{ offer.installment_label }}</span>
+          </span>
+          {% if offer_type == 'promo' %}
+            <span class="mt-uni-credit-product-calculator__badge" aria-hidden="true">0%</span>
+          {% else %}
+            <span class="mt-uni-credit-product-calculator__logo">
+              <img src="{% if calc.dark_button %}{{ mt_uni_credit.logo_alternative_url }}{% else %}{{ mt_uni_credit.logo_standard_url }}{% endif %}"
+                   alt="UniCredit" data-mtuc-logo>
+            </span>
+          {% endif %}
         </button>
       {% endfor %}
     </div>
-    <button type="button"
-            class="mt-uni-credit-open-modal"
-            aria-haspopup="dialog"
-            aria-controls="mt-uni-credit-product-modal">
-      {% if mt_uni_credit.calculator.show_installment %}
-        {{ text_button_financing }}
-      {% else %}
-        {{ text_button_financing_image }}
-      {% endif %}
-    </button>
   </div>
 
   {{ mt_uni_credit_modal_html|raw }}
@@ -33,9 +47,15 @@
   product_id: mt_uni_credit.product_id,
   calculator: mt_uni_credit.calculator,
   modal: mt_uni_credit.modal,
+  product_button_action: mt_uni_credit.product_button_action,
+  checkout_url: mt_uni_credit.checkout_url,
+  logo_standard_url: mt_uni_credit.logo_standard_url,
+  logo_alternative_url: mt_uni_credit.logo_alternative_url,
+  badge_url: mt_uni_credit.badge_url,
   calculate_url: mt_uni_credit.calculate_url,
   issue_url: mt_uni_credit.issue_url,
   submit_url: mt_uni_credit.submit_url,
-  csrf_token: mt_uni_credit.csrf_token
+  csrf_token: mt_uni_credit.csrf_token,
+  button_top_spacing: mt_uni_credit.button_top_spacing
 }|json_encode|raw }}</script>
 {% endif %}

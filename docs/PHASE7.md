@@ -101,3 +101,36 @@ Admin first: native OpenCart **Save** → **Обнови данните от б�
 ## STOP gate
 
 Phase 7 passes when Product calculator/modal works on standard theme, authoritative server pricing, attempt/submit validation, exactly one local order with replay, cart untouched, result does not claim bank submission, scope guards green, PHP 8.2 lint + PHP 8.4 PHPUnit (Phase 0–7) pass.
+
+## UX parity inventory (PS9 / PS8 / Woo → OC4)
+
+Reference audited: PS9 `unipayment` (authoritative), PS8 `unipayment`, Woo `mtunicredit`.
+
+| UX item                          | PS9                                                                                       | PS8  | Woo             | OC4 target                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------- | ---- | --------------- | ---------------------------------------------------------- |
+| Product calculator/button layout | Pill „Купи на изплащане“ + price + logo/0%                                                | Same | Same (`mtuc-*`) | `mt-uni-credit-product-calculator__button` — same contract |
+| Standard button                  | Offer pill opens modal                                                                    | Same | Same            | standard offer pill                                        |
+| Promo button                     | Offer pill + 0% badge                                                                     | Same | Same            | promo offer pill + 0%                                      |
+| Zero-interest button             | Promo type with 0% badge                                                                  | Same | Same            | promo offer                                                |
+| Popup fields                     | Step1 calc + Step2 customer                                                               | Same | Same            | Step1 calc + Step2 customer                                |
+| Field order                      | price, months, first, financed, monthly, total, GLP, GPR → first/last/address/phone/email | Same | Same            | Same order                                                 |
+| Required fields                  | 5 customer + consents                                                                     | Same | Same            | 5 customer + consents (no EGN)                             |
+| Address handling                 | Single address line in UI                                                                 | Same | Same            | Single `address`; mapped server-side                       |
+| Consents                         | CP snapshot, mandatory checkboxes                                                         | Same | Same            | `ConsentResolver`                                          |
+| Primary button                   | Step1: Кандидатствай → Step2; Step2: Изпрати                                              | Same | Same            | `data-mtuc-apply` / `data-mtuc-submit`                     |
+| Secondary button                 | add_to_cart / buy via `product_button_action`                                             | Same | Same            | `data-mtuc-secondary`                                      |
+| Close behavior                   | Отказ, Escape, overlay                                                                    | Same | Same            | `data-mtuc-dismiss`, Escape                                |
+| Validation feedback              | Inline field errors                                                                       | Same | Same            | `data-mtuc-field-error`                                    |
+
+### Third „Купи на изплащане“ button — resolved
+
+- **Source:** legacy `.mt-uni-credit-open-modal` in calculator Twig + `TRIGGER_SELECTOR` in JS.
+- **Intended role:** mistaken duplicate open-modal trigger using `text_button_financing`.
+- **Reference:** „Купи на изплащане“ is the **title inside each offer pill**, not a separate product action.
+- **Decision:** **Removed.** Offer pills are the sole modal triggers.
+
+### `product_button_action` semantics
+
+- `add_to_cart` → secondary „Добави в количката“ clicks native `#button-cart`.
+- `buy` → secondary „Купи“ redirects to checkout URL.
+- Does **not** create a third product-level financing control.

@@ -37,23 +37,36 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         $this->load->model('extension/mt_uni_credit/module/mt_uni_credit_product');
         $languageKeys = [
             'text_button_financing',
-            'text_button_financing_image',
-            'text_modal_title',
-            'text_customer_details',
-            'text_address_details',
+            'text_modal_title_scheme',
+            'text_modal_title_customer',
+            'text_modal_success_title',
+            'text_modal_success_message',
+            'text_price',
+            'text_months',
+            'text_months_short',
+            'text_first_installment',
+            'text_financed_amount',
+            'text_monthly_installment',
+            'text_monthly_installment_short',
+            'text_total_payable',
+            'text_glp',
+            'text_gpr',
+            'text_cancel',
+            'text_back',
+            'text_apply',
+            'text_send',
             'text_consents',
             'text_firstname',
             'text_lastname',
+            'text_address',
             'text_email',
             'text_telephone',
-            'text_address_1',
-            'text_city',
-            'text_postcode',
-            'text_country_id',
-            'text_zone_id',
-            'text_submit',
-            'text_close',
+            'text_required',
+            'text_processing_title',
+            'text_processing_message',
+            'text_local_order_prepared',
         ];
+        $assetBase = 'extension/mt_uni_credit/catalog/view/image/product/';
         foreach ($languageKeys as $key) {
             $data[$key] = $this->language->get($key);
         }
@@ -135,7 +148,10 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             return;
         }
 
-        $modal = $model->createModalPresenter()->present($shop, $model->customerPrefill());
+        $buttonAction = ModuleLocalSettings::normalizeProductButtonAction(
+            (string) ($this->config->get(ModuleLocalSettings::PRODUCT_BUTTON_ACTION) ?? '')
+        );
+        $modal = $model->createModalPresenter()->present($shop, $model->customerPrefill(), $buttonAction);
         $data['mt_uni_credit'] = [
             'enabled'               => true,
             'product_id'            => $productId,
@@ -143,11 +159,13 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'button_top_spacing'    => ModuleLocalSettings::normalizeButtonTopSpacing(
                 $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)
             ),
-            'product_button_action' => ModuleLocalSettings::normalizeProductButtonAction(
-                (string) ($this->config->get(ModuleLocalSettings::PRODUCT_BUTTON_ACTION) ?? '')
-            ),
+            'product_button_action' => $buttonAction,
             'calculator'            => $presenter,
             'modal'                 => $modal,
+            'logo_standard_url'     => $assetBase . 'uni_logo.svg',
+            'logo_alternative_url'  => $assetBase . 'uni_logo_red.svg',
+            'badge_url'             => $assetBase . 'uni_mini_logo.png',
+            'checkout_url'          => $this->url->link('checkout/checkout', 'language=' . $this->config->get('config_language')),
             'calculate_url'         => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.calculate', 'language=' . $this->config->get('config_language')),
             'issue_url'             => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission', 'language=' . $this->config->get('config_language')),
             'submit_url'            => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.submit', 'language=' . $this->config->get('config_language')),

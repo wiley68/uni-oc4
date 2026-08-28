@@ -1,102 +1,383 @@
-.mt-uni-credit-product {
-  margin-top: 1rem;
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator {
+  box-sizing: border-box;
+  width: 100%;
+  margin-right: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  padding: 0;
+  --mtuc-button-width: 290px;
+  --mtuc-button-height: 56px;
+  --mtuc-logo-height: 24px;
+  --mtuc-promo-badge-size: 32px;
+  --mtuc-promo-side-width: calc(var(--mtuc-logo-height) * 400 / 124);
+  --mtuc-red: #ee2e24;
+  --mtuc-red-text: #d92a21;
+  --mtuc-red-hover-bg: rgba(238, 46, 36, .1);
+  --mtuc-popup-red: #ed1c24;
+  --mtuc-popup-border: #d4d4d8;
+  --mtuc-popup-shadow: #f4f4f5;
+  --mtuc-popup-muted: #696969;
+  font-family: "Roboto Condensed", sans-serif;
 }
 
-.mt-uni-credit-offers {
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__heading {
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__buttons {
+  container-name: mtuc-product-buttons;
+  container-type: inline-size;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  flex-flow: row wrap;
+  gap: 8px;
+  width: 100%;
 }
 
-.mt-uni-credit-offer-btn,
-.mt-uni-credit-open-modal {
-  border: 1px solid #003b71;
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator--stacked .mt-uni-credit-product-calculator__buttons {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#mt-uni-credit-product-root button.mt-uni-credit-product-calculator__button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: var(--mtuc-button-width);
+  min-width: var(--mtuc-button-width);
+  max-width: var(--mtuc-button-width);
+  min-height: var(--mtuc-button-height);
+  height: var(--mtuc-button-height);
+  margin: 0;
+  padding: 6px 12px 6px 16px;
+  border: 2px solid var(--mtuc-red);
+  border-radius: 9999px;
   background: #fff;
-  color: #003b71;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .12);
   cursor: pointer;
 }
 
-.mt-uni-credit-offer-btn.is-promo {
-  border-color: #c8922e;
-  color: #c8922e;
+#mt-uni-credit-product-root button.mt-uni-credit-product-calculator__button:hover {
+  background: var(--mtuc-red-hover-bg);
 }
 
-.mt-uni-credit-modal[hidden] {
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__button-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__button-title {
+  color: var(--mtuc-red-text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__button-price {
+  margin-top: 2px;
+  color: #000;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__logo img {
+  height: var(--mtuc-logo-height);
+  max-width: var(--mtuc-promo-side-width);
+  object-fit: contain;
+}
+
+#mt-uni-credit-product-root .mt-uni-credit-product-calculator__button--promo .mt-uni-credit-product-calculator__badge {
+  flex: 0 0 var(--mtuc-promo-side-width);
+  width: var(--mtuc-promo-side-width);
+  color: var(--mtuc-red-text);
+  font-size: var(--mtuc-promo-badge-size);
+  font-weight: 700;
+  text-align: center;
+}
+
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator--dark button.mt-uni-credit-product-calculator__button {
+  border-color: #b82119;
+  background: var(--mtuc-red);
+}
+
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator--dark .mt-uni-credit-product-calculator__button-title,
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator--dark .mt-uni-credit-product-calculator__button-price,
+#mt-uni-credit-product-root.mt-uni-credit-product-calculator--dark .mt-uni-credit-product-calculator__badge {
+  color: #fff;
+}
+
+#mt-uni-credit-product-modal.mt-uni-credit-product-calculator__modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100050;
+  font-family: "Roboto Condensed", sans-serif;
+}
+
+#mt-uni-credit-product-modal[hidden],
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__step[hidden],
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__processing[hidden] {
   display: none !important;
 }
 
-.mt-uni-credit-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 10050;
-}
-
-.mt-uni-credit-modal__overlay {
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, .4);
 }
 
-.mt-uni-credit-modal__panel {
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__modal-scroll {
   position: relative;
-  max-width: 640px;
-  width: calc(100% - 2rem);
-  margin: 4vh auto;
-  background: #fff;
-  border-radius: 8px;
-  padding: 1rem;
-  max-height: 90vh;
-  overflow: auto;
   z-index: 1;
+  display: flex;
+  justify-content: center;
+  height: 100%;
+  padding: 24px 12px;
+  overflow-y: auto;
 }
 
-.mt-uni-credit-modal__header {
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__dialog {
+  width: 100%;
+  max-width: 900px;
+  margin: auto;
+  background: #fefefe;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, .2), 0 6px 20px rgba(0, 0, 0, .19);
+  color: var(--mtuc-popup-muted);
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__banner img {
+  width: 100%;
+  height: auto;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-panel {
+  padding: 20px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-title {
+  margin: 0 0 16px;
+  color: #000;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-calc {
+  padding: 8px 25px 5px 100px;
+  border: 2px solid var(--mtuc-popup-border);
+  border-radius: 14.5px 14.5px 80px 14.5px;
+  background: #fff url('../image/product/popup-calc-bg.png') no-repeat left center / 150px 150px;
+  box-shadow: 1px 1px 1px 1px var(--mtuc-popup-shadow);
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 12px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-label {
+  flex: 1 1 auto;
+  color: #000;
+  font-size: 18px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-value {
+  flex: 0 0 auto;
+  max-width: 55%;
+  color: var(--mtuc-popup-red);
+  font-size: 20px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-value--red {
+  color: var(--mtuc-popup-red);
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-select,
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-input,
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__customer-input {
+  width: 100%;
+  max-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--mtuc-popup-border);
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-row--note {
+  min-height: 18px;
+  color: var(--mtuc-popup-red);
+  font-size: 14px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-actions--step2 {
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
 }
 
-.mt-uni-credit-modal__close {
-  border: 0;
-  background: transparent;
-  font-size: 1.5rem;
-  line-height: 1;
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-actions-group {
+  display: flex;
+  gap: 8px;
+}
+
+#mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 2px solid var(--mtuc-popup-red);
+  border-radius: 9999px;
+  background: #fff;
   cursor: pointer;
 }
 
-.mt-uni-credit-customer label,
-.mt-uni-credit-address label,
-.mt-uni-credit-consents label {
+#mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary {
+  background: var(--mtuc-popup-red);
+  color: #fff;
+}
+
+#mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+#mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button i {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__customer-field {
+  margin-bottom: 12px;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__customer-label {
   display: block;
-  margin-bottom: 0.75rem;
+  margin-bottom: 4px;
+  color: #000;
 }
 
-.mt-uni-credit-customer input,
-.mt-uni-credit-address input {
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__customer-input {
+  max-width: none;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__required {
+  color: var(--mtuc-popup-red);
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__field-error {
   display: block;
-  width: 100%;
-  margin-top: 0.25rem;
+  min-height: 18px;
+  color: var(--mtuc-popup-red);
+  font-size: 13px;
 }
 
-.mt-uni-credit-form-errors {
-  color: #b00020;
-  margin: 0.75rem 0;
-}
-
-.mt-uni-credit-modal__footer {
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__consent {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-@media (max-width: 576px) {
-  .mt-uni-credit-modal__panel {
-    width: calc(100% - 1rem);
-    margin-top: 2vh;
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__processing {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, .35);
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__processing-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  text-align: center;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__processing-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e4e4e7;
+  border-top-color: var(--mtuc-popup-red);
+  border-radius: 50%;
+  animation: mtuc-popup-spin .8s linear infinite;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__success-message {
+  margin: 0 0 16px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__label-mobile {
+  display: none;
+}
+
+@keyframes mtuc-popup-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  #mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-calc {
+    padding: 8px 12px 5px 12px;
+    background-image: none;
+  }
+
+  #mt-uni-credit-product-modal .mt-uni-credit-product-calculator__label-desktop {
+    display: none;
+  }
+
+  #mt-uni-credit-product-modal .mt-uni-credit-product-calculator__label-mobile {
+    display: inline;
+  }
+
+  #mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  #mt-uni-credit-product-modal .mt-uni-credit-product-calculator__popup-value {
+    max-width: 100%;
+  }
+}
+
+@container mtuc-product-buttons (max-width: calc(var(--mtuc-button-width) - 1px)) {
+  #mt-uni-credit-product-root:not(.mt-uni-credit-product-calculator--stacked) .mt-uni-credit-product-calculator__buttons {
+    flex-direction: column;
+  }
+
+  #mt-uni-credit-product-root:not(.mt-uni-credit-product-calculator--stacked) button.mt-uni-credit-product-calculator__button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 }

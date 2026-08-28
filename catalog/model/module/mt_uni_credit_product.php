@@ -27,6 +27,7 @@ use Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationService;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductAddressValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ProductCalculatorPresenter;
+use Opencart\System\Library\Extension\MtUniCredit\ProductPopupCustomerPrefill;
 use Opencart\System\Library\Extension\MtUniCredit\ProductCustomerValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingAvailability;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingSubmissionService;
@@ -183,14 +184,56 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
             return ['is_logged' => false];
         }
         $this->load->model('account/customer');
-        $customer = $this->model_account_customer->getCustomer((int) $this->customer->getId());
+        $this->load->model('account/address');
+        $customerId = (int) $this->customer->getId();
+        $customer = $this->model_account_customer->getCustomer($customerId);
+        $addresses = array_values($this->model_account_address->getAddresses($customerId));
+        $defaultAddressId = $this->resolveDefaultAddressId($addresses);
+
+        return (new ProductPopupCustomerPrefill())->present(
+            true,
+            [
+                'firstname' => (string) ($customer['firstname'] ?? ''),
+                'lastname'  => (string) ($customer['lastname'] ?? ''),
+                'email'     => (string) $this->customer->getEmail(),
+                'telephone' => (string) ($customer['telephone'] ?? ''),
+            ],
+            $addresses,
+            $defaultAddressId
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $addresses
+     */
+    private function resolveDefaultAddressId(array $addresses): int
+    {
+        foreach ($addresses as $address) {
+            if (!empty($address['default'])) {
+                return (int) ($address['address_id'] ?? 0);
+            }
+        }
+
+        return (int) ($addresses[0]['address_id'] ?? 0);
+    }
+
+    /** @return array<string, mixed> */
+    public function storeAddressDefaults(): array
+    {
+        $countryId = (int) $this->config->get('config_country_id');
+        $zoneId = (int) $this->config->get('config_zone_id');
+        $this->load->model('localisation/country');
+        $this->load->model('localisation/zone');
+        $country = $this->model_localisation_country->getCountry($countryId);
+        $zone = $this->model_localisation_zone->getZone($zoneId);
 
         return [
-            'firstname' => (string) ($customer['firstname'] ?? ''),
-            'lastname'  => (string) ($customer['lastname'] ?? ''),
-            'email'     => (string) $this->customer->getEmail(),
-            'telephone' => (string) ($customer['telephone'] ?? ''),
-            'is_logged' => true,
+            'country_id' => $countryId > 0 ? $countryId : 33,
+            'zone_id'    => $zoneId > 0 ? $zoneId : 4239,
+            'country'    => (string) ($country['name'] ?? 'Bulgaria'),
+            'zone'       => (string) ($zone['name'] ?? ''),
+            'city'       => (string) ($zone['name'] ?? 'Sofia'),
+            'postcode'   => '1000',
         ];
     }
 
