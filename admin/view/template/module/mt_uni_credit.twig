@@ -15,9 +15,15 @@
 		</div>
 	</div>
 	<div class="container-fluid">
-		<form id="form-module" action="{{ save }}" method="post" data-oc-toggle="ajax">
-			<div class="row">
-				<div class="col-md-8">
+		{% if success %}
+			<div class="alert alert-success alert-dismissible"><i class="fa-solid fa-circle-check"></i> {{ success }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+		{% endif %}
+		{% if error_warning %}
+			<div class="alert alert-danger alert-dismissible"><i class="fa-solid fa-circle-exclamation"></i> {{ error_warning }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+		{% endif %}
+		<div class="row">
+			<div class="col-md-8">
+				<form id="form-module" action="{{ save }}" method="post" data-oc-toggle="ajax">
 					<div class="card mb-3">
 						<div class="card-header"><i class="fa-solid fa-pencil"></i> {{ text_edit }}</div>
 						<div class="card-body">
@@ -43,80 +49,88 @@
 									<div class="form-text">{{ help_secret }}{% if has_secret %} {{ text_secret_keep_current }}{% endif %}</div>
 								</div>
 							</div>
+							<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> {{ button_save }}</button>
 						</div>
 					</div>
-					<div class="card mb-3">
-						<div class="card-header"><i class="fa-solid fa-plug"></i> {{ text_cp_auth }}</div>
-						<div class="card-body">
-							<div class="btn-group">
-								<button type="button" formaction="{{ cp_connect }}" data-oc-toggle="ajax" class="btn btn-outline-primary">{{ button_cp_connect }}</button>
-								<button type="button" formaction="{{ cp_refresh_shop }}" data-oc-toggle="ajax" class="btn btn-outline-secondary">{{ button_cp_refresh_shop }}</button>
-								<button type="button" formaction="{{ cp_disconnect }}" data-oc-toggle="ajax" class="btn btn-outline-danger">{{ button_cp_disconnect }}</button>
-							</div>
+				</form>
+				<div class="card mb-3">
+					<div class="card-header"><i class="fa-solid fa-building-columns"></i> {{ text_bank_actions }}</div>
+					<div class="card-body">
+						<p class="text-muted small mb-3">{{ text_bank_actions_help }}</p>
+						<div class="d-flex flex-wrap gap-2 align-items-center">
+							<form action="{{ refresh_bank_data }}" method="post" class="m-0">
+								<button type="submit" name="mt_uni_credit_refresh_bank" value="1" class="btn btn-outline-primary">
+									<i class="fa-solid fa-rotate"></i> {{ button_refresh_bank_data }}
+								</button>
+							</form>
+							<button type="button" class="btn btn-outline-secondary" disabled title="{{ help_journal_unavailable }}">
+								<i class="fa-solid fa-download"></i> {{ button_download_journal }}
+							</button>
 						</div>
-					</div>
-				</div>
-				<div class="col-md-4">
-					<div class="card">
-						<div class="card-header"><i class="fa-solid fa-circle-info"></i> {{ text_health }}</div>
-						<div class="card-body">
-							<p class="text-muted small">{{ text_health_placeholder }}</p>
-							<dl class="row mb-0">
-								<dt class="col-sm-6">{{ text_version }}</dt>
-								<dd class="col-sm-6">{{ health.version }}</dd>
-								<dt class="col-sm-6">{{ text_extension_code }}</dt>
-								<dd class="col-sm-6"><code>{{ health.extension_code }}</code></dd>
-								<dt class="col-sm-6">{{ entry_status }}</dt>
-								<dd class="col-sm-6">{% if health.module_enabled %}{{ text_enabled }}{% else %}{{ text_disabled }}{% endif %}</dd>
-								<dt class="col-sm-6">{{ text_cp_endpoint }}</dt>
-								<dd class="col-sm-6">
-									{% if health.cp_host %}
-										{{ health.cp_host }}
-									{% elseif health.control_panel_configured and health.control_panel_host %}
-										{{ health.control_panel_host }}
-									{% else %}
-										{{ text_health_status_missing }}
-									{% endif %}
-								</dd>
-								<dt class="col-sm-6">{{ text_secret_configured }}</dt>
-								<dd class="col-sm-6">{% if health.secret_configured %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
-								<dt class="col-sm-6">{{ text_cp_auth_state }}</dt>
-								<dd class="col-sm-6">{{ health.auth_state_label }}</dd>
-								<dt class="col-sm-6">{{ text_cp_token_expires }}</dt>
-								<dd class="col-sm-6">{{ health.token_expires_at|default(text_health_status_missing) }}</dd>
-								<dt class="col-sm-6">{{ text_cp_cache_present }}</dt>
-								<dd class="col-sm-6">{% if health.cache_present %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
-								<dt class="col-sm-6">{{ text_cp_cache_fetched_at }}</dt>
-								<dd class="col-sm-6">{{ health.cache_fetched_at|default(text_health_status_missing) }}</dd>
-								<dt class="col-sm-6">{{ text_cp_cache_expires_at }}</dt>
-								<dd class="col-sm-6">{{ health.cache_expires_at|default(text_health_status_missing) }}</dd>
-								<dt class="col-sm-6">{{ text_cp_cache_fresh }}</dt>
-								<dd class="col-sm-6">{% if health.cache_fresh %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
-								<dt class="col-sm-6">{{ text_environment_config }}</dt>
-								<dd class="col-sm-6">{{ health.environment_status_label }}</dd>
-								<dt class="col-sm-6">{{ text_secret_config }}</dt>
-								<dd class="col-sm-6">{{ health.secrets_status_label }}</dd>
-								<dt class="col-sm-6">{{ text_certificate }}</dt>
-								<dd class="col-sm-6">{{ health.certificate_status_label }}</dd>
-								<dt class="col-sm-6">{{ text_private_key }}</dt>
-								<dd class="col-sm-6">{{ health.private_key_status_label }}</dd>
-								<dt class="col-sm-6">{{ text_certificate_validity }}</dt>
-								<dd class="col-sm-6">
-									{{ health.certificate_validity_label }}
-									{% if health.certificate_not_after %}
-										<br><span class="text-muted small">{{ text_certificate_not_after }}: {{ health.certificate_not_after }}</span>
-									{% endif %}
-								</dd>
-								<dt class="col-sm-6">{{ text_certificate_key_match }}</dt>
-								<dd class="col-sm-6">{{ health.certificate_key_match_label }}</dd>
-								<dt class="col-sm-6">{{ text_deployment_ready }}</dt>
-								<dd class="col-sm-6">{% if health.deployment_ready %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
-							</dl>
-						</div>
+						<div class="form-text mt-2">{{ help_journal_unavailable }}</div>
 					</div>
 				</div>
 			</div>
-		</form>
+			<div class="col-md-4">
+				<div class="card">
+					<div class="card-header"><i class="fa-solid fa-circle-info"></i> {{ text_health }}</div>
+					<div class="card-body">
+						<p class="text-muted small">{{ text_health_placeholder }}</p>
+						<dl class="row mb-0">
+							<dt class="col-sm-6">{{ text_version }}</dt>
+							<dd class="col-sm-6">{{ health.version }}</dd>
+							<dt class="col-sm-6">{{ text_extension_code }}</dt>
+							<dd class="col-sm-6"><code>{{ health.extension_code }}</code></dd>
+							<dt class="col-sm-6">{{ entry_status }}</dt>
+							<dd class="col-sm-6">{% if health.module_enabled %}{{ text_enabled }}{% else %}{{ text_disabled }}{% endif %}</dd>
+							<dt class="col-sm-6">{{ text_cp_endpoint }}</dt>
+							<dd class="col-sm-6">
+								{% if health.cp_host %}
+									{{ health.cp_host }}
+								{% elseif health.control_panel_configured and health.control_panel_host %}
+									{{ health.control_panel_host }}
+								{% else %}
+									{{ text_health_status_missing }}
+								{% endif %}
+							</dd>
+							<dt class="col-sm-6">{{ text_secret_configured }}</dt>
+							<dd class="col-sm-6">{% if health.secret_configured %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+							<dt class="col-sm-6">{{ text_cp_auth_state }}</dt>
+							<dd class="col-sm-6">{{ health.auth_state_label }}</dd>
+							<dt class="col-sm-6">{{ text_cp_token_expires }}</dt>
+							<dd class="col-sm-6">{{ health.token_expires_at|default(text_health_status_missing) }}</dd>
+							<dt class="col-sm-6">{{ text_cp_cache_present }}</dt>
+							<dd class="col-sm-6">{% if health.cache_present %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+							<dt class="col-sm-6">{{ text_cp_cache_fetched_at }}</dt>
+							<dd class="col-sm-6">{{ health.cache_fetched_at|default(text_health_status_missing) }}</dd>
+							<dt class="col-sm-6">{{ text_cp_cache_expires_at }}</dt>
+							<dd class="col-sm-6">{{ health.cache_expires_at|default(text_health_status_missing) }}</dd>
+							<dt class="col-sm-6">{{ text_cp_cache_fresh }}</dt>
+							<dd class="col-sm-6">{% if health.cache_fresh %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+							<dt class="col-sm-6">{{ text_environment_config }}</dt>
+							<dd class="col-sm-6">{{ health.environment_status_label }}</dd>
+							<dt class="col-sm-6">{{ text_secret_config }}</dt>
+							<dd class="col-sm-6">{{ health.secrets_status_label }}</dd>
+							<dt class="col-sm-6">{{ text_certificate }}</dt>
+							<dd class="col-sm-6">{{ health.certificate_status_label }}</dd>
+							<dt class="col-sm-6">{{ text_private_key }}</dt>
+							<dd class="col-sm-6">{{ health.private_key_status_label }}</dd>
+							<dt class="col-sm-6">{{ text_certificate_validity }}</dt>
+							<dd class="col-sm-6">
+								{{ health.certificate_validity_label }}
+								{% if health.certificate_not_after %}
+									<br><span class="text-muted small">{{ text_certificate_not_after }}: {{ health.certificate_not_after }}</span>
+								{% endif %}
+							</dd>
+							<dt class="col-sm-6">{{ text_certificate_key_match }}</dt>
+							<dd class="col-sm-6">{{ health.certificate_key_match_label }}</dd>
+							<dt class="col-sm-6">{{ text_deployment_ready }}</dt>
+							<dd class="col-sm-6">{% if health.deployment_ready %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+						</dl>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 {{ footer }}

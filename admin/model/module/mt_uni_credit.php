@@ -158,18 +158,46 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     }
 
     /**
-     * @return array{success?: string, error?: string, auth_state?: string}
+     * Operator-facing bank data refresh — credentials validated, CP auth transparent.
+     *
+     * @return array{
+     *     success?: string,
+     *     error?: string,
+     *     fetched_at?: string|null,
+     *     scheme_count?: int,
+     *     cache_fresh?: bool
+     * }
      */
-    public function cpConnect(): array
+    public function refreshBankData(): array
     {
+        $storeId = (int) ($this->config->get('config_store_id') ?? 0);
+
         try {
             $services = $this->createCpServices();
-            $services['client']->login();
-            $services['shopConfiguration']->refreshRemote();
+            $credentials = $services['credentials'];
+
+            if ($credentials->getUnicid($storeId) === '') {
+                return ['error' => 'unicid_missing'];
+            }
+            if (!$credentials->hasSecret($storeId)) {
+                return ['error' => 'secret_missing'];
+            }
+            if (!$credentials->isSecretReadable($storeId)) {
+                return ['error' => 'secret_unreadable'];
+            }
+
+            $shop = $services['shopConfiguration']->refreshRemote();
+            $meta = $services['shopConfiguration']->getMetadata();
+            $schemeCount = 0;
+            if (isset($shop['coeff_list']) && is_array($shop['coeff_list'])) {
+                $schemeCount = count($shop['coeff_list']);
+            }
 
             return [
-                'success'    => 'connected',
-                'auth_state' => $services['presenter']->present()['auth_state'],
+                'success'      => 'bank_data_refreshed',
+                'fetched_at'   => isset($meta['fetched_at']) ? (string) $meta['fetched_at'] : null,
+                'scheme_count' => $schemeCount,
+                'cache_fresh'  => (bool) ($meta['is_fresh'] ?? true),
             ];
         } catch (CpAuthenticationException $exception) {
             return ['error' => 'authentication_failed'];
@@ -183,28 +211,36 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     }
 
     /**
-     * @return array{success?: string, error?: string}
+     * @return array{success?: string, error?: string, auth_state?: string}
+     * @deprecated Internal/test helper — not exposed in operator UI.
      */
-    public function cpRefreshShop(): array
+    public function cpConnect(): array
     {
-        try {
-            $services = $this->createCpServices();
-            $services['shopConfiguration']->refreshRemote();
-
-            return ['success' => 'shop_refreshed'];
-        } catch (CpAuthenticationException $exception) {
-            return ['error' => 'authentication_failed'];
-        } catch (ShopSnapshotValidationException $exception) {
-            return ['error' => 'shop_snapshot_invalid'];
-        } catch (CpException $exception) {
-            return ['error' => $exception->isTransient() ? 'transient_failure' : 'request_failed'];
-        } catch (\Throwable $exception) {
-            return ['error' => 'request_failed'];
+        $result = $this->refreshBankData();
+        if (isset($result['success'])) {
+            return ['success' => 'connected'];
         }
+
+        return isset($result['error']) ? ['error' => $result['error']] : ['error' => 'request_failed'];
     }
 
     /**
      * @return array{success?: string, error?: string}
+     * @deprecated Prefer {@see refreshBankData()}.
+     */
+    public function cpRefreshShop(): array
+    {
+        $result = $this->refreshBankData();
+        if (isset($result['success'])) {
+            return ['success' => 'shop_refreshed'];
+        }
+
+        return isset($result['error']) ? ['error' => $result['error']] : ['error' => 'request_failed'];
+    }
+
+    /**
+     * @return array{success?: string, error?: string}
+     * @deprecated Internal — not exposed in operator UI.
      */
     public function cpDisconnect(): array
     {

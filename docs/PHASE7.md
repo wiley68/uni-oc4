@@ -96,7 +96,7 @@ Cart calculator/UI, checkout payment, CP order create, Process 1/2, SmartUCF, fi
 
 ## Manual OC 4.1.0.3 matrix
 
-Run on staging after deploy: simple/special/option products, qty changes, guest/logged customer, standard/promo/0%, preferred offer, stale option/price, keyboard-only modal, narrow viewport, unrelated active cart, double submit, refresh after local order — verify single order, correct lines/totals, cart unchanged, clean PHP/browser logs.
+Admin first: **Запиши настройките** → **Обнови данните от банката** (auth is transparent; no Login/Logout buttons). Then on staging storefront: simple/special/option products, qty changes, guest/logged customer, standard/promo/0%, preferred offer, stale option/price, keyboard-only modal, narrow viewport, unrelated active cart, double submit, refresh after local order — verify single order, correct lines/totals, cart unchanged, clean PHP/browser logs.
 
 ## STOP gate
 
