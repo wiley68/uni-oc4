@@ -10,9 +10,7 @@ final class Phase1ScopeGuardTest extends TestCase
 {
     /** @var list<string> */
     private const FORBIDDEN_PRODUCTION_MARKERS = [
-        'ControlPanelClient',
-        'SmartUcf',
-        'CREATE TABLE',
+        'SmartUcfSession',
         'hash_hmac',
         'Calculator\\',
         'orderbankstatus',

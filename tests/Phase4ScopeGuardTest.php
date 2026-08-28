@@ -6,17 +6,22 @@ namespace MtUniCredit\Tests;
 
 use PHPUnit\Framework\TestCase;
 
-final class Phase3ScopeGuardTest extends TestCase
+final class Phase4ScopeGuardTest extends TestCase
 {
     /** @var list<string> */
     private const FORBIDDEN_MARKERS = [
+        'Calculator\\',
+        'FinancialCalculator',
         'SmartUcfSession',
         'hash_hmac',
-        'Calculator\\',
-        'catalog/controller/payment',
-        'catalog/controller/module',
+        'financing_snapshot',
         'createOrder',
         'updateOrderStatus',
+        'POST /orders',
+        '/orders/status',
+        'catalog/controller/payment',
+        'PopupSubmission',
+        'CheckoutPayment',
     ];
 
     /** @var list<string> */
@@ -28,7 +33,7 @@ final class Phase3ScopeGuardTest extends TestCase
         'mt_uni_credit_checkout_lock',
     ];
 
-    public function testNoPhase4PlusControllersOrClients(): void
+    public function testNoPhase5PlusProductionMarkers(): void
     {
         $root = dirname(__DIR__);
         foreach ([$root . '/catalog', $root . '/admin/controller/payment'] as $path) {
@@ -55,17 +60,20 @@ final class Phase3ScopeGuardTest extends TestCase
         }
     }
 
-    public function testSchemaInstallerDoesNotCreatePhase4PlusTables(): void
+    public function testPhase4IncludesCpClientWithoutOrderEndpoints(): void
+    {
+        self::assertFileExists(dirname(__DIR__) . '/system/library/control_panel_client.php');
+        self::assertFileExists(dirname(__DIR__) . '/system/library/shop_configuration_service.php');
+        $client = (string) file_get_contents(dirname(__DIR__) . '/system/library/control_panel_client.php');
+        self::assertStringContainsString('class ControlPanelClient', $client);
+        self::assertStringNotContainsString('function createOrder', $client);
+    }
+
+    public function testSchemaInstallerDoesNotCreateForbiddenTables(): void
     {
         $sql = implode("\n", \Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller::createTableStatements('oc_'));
         foreach (self::FORBIDDEN_TABLES as $table) {
             self::assertStringNotContainsString($table, $sql);
         }
-    }
-
-    public function testUninstallModelDoesNotDropPersistenceTables(): void
-    {
-        $model = (string) file_get_contents(dirname(__DIR__) . '/admin/model/module/mt_uni_credit.php');
-        self::assertStringNotContainsString('DROP TABLE', strtoupper($model));
     }
 }

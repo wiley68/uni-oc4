@@ -18,6 +18,87 @@ final class ShopCacheRepository
     }
 
     /**
+     * @return array{fetched_at: string, expires_at: string, is_fresh: bool}|null
+     */
+    public function findMetadata(int $storeId, string $unicid): ?array
+    {
+        $this->requireStoreId($storeId);
+        $unicid = trim($unicid);
+        if ($unicid === '') {
+            return null;
+        }
+
+        $table = $this->tableName();
+        $result = $this->db->query(
+            "SELECT `fetched_at`, `expires_at`
+             FROM `{$table}`
+             WHERE `store_id` = " . (int) $storeId . "
+               AND `unicid` = '" . $this->db->escape($unicid) . "'
+             LIMIT 1"
+        );
+
+        if (!is_object($result) || $result->num_rows !== 1) {
+            return null;
+        }
+
+        $row = $result->row;
+        $now = $this->clock->formatUtc($this->clock->now());
+        $expiresAt = (string) $row['expires_at'];
+
+        return [
+            'fetched_at' => (string) $row['fetched_at'],
+            'expires_at' => $expiresAt,
+            'is_fresh'   => $expiresAt > $now,
+        ];
+    }
+
+    /**
+     * @return array{shop_data: array<string, mixed>, fetched_at: string, expires_at: string}|null
+     */
+    public function findLatest(int $storeId, string $unicid): ?array
+    {
+        $this->requireStoreId($storeId);
+        $unicid = trim($unicid);
+        if ($unicid === '') {
+            return null;
+        }
+
+        $table = $this->tableName();
+        $result = $this->db->query(
+            "SELECT `shop_data`, `fetched_at`, `expires_at`
+             FROM `{$table}`
+             WHERE `store_id` = " . (int) $storeId . "
+               AND `unicid` = '" . $this->db->escape($unicid) . "'
+             LIMIT 1"
+        );
+
+        if (!is_object($result) || $result->num_rows !== 1) {
+            return null;
+        }
+
+        $row = $result->row;
+        if (!isset($row['shop_data']) || !is_string($row['shop_data'])) {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($row['shop_data'], true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            return null;
+        }
+
+        if (!is_array($decoded) || $decoded === []) {
+            return null;
+        }
+
+        return [
+            'shop_data'  => $decoded,
+            'fetched_at' => (string) $row['fetched_at'],
+            'expires_at' => (string) $row['expires_at'],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function findFresh(int $storeId, string $unicid): ?array

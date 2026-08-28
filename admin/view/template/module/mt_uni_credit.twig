@@ -30,6 +30,22 @@
 									</div>
 								</div>
 							</div>
+							<div class="row mb-3">
+								<label class="col-sm-3 col-form-label" for="input-unicid">{{ entry_unicid }}</label>
+								<div class="col-sm-9">
+									<input type="text" name="module_mt_uni_credit_unicid" value="{{ module_mt_uni_credit_unicid }}" placeholder="123e4567-e89b-12d3-a456-426614174000" id="input-unicid" class="form-control"/>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="card mb-3">
+						<div class="card-header"><i class="fa-solid fa-plug"></i> {{ text_cp_auth }}</div>
+						<div class="card-body">
+							<div class="btn-group">
+								<button type="button" formaction="{{ cp_connect }}" data-oc-toggle="ajax" class="btn btn-outline-primary">{{ button_cp_connect }}</button>
+								<button type="button" formaction="{{ cp_refresh_shop }}" data-oc-toggle="ajax" class="btn btn-outline-secondary">{{ button_cp_refresh_shop }}</button>
+								<button type="button" formaction="{{ cp_disconnect }}" data-oc-toggle="ajax" class="btn btn-outline-danger">{{ button_cp_disconnect }}</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -47,12 +63,28 @@
 								<dd class="col-sm-6">{% if health.module_enabled %}{{ text_enabled }}{% else %}{{ text_disabled }}{% endif %}</dd>
 								<dt class="col-sm-6">{{ text_cp_endpoint }}</dt>
 								<dd class="col-sm-6">
-									{% if health.control_panel_configured and health.control_panel_host %}
+									{% if health.cp_host %}
+										{{ health.cp_host }}
+									{% elseif health.control_panel_configured and health.control_panel_host %}
 										{{ health.control_panel_host }}
 									{% else %}
 										{{ text_health_status_missing }}
 									{% endif %}
 								</dd>
+								<dt class="col-sm-6">{{ text_cp_secret_configured }}</dt>
+								<dd class="col-sm-6">{% if health.cp_secret_configured %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+								<dt class="col-sm-6">{{ text_cp_auth_state }}</dt>
+								<dd class="col-sm-6">{{ health.auth_state_label }}</dd>
+								<dt class="col-sm-6">{{ text_cp_token_expires }}</dt>
+								<dd class="col-sm-6">{{ health.token_expires_at|default(text_health_status_missing) }}</dd>
+								<dt class="col-sm-6">{{ text_cp_cache_present }}</dt>
+								<dd class="col-sm-6">{% if health.cache_present %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
+								<dt class="col-sm-6">{{ text_cp_cache_fetched_at }}</dt>
+								<dd class="col-sm-6">{{ health.cache_fetched_at|default(text_health_status_missing) }}</dd>
+								<dt class="col-sm-6">{{ text_cp_cache_expires_at }}</dt>
+								<dd class="col-sm-6">{{ health.cache_expires_at|default(text_health_status_missing) }}</dd>
+								<dt class="col-sm-6">{{ text_cp_cache_fresh }}</dt>
+								<dd class="col-sm-6">{% if health.cache_fresh %}{{ text_yes }}{% else %}{{ text_no }}{% endif %}</dd>
 								<dt class="col-sm-6">{{ text_environment_config }}</dt>
 								<dd class="col-sm-6">{{ health.environment_status_label }}</dd>
 								<dt class="col-sm-6">{{ text_secret_config }}</dt>

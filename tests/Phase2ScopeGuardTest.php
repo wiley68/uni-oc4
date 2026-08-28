@@ -10,14 +10,12 @@ final class Phase2ScopeGuardTest extends TestCase
 {
     /** @var list<string> */
     private const FORBIDDEN_MARKERS = [
-        'ControlPanelClient',
         'CertificateSynchronizer',
-        'curl_init',
-        'file_get_contents(\'http',
         'SmartUcfSession',
         'orderbankstatus',
         'shopcache',
         'Calculator\\',
+        'financing_snapshot',
     ];
 
     /** @var list<string> */

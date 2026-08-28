@@ -279,3 +279,22 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 | `mt_uni_credit_financing_attempt` | Generalized attempt identity + CAS transitions + attach-once order |
 
 Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва persistence таблици.
+
+---
+
+## 13. Phase 4 CP auth and shop cache
+
+Подробности: `docs/PHASE4.md`.
+
+| Елемент          | Стойност                                                   |
+| ---------------- | ---------------------------------------------------------- |
+| HTTP transport   | `CurlCpHttpTransport`, TLS verify, connect 5s / total 15s  |
+| Login body       | `unicid`, `name` (canonical shop URL), `secret`            |
+| CP secret        | `secrets/cp-auth.php` (gitignored deployment file)         |
+| UNICID           | admin setting `module_mt_uni_credit_unicid`                |
+| Token storage    | encrypted `oc_setting`, store-scoped, prefix `enc:v1:`     |
+| 401 retry        | exactly once after re-auth; second 401 invalidates         |
+| Shop fetch       | `GET /api/v1/shop` → validate → `mt_uni_credit_shop_cache` |
+| Cache TTL        | 86400 s                                                    |
+| Invalid snapshot | does **not** overwrite known-good cache                    |
+| CP orders        | **not implemented** in Phase 4                             |

@@ -13,9 +13,11 @@ spl_autoload_register(static function (string $class): void {
     $relative = substr($class, strlen($prefix));
 
     if (str_ends_with($relative, 'Exception')) {
-        $exceptionFile = dirname(__DIR__) . '/system/library/persistence_exception.php';
-        if (is_file($exceptionFile)) {
-            require_once $exceptionFile;
+        foreach (['persistence_exception.php', 'cp_exception.php', 'shop_snapshot_validation_exception.php'] as $exceptionFile) {
+            $exceptionPath = dirname(__DIR__) . '/system/library/' . $exceptionFile;
+            if (is_file($exceptionPath)) {
+                require_once $exceptionPath;
+            }
         }
 
         return;
