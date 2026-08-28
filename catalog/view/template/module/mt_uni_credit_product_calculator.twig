@@ -1,5 +1,5 @@
 {% if mt_uni_credit.enabled %}
-<div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="{{ mt_uni_credit.product_id }}"{% if mt_uni_credit.button_top_spacing is defined and mt_uni_credit.button_top_spacing > 0 %} style="margin-top: {{ mt_uni_credit.button_top_spacing }}px;"{% endif %}>
+<div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="{{ mt_uni_credit.product_id }}"{% if mt_uni_credit.debug_enabled is defined and mt_uni_credit.debug_enabled %} data-mtuc-debug="1"{% endif %}{% if mt_uni_credit.button_top_spacing is defined and mt_uni_credit.button_top_spacing > 0 %} style="margin-top: {{ mt_uni_credit.button_top_spacing }}px;"{% endif %}>
   <div class="mt-uni-credit-calculator" aria-live="polite" aria-busy="false">
     {% if mt_uni_credit.calculator.heading %}
       <div class="mt-uni-credit-heading">{{ mt_uni_credit.calculator.heading }}</div>

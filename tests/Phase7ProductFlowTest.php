@@ -89,5 +89,7 @@ final class Phase7ProductFlowTest extends TestCase
         self::assertStringContainsString("event.key === 'Escape'", $js);
         self::assertStringContainsString('lastTrigger.focus()', $js);
         self::assertStringContainsString('AbortController', $js);
+        self::assertStringContainsString('DOMContentLoaded', $js);
+        self::assertStringContainsString('closest(TRIGGER_SELECTOR)', $js);
     }
 }

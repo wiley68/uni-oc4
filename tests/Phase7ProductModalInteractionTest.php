@@ -1,0 +1,152 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MtUniCredit\Tests;
+
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Frontend contract: Twig selectors must match JS; script must load after fragment.
+ */
+final class Phase7ProductModalInteractionTest extends TestCase
+{
+    public function testTwigTriggersAndModalMatchJsSelectors(): void
+    {
+        $calc = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_calculator.twig');
+        $modal = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+
+        self::assertStringContainsString('id="mt-uni-credit-product-root"', $calc);
+        self::assertStringContainsString('id="mt-uni-credit-bootstrap"', $calc);
+        self::assertStringContainsString('class="mt-uni-credit-offer-btn', $calc);
+        self::assertStringContainsString('class="mt-uni-credit-open-modal"', $calc);
+        self::assertStringContainsString('type="button"', $calc);
+        self::assertStringContainsString('data-offer-type=', $calc);
+        self::assertStringContainsString('data-preferred-key=', $calc);
+
+        self::assertStringContainsString('id="mt-uni-credit-product-modal"', $modal);
+        self::assertStringContainsString('role="dialog"', $modal);
+        self::assertStringContainsString('aria-modal="true"', $modal);
+        self::assertStringContainsString('hidden>', $modal);
+        self::assertSame(1, substr_count($modal, 'id="mt-uni-credit-product-modal"'));
+
+        self::assertStringContainsString("ROOT_ID = 'mt-uni-credit-product-root'", $js);
+        self::assertStringContainsString("MODAL_ID = 'mt-uni-credit-product-modal'", $js);
+        self::assertStringContainsString("BOOTSTRAP_ID = 'mt-uni-credit-bootstrap'", $js);
+        self::assertStringContainsString(".mt-uni-credit-open-modal, .mt-uni-credit-offer-btn", $js);
+    }
+
+    public function testJsUsesFooterSafeInitAndDelegatedClicks(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        $controller = (string) file_get_contents(
+            dirname(__DIR__) . '/catalog/controller/event/mt_uni_credit_product_controller.php'
+        );
+
+        self::assertStringContainsString("addScript(", $controller);
+        self::assertStringContainsString("'footer'", $controller);
+        self::assertStringContainsString('DOMContentLoaded', $js);
+        self::assertStringContainsString('root.addEventListener(\'click\'', $js);
+        self::assertStringContainsString('event.target.closest(TRIGGER_SELECTOR)', $js);
+        self::assertStringContainsString('renderOfferButtons', $js);
+        self::assertStringContainsString('document.body.appendChild(modal)', $js);
+        self::assertStringContainsString('modal.removeAttribute(\'inert\')', $js);
+        self::assertStringContainsString("event.key === 'Escape'", $js);
+        self::assertStringContainsString('lastTrigger.focus()', $js);
+    }
+
+    public function testDebugLoggingIsGated(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        $calc = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_calculator.twig');
+
+        self::assertStringContainsString('data-mtuc-debug', $calc);
+        self::assertStringContainsString('debugEnabled()', $js);
+        self::assertStringContainsString("console.info('[mt_uni_credit]'", $js);
+        self::assertStringContainsString('product init', $js);
+        self::assertStringContainsString('offer buttons found:', $js);
+    }
+
+    public function testDomFixtureOpenCloseContract(): void
+    {
+        $fixture = <<<'HTML'
+<div id="content">
+  <button type="submit" id="button-cart">Add</button>
+  <div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="40" data-mtuc-debug="0">
+    <div class="mt-uni-credit-calculator">
+      <div class="mt-uni-credit-offers">
+        <button type="button" class="mt-uni-credit-offer-btn" data-offer-type="standard" data-preferred-key="standard|KOP|12|1">
+          <span class="mt-uni-credit-offer-label">12 x 10</span>
+        </button>
+        <button type="button" class="mt-uni-credit-offer-btn is-promo" data-offer-type="promo" data-preferred-key="promo|KOP0|6|2">
+          <span class="mt-uni-credit-offer-label">6 x 0</span>
+        </button>
+      </div>
+      <button type="button" class="mt-uni-credit-open-modal" aria-haspopup="dialog" aria-controls="mt-uni-credit-product-modal">Buy</button>
+    </div>
+    <div id="mt-uni-credit-product-modal" class="mt-uni-credit-modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+      <div class="mt-uni-credit-modal__overlay" data-mtuc-dismiss></div>
+      <div class="mt-uni-credit-modal__panel" tabindex="-1">
+        <button type="button" data-mtuc-dismiss>x</button>
+        <div data-mtuc-summary></div>
+        <form id="mt-uni-credit-product-form"></form>
+      </div>
+    </div>
+  </div>
+  <script type="application/json" id="mt-uni-credit-bootstrap">{"product_id":40,"calculator":{"offers":{"standard":{"preferred_scheme_key":"standard|KOP|12|1","schemes":[{"key":"standard|KOP|12|1","scheme_type":"standard","kop_code":"KOP","months":12,"filter_id":1,"monthly_installment":10,"first_installment":0}],"installment_label":"12 x 10"},"promo":{"preferred_scheme_key":"promo|KOP0|6|2","schemes":[{"key":"promo|KOP0|6|2","scheme_type":"promo","kop_code":"KOP0","months":6,"filter_id":2,"monthly_installment":0,"first_installment":0}],"installment_label":"6 x 0"}},"show_installment":true},"calculate_url":"/c","issue_url":"/i","submit_url":"/s","csrf_token":"t"}</script>
+</div>
+HTML;
+
+        self::assertSame(1, substr_count($fixture, 'id="mt-uni-credit-product-modal"'));
+        self::assertSame(1, substr_count($fixture, 'id="mt-uni-credit-product-root"'));
+        self::assertMatchesRegularExpression('/<button type="button"\s+class="mt-uni-credit-offer-btn"/', $fixture);
+        self::assertDoesNotMatchRegularExpression('/class="mt-uni-credit-offer-btn"[^>]*type="submit"/', $fixture);
+        self::assertStringContainsString('aria-hidden="true"', $fixture);
+        self::assertStringContainsString(' hidden>', $fixture);
+
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        foreach (['mt-uni-credit-product-root', 'mt-uni-credit-product-modal', 'mt-uni-credit-bootstrap', 'mt-uni-credit-offer-btn'] as $token) {
+            self::assertStringContainsString($token, $js);
+            self::assertStringContainsString($token, $fixture);
+        }
+        self::assertStringContainsString('dataset.offerType', $js);
+        self::assertStringContainsString('dataset.preferredKey', $js);
+        self::assertStringContainsString('data-offer-type', $fixture);
+        self::assertStringContainsString('data-preferred-key', $fixture);
+    }
+
+    public function testIssueSubmissionIsTiedToModalOpenNotCalculate(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        self::assertStringContainsString('issueSubmissionToken()', $js);
+        self::assertStringContainsString('function openModal', $js);
+        // calculate refresh must not create attempts
+        self::assertStringNotContainsString('issueSubmissionToken();', $this->extractFunctionBody($js, 'refreshCalculator'));
+        self::assertStringContainsString('issueSubmissionToken();', $this->extractFunctionBody($js, 'openModal'));
+    }
+
+    private function extractFunctionBody(string $js, string $name): string
+    {
+        $pattern = '/function\s+' . preg_quote($name, '/') . '\s*\([^)]*\)\s*\{/';
+        if (!preg_match($pattern, $js, $match, PREG_OFFSET_CAPTURE)) {
+            self::fail('Function not found: ' . $name);
+        }
+        $start = (int) $match[0][1] + strlen($match[0][0]) - 1;
+        $depth = 0;
+        $length = strlen($js);
+        for ($i = $start; $i < $length; $i++) {
+            $char = $js[$i];
+            if ($char === '{') {
+                $depth++;
+            } elseif ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($js, $start, $i - $start + 1);
+                }
+            }
+        }
+
+        return '';
+    }
+}

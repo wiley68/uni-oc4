@@ -24,7 +24,11 @@ class MtUniCreditProductController extends \Opencart\System\Engine\Controller
 
         $version = ModuleConstants::VERSION;
         $this->document->addStyle('extension/mt_uni_credit/catalog/view/stylesheet/mt_uni_credit_product.css?ver=' . $version);
-        $this->document->addScript('extension/mt_uni_credit/catalog/view/javascript/mt_uni_credit_product.js?ver=' . $version);
+        // Footer: product fragment is injected in body; header scripts run too early.
+        $this->document->addScript(
+            'extension/mt_uni_credit/catalog/view/javascript/mt_uni_credit_product.js?ver=' . $version,
+            'footer'
+        );
 
         $debug = (bool) $this->config->get(\Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings::DEBUG_ENABLED);
         \Opencart\System\Library\Extension\MtUniCredit\ProductVisibilityDebugLog::write(
