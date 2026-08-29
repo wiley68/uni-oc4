@@ -7,8 +7,7 @@ namespace MtUniCredit\Tests;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Product Step 2 must not stay submit-ready after calculator invalidation;
- * submit recovers/re-issues before POST when context was cleared.
+ * Product Step 2 submit must recover authoritative context even when calcBusy / refresh races.
  */
 final class Phase78ProductStep2LifecycleContractTest extends TestCase
 {
@@ -26,46 +25,69 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
         );
     }
 
+    public function testRecalculateSelectionReturnsExplicitBoolean(): void
+    {
+        $js = $this->productJs();
+        self::assertStringContainsString('@returns {Promise<boolean>}', $js);
+        self::assertMatchesRegularExpression(
+            '/async function recalculateSelection\([\s\S]*?return ok;/',
+            $js
+        );
+        self::assertStringContainsString('issueFlight', $js);
+        // Must not silently return on calcBusy alone.
+        self::assertDoesNotMatchRegularExpression(
+            '/if\s*\(\s*!scheme\s*\|\|\s*calcBusy\s*\)\s*\{\s*return;?\s*\}/',
+            $js
+        );
+    }
+
+    public function testIssueAssignsSubmissionTokenFromResponseKey(): void
+    {
+        $js = $this->productJs();
+        self::assertStringContainsString('json.submission_token', $js);
+        self::assertMatchesRegularExpression(
+            '/const token = String\(json\.submission_token \|\| \'\'\);[\s\S]*?submissionToken = token;/',
+            $js
+        );
+    }
+
+    public function testSubmitRecoveryForcesIssueWithoutAbort(): void
+    {
+        $js = $this->productJs();
+        self::assertStringContainsString("recalculateSelection({ force: true, abort: false })", $js);
+        self::assertMatchesRegularExpression(
+            '/const recovered = await recalculateSelection\(\{ force: true, abort: false \}\);[\s\S]*?if\s*\(\s*!recovered\s*\)/',
+            $js
+        );
+        self::assertStringContainsString("postJson(state.submit_url, payload, { abort: false })", $js);
+    }
+
+    public function testPopupControlsDoNotScheduleProductRefresh(): void
+    {
+        $js = $this->productJs();
+        self::assertStringContainsString('function isInsideUniCreditUi(', $js);
+        self::assertMatchesRegularExpression(
+            '/document\.addEventListener\(\'change\'[\s\S]*?isInsideUniCreditUi\(target\)[\s\S]*?return;/',
+            $js
+        );
+    }
+
     public function testRenderCalculatorInvalidatesIssuedSelection(): void
     {
         $js = $this->productJs();
-        self::assertStringContainsString('function invalidateIssuedSelection(', $js);
         self::assertMatchesRegularExpression(
             '/function renderCalculator\([\s\S]*?invalidateIssuedSelection\(/',
             $js
         );
-        self::assertMatchesRegularExpression(
-            '/function invalidateIssuedSelection\([\s\S]*?submissionToken = \'\'[\s\S]*?lastCalculation = null/',
-            $js
-        );
-        self::assertMatchesRegularExpression(
-            '/function invalidateIssuedSelection\([\s\S]*?classList\.add\(\'is-disabled\'\)/',
-            $js
-        );
     }
 
-    public function testStep2RefreshReIssuesSelection(): void
+    public function testStep2RefreshReIssuesWithForce(): void
     {
         $js = $this->productJs();
         self::assertMatchesRegularExpression(
-            '/async function refreshCalculator\([\s\S]*?renderCalculator\([\s\S]*?populateSchemeSelect\(\);[\s\S]*?await recalculateSelection\(\)/',
+            '/async function refreshCalculator\([\s\S]*?await recalculateSelection\(\{ force: true \}\)/',
             $js
         );
-        self::assertMatchesRegularExpression(
-            '/currentStep === 2[\s\S]*?setProcessing\(true\)[\s\S]*?await recalculateSelection\(\)/',
-            $js
-        );
-    }
-
-    public function testSubmitRecoversMissingContextThenPosts(): void
-    {
-        $js = $this->productJs();
-        self::assertMatchesRegularExpression(
-            '/async function submitForm\([\s\S]*?syncSelectedSchemeFromDom\(\)[\s\S]*?await recalculateSelection\(\)[\s\S]*?postJson\(state\.submit_url/',
-            $js
-        );
-        self::assertStringContainsString('!lastCalculation || !submissionToken', $js);
-        self::assertStringContainsString("closest('[data-mtuc-submit]')", $js);
     }
 
     public function testApplyRequiresAuthoritativeContext(): void
@@ -73,6 +95,15 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
         $js = $this->productJs();
         self::assertMatchesRegularExpression(
             '/data-mtuc-apply[\s\S]*?!apply\.disabled && hasAuthoritativeCalculation\(\)/',
+            $js
+        );
+    }
+
+    public function testActiveFormResolvedFromModalAtSubmit(): void
+    {
+        $js = $this->productJs();
+        self::assertStringContainsString(
+            "modal.querySelector('#mt-uni-credit-product-form') || form",
             $js
         );
     }

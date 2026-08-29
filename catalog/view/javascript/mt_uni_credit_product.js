@@ -44,6 +44,7 @@
     let calcBusy = false;
     let submitBusy = false;
     let firstInstallmentTimer = null;
+    let issueFlight = null;
     let modalHomeParent = modal.parentElement;
     let modalHomeNext = modal.nextSibling;
     let awaitingNativeCartAdd = false;
@@ -97,6 +98,17 @@
       }
       // Name contract from OC4 product.twig: option[product_option_id] / option[id][]
       return name.indexOf('option[') === 0;
+    }
+
+    /** Popup/root UniCredit controls must never trigger native Product calculator refresh. */
+    function isInsideUniCreditUi(element) {
+      if (!element || typeof element.closest !== 'function') {
+        return false;
+      }
+      return !!(element.closest('#mt-uni-credit-product-modal')
+        || element.closest('#mt-uni-credit-product-root')
+        || (modal && modal.contains(element))
+        || (root && root.contains(element)));
     }
 
     function recalcTriggerReason(element) {
@@ -333,9 +345,15 @@
           return;
         }
         node.addEventListener('change', () => {
+          if (isInsideUniCreditUi(node)) {
+            return;
+          }
           scheduleRefreshCalculator('quantity change');
         });
         node.addEventListener('input', () => {
+          if (isInsideUniCreditUi(node)) {
+            return;
+          }
           scheduleRefreshCalculator('quantity change');
         });
       });
@@ -344,6 +362,9 @@
       optionNodes.forEach((node) => {
         node.addEventListener('change', (event) => {
           const target = event.target;
+          if (isInsideUniCreditUi(target) || isInsideUniCreditUi(node)) {
+            return;
+          }
           if (target && isOptionControl(target)) {
             scheduleRefreshCalculator('option change');
             return;
@@ -359,6 +380,10 @@
       document.addEventListener('change', (event) => {
         const target = event.target;
         if (!target) {
+          return;
+        }
+        // Scheme/first-installment/customer/consent live in the UniCredit modal — never refresh Product.
+        if (isInsideUniCreditUi(target)) {
           return;
         }
         if (isQuantityControl(target)) {
@@ -561,8 +586,7 @@
       if (select && select.value) {
         selectedSchemeKey = select.value;
       }
-      const offer = selectedOffer();
-      if (!offer) {
+      if (!selectedOffer()) {
         const offerTypes = Object.keys(state.calculator?.offers || {});
         if (offerTypes.length > 0 && offerTypes.indexOf(selectedOfferType) === -1) {
           selectedOfferType = offerTypes[0];
@@ -571,6 +595,9 @@
       const scheme = selectedScheme();
       if (scheme) {
         selectedSchemeKey = scheme.key;
+        if (select && select.value !== scheme.key) {
+          select.value = scheme.key;
+        }
       }
       return scheme;
     }
@@ -956,7 +983,7 @@
             populateSchemeSelect();
             setProcessing(currentStep === 2);
             try {
-              await recalculateSelection();
+              await recalculateSelection({ force: true });
             } finally {
               if (currentStep === 2) {
                 setProcessing(false);
@@ -1008,38 +1035,78 @@
       };
     }
 
-    async function recalculateSelection() {
-      const scheme = selectedScheme();
-      if (!scheme || calcBusy) {
-        return;
+    /**
+     * Issue/recalculate current scheme selection.
+     * @param {{force?: boolean, abort?: boolean}} [options]
+     * @returns {Promise<boolean>} true only when scheme + lastCalculation + submissionToken are present
+     */
+    async function recalculateSelection(options) {
+      const opts = options || {};
+      const allowAbort = opts.abort !== false;
+
+      if (issueFlight) {
+        const priorOk = await issueFlight;
+        if (!opts.force && priorOk && hasAuthoritativeCalculation()) {
+          return true;
+        }
+        if (!opts.force && hasAuthoritativeCalculation()) {
+          return true;
+        }
+        // force=true (submit recovery): fall through and issue again after the in-flight request finishes.
       }
+
+      const scheme = syncSelectedSchemeFromDom();
+      if (!scheme) {
+        return false;
+      }
+
+      let resolveFlight = null;
+      issueFlight = new Promise((resolve) => {
+        resolveFlight = resolve;
+      });
       calcBusy = true;
-      clearFieldErrors();
+
       const apply = applyBtn();
       if (apply) {
         apply.disabled = true;
         apply.setAttribute('aria-disabled', 'true');
       }
+
+      let ok = false;
       try {
-        const json = await postJson(state.issue_url, buildSelectionPayload(scheme));
+        const json = await postJson(state.issue_url, buildSelectionPayload(scheme), { abort: allowAbort });
         if (json.success) {
-          submissionToken = json.submission_token || submissionToken;
-          renderCalculation(json.calculation || null);
-          clearEntryError();
+          const token = String(json.submission_token || '');
+          if (!token) {
+            ok = false;
+          } else {
+            submissionToken = token;
+            renderCalculation(json.calculation || null);
+            clearEntryError();
+            ok = hasAuthoritativeCalculation();
+          }
         } else if (isMissingRequiredOptionError(json)) {
           handleMissingRequiredOptions();
+          ok = false;
         } else {
           if (popupErrorEl()) {
             popupErrorEl().textContent = json.message || 'Неуспешно изчисление.';
           }
+          ok = false;
         }
       } catch (error) {
-        if (popupErrorEl()) {
+        if (error && error.name !== 'AbortError' && popupErrorEl()) {
           popupErrorEl().textContent = 'Неуспешно изчисление. Моля, опитайте отново.';
         }
+        ok = false;
       } finally {
         calcBusy = false;
+        if (resolveFlight) {
+          resolveFlight(ok);
+        }
+        issueFlight = null;
       }
+      return ok;
     }
 
     function trapFocus(event) {
@@ -1109,6 +1176,10 @@
 
     function closeModal() {
       unbindNativeCartAddObserver();
+      if (firstInstallmentTimer) {
+        clearTimeout(firstInstallmentTimer);
+        firstInstallmentTimer = null;
+      }
       modal.hidden = true;
       modal.setAttribute('aria-hidden', 'true');
       setBackgroundInert(false);
@@ -1215,25 +1286,33 @@
       if (submitBusy) {
         return;
       }
-      const activeForm = form || modal.querySelector('#mt-uni-credit-product-form');
+      // Prefer live modal form — init-time getElementById can be null if placement races DOMContentLoaded.
+      const activeForm = modal.querySelector('#mt-uni-credit-product-form') || form;
       const button = submitBtn();
       const submitError = modal.querySelector('[data-mtuc-submit-error]');
-      let scheme = syncSelectedSchemeFromDom();
+      syncSelectedSchemeFromDom();
 
-      // Recover once if calculator refresh invalidated context while Step 2 stayed open.
-      if ((!scheme || !lastCalculation || !submissionToken) && !modal.hidden && currentStep === 2) {
+      if (!hasAuthoritativeCalculation()) {
         setProcessing(true);
         try {
           populateSchemeSelect();
-          scheme = syncSelectedSchemeFromDom();
-          await recalculateSelection();
-          scheme = syncSelectedSchemeFromDom();
+          syncSelectedSchemeFromDom();
+          // force + no abort: must not silently return on calcBusy / refresh abort.
+          const recovered = await recalculateSelection({ force: true, abort: false });
+          if (!recovered) {
+            updateSubmitState(false);
+            if (submitError) {
+              submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
+            }
+            return;
+          }
         } finally {
           setProcessing(false);
         }
       }
 
-      if (!scheme || !button || !activeForm || !lastCalculation || !submissionToken) {
+      const scheme = syncSelectedSchemeFromDom();
+      if (!scheme || !button || !activeForm || !hasAuthoritativeCalculation()) {
         updateSubmitState(false);
         if (submitError) {
           submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';

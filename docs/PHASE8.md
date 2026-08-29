@@ -11,6 +11,17 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Product submit recovery / calcBusy race (2026-08-29)
+
+**Evidence:** Operator click showed the scheme/calculation guard message; access log had **no** `product.submit` and **no** recovery `issueSubmission`. Previous recovery called `recalculateSelection()` which returned early on `calcBusy` / missing scheme without a boolean result — silent no-op.
+
+**Fix (Product only):**
+
+- `recalculateSelection({ force, abort })` → `Promise<boolean>`; single-flight `issueFlight`; requires `submission_token` from issue response.
+- Submit recovery: `{ force: true, abort: false }` and abort POST if `recovered === false`.
+- `isInsideUniCreditUi()` — popup/root controls never call `scheduleRefreshCalculator`.
+- Active form resolved from modal at submit time.
+
 ## Runtime remediation — Product lost Step 2 context + Cart Address::getAddress (2026-08-29)
 
 **Product:** Enabled `Изпрати` could still hit frontend guard (`!scheme || !lastCalculation`) after calculator rebuild cleared financing context while Step 2 stayed visible; readiness previously only required `lastCalculation` (not token/scheme). Fix: `hasAuthoritativeCalculation` requires calculation+token+scheme; `invalidateIssuedSelection` on rebuild; Step 2 refresh always re-issues; submit recovers once via `recalculateSelection` before POST.

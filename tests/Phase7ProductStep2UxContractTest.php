@@ -193,7 +193,8 @@ final class Phase7ProductStep2UxContractTest extends TestCase
 
         // Gate before POST — UX disabled is not the security boundary.
         self::assertStringContainsString('if (!updateSubmitState(true))', $js);
-        self::assertStringContainsString('!lastCalculation', $js);
+        self::assertStringContainsString('hasAuthoritativeCalculation()', $js);
+        self::assertStringContainsString("recalculateSelection({ force: true, abort: false })", $js);
 
         // Transition to Step 2 requires authoritative calculation+token+scheme then evaluates readiness.
         self::assertMatchesRegularExpression(
