@@ -34,10 +34,10 @@ final class CartCalculatorPresenter
                 continue;
             }
             $schemes = [];
-            $pool = $type === 'promo' ? $resolution->promoSchemes : $resolution->standardSchemes;
-            if ($type === 'standard' && (int) ($shop['uni_typekop'] ?? -1) === 1) {
-                $pool = array_merge($resolution->standardSchemes, $resolution->promoSchemes);
-            }
+            // Standard offer dropdown is the unified list (Product parity): months ASC, standard before promo.
+            $pool = $type === 'promo'
+                ? $resolution->promoSchemes
+                : $this->resolver->unifiedSchemes($resolution, $shop);
             $seen = [];
             foreach (SchemePresentationCategory::sort($pool, $shop) as $scheme) {
                 if ($scheme->firstInstallmentAmbiguous) {

@@ -53,8 +53,9 @@
     ensureAssets(state);
 
     const form = root.querySelector('#mt-uni-credit-checkout-form');
-    let selectedOfferType = Object.keys(state.calculator?.offers || {})[0] || 'standard';
-    let selectedSchemeKey = state.calculator?.offers?.[selectedOfferType]?.preferred_scheme_key || '';
+    // Checkout has no Standard/Promo tabs — unified dropdown; preferred from standard offer when present.
+    let selectedOfferType = 'standard';
+    let selectedSchemeKey = '';
     let submissionToken = '';
     let lastCalculation = null;
     let calcBusy = false;
@@ -87,17 +88,47 @@
       return root.querySelector('[data-mtuc-processing]');
     }
 
-    function selectedOffer() {
-      return state.calculator?.offers?.[selectedOfferType] || null;
+    /** Unified scheme list from presenter (standard offer already includes promo in canonical order). */
+    function unifiedSchemes() {
+      const offers = state.calculator?.offers || {};
+      if (offers.standard && Array.isArray(offers.standard.schemes) && offers.standard.schemes.length) {
+        return offers.standard.schemes;
+      }
+      const merged = [];
+      const seen = {};
+      ['standard', 'promo'].forEach((type) => {
+        (offers[type]?.schemes || []).forEach((scheme) => {
+          if (!scheme || !scheme.key || seen[scheme.key]) {
+            return;
+          }
+          seen[scheme.key] = true;
+          merged.push(scheme);
+        });
+      });
+      return merged;
+    }
+
+    function resolvePreferredSchemeKey() {
+      const offers = state.calculator?.offers || {};
+      if (offers.standard?.preferred_scheme_key) {
+        return offers.standard.preferred_scheme_key;
+      }
+      if (offers.promo?.preferred_scheme_key) {
+        return offers.promo.preferred_scheme_key;
+      }
+      const schemes = unifiedSchemes();
+      return schemes[0]?.key || '';
     }
 
     function selectedScheme() {
-      const offer = selectedOffer();
-      if (!offer) {
-        return null;
-      }
-      const schemes = offer.schemes || [];
+      const schemes = unifiedSchemes();
       return schemes.find((scheme) => scheme.key === selectedSchemeKey) || schemes[0] || null;
+    }
+
+    function syncOfferTypeFromScheme(scheme) {
+      if (scheme && scheme.scheme_type) {
+        selectedOfferType = scheme.scheme_type;
+      }
     }
 
     function hasAuthoritativeCalculation() {
@@ -164,45 +195,14 @@
       return valid;
     }
 
-    function renderOfferTabs() {
-      const wrap = root.querySelector('[data-mtuc-offers]');
-      if (!wrap || !state.calculator?.offers) {
-        return;
-      }
-      const offerKeys = Object.keys(state.calculator.offers);
-      if (offerKeys.length < 2) {
-        wrap.hidden = true;
-        wrap.replaceChildren();
-        return;
-      }
-      wrap.hidden = false;
-      const fragment = document.createDocumentFragment();
-      offerKeys.forEach((offerType) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--${offerType}`;
-        button.dataset.offerType = offerType;
-        button.dataset.preferredKey = state.calculator.offers[offerType].preferred_scheme_key || '';
-        button.setAttribute('aria-pressed', offerType === selectedOfferType ? 'true' : 'false');
-        const label = document.createElement('span');
-        label.className = 'mt-uni-credit-product-calculator__button-title';
-        label.textContent = offerType === 'promo'
-          ? (state.i18n?.offer_promo || 'Промо')
-          : (state.i18n?.offer_standard || 'Стандарт');
-        button.appendChild(label);
-        fragment.appendChild(button);
-      });
-      wrap.replaceChildren(fragment);
-    }
-
     function populateSchemeSelect() {
       const select = schemeSelect();
-      const offer = selectedOffer();
-      if (!select || !offer) {
+      const schemes = unifiedSchemes();
+      if (!select) {
         return;
       }
       select.replaceChildren();
-      (offer.schemes || []).forEach((scheme) => {
+      schemes.forEach((scheme) => {
         const option = document.createElement('option');
         option.value = scheme.key;
         let label = `${scheme.months} месеца`;
@@ -212,13 +212,17 @@
         option.textContent = `${label}\u00A0\u00A0\u00A0`;
         select.appendChild(option);
       });
+      if (!selectedSchemeKey) {
+        selectedSchemeKey = resolvePreferredSchemeKey();
+      }
       if (selectedSchemeKey) {
         select.value = selectedSchemeKey;
       }
-      if (!select.value && offer.schemes?.[0]) {
-        selectedSchemeKey = offer.schemes[0].key;
+      if (!select.value && schemes[0]) {
+        selectedSchemeKey = schemes[0].key;
         select.value = selectedSchemeKey;
       }
+      syncOfferTypeFromScheme(selectedScheme());
     }
 
     function renderCalculation(calculation) {
@@ -278,10 +282,12 @@
     }
 
     function buildSelectionPayload(scheme) {
+      syncOfferTypeFromScheme(scheme);
       return {
         csrf_token: state.csrf_token,
         cart_fingerprint: cartFingerprint || state.calculator?.cart_fingerprint || '',
-        popup_offer_type: selectedOfferType,
+        // 'standard' allows both scheme types server-side; scheme_type carries the concrete type.
+        popup_offer_type: 'standard',
         scheme_type: scheme.scheme_type,
         kop_code: scheme.kop_code,
         months: scheme.months,
@@ -438,18 +444,6 @@
     }
 
     root.addEventListener('click', (event) => {
-      const offerBtn = event.target.closest('[data-mtuc-offers] [data-offer-type]');
-      if (offerBtn && root.contains(offerBtn)) {
-        event.preventDefault();
-        selectedOfferType = offerBtn.dataset.offerType || selectedOfferType;
-        selectedSchemeKey = offerBtn.dataset.preferredKey || '';
-        renderOfferTabs();
-        populateSchemeSelect();
-        resetFirstInstallmentForSchemeChange();
-        issueSubmission();
-        return;
-      }
-
       const submit = event.target.closest('#button-confirm, [data-mtuc-submit]');
       if (submit && root.contains(submit)) {
         event.preventDefault();
@@ -459,6 +453,7 @@
 
     schemeSelect()?.addEventListener('change', () => {
       selectedSchemeKey = schemeSelect().value;
+      syncOfferTypeFromScheme(selectedScheme());
       resetFirstInstallmentForSchemeChange();
       issueSubmission();
     });
@@ -474,7 +469,7 @@
       box.addEventListener('change', () => updateConfirmState());
     });
 
-    renderOfferTabs();
+    selectedSchemeKey = resolvePreferredSchemeKey();
     populateSchemeSelect();
     updateConfirmState();
     issueSubmission();

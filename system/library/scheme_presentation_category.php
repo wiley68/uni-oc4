@@ -7,7 +7,11 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Presentation-only scheme category. Does not change AvailableScheme::type or identity.
  *
- * Ordering within the same month: standard → non-zero promotional → zero-interest promotional.
+ * Canonical list order (Product / Cart / Checkout):
+ * 1. months ASC
+ * 2. AvailableScheme::type — standard BEFORE promo
+ * 3. within same type: presentation rank standard → nonzero_promo → zero_promo
+ * 4. filterId ASC, kopCode, type (stable)
  */
 final class SchemePresentationCategory
 {
@@ -50,11 +54,23 @@ final class SchemePresentationCategory
         };
     }
 
+    /** standard=0, promo=1 — equal-month secondary key. */
+    public static function typeRank(AvailableScheme $scheme): int
+    {
+        return $scheme->type === 'promo' ? 1 : 0;
+    }
+
     /** @param array<string, mixed> $shop */
     public static function compare(AvailableScheme $left, AvailableScheme $right, array $shop): int
     {
         if ($left->months !== $right->months) {
             return $left->months <=> $right->months;
+        }
+
+        $leftType = self::typeRank($left);
+        $rightType = self::typeRank($right);
+        if ($leftType !== $rightType) {
+            return $leftType <=> $rightType;
         }
 
         $leftRank = self::rank(self::classify($left, $shop));

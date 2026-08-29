@@ -202,7 +202,7 @@
     {
       "id": "scheme_ordering",
       "category": "scheme_ordering",
-      "compare": ["months ASC", "rank standard=0 nonzero_promo=1 zero_promo=2", "filterId ASC", "kopCode strcmp", "type strcmp"],
+      "compare": ["months ASC", "type standard before promo", "rank standard=0 nonzero_promo=1 zero_promo=2", "filterId ASC", "kopCode strcmp", "type strcmp"],
       "input": [
         {"type": "promo", "kop": "PROMO", "months": 12, "filterId": 3, "interestPercent": 0.0, "uni_promo": 1},
         {"type": "standard", "kop": "NZP", "months": 12, "filterId": 2, "interestPercent": 10.0, "uni_promo": 0},

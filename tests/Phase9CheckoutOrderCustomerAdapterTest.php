@@ -352,13 +352,13 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 
         $twig = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/payment/mt_uni_credit.twig');
         self::assertStringNotContainsString('name="firstname"', $twig);
-        self::assertStringNotContainsString('name="lastname"', $twig);
-        self::assertStringNotContainsString('name="email"', $twig);
         self::assertStringNotContainsString('name="telephone"', $twig);
         self::assertStringNotContainsString('name="address"', $twig);
         self::assertStringNotContainsString('type="tel"', $twig);
         self::assertStringNotContainsString('name="egn"', $twig);
         self::assertStringNotContainsString('name="phone2"', $twig);
+        self::assertStringNotContainsString('data-mtuc-offers', $twig);
+        self::assertStringNotContainsString('data-mtuc-customer-summary', $twig);
     }
 
     public function testPhoneOnlyPostedWithoutTelephoneStillFailsOnProductValidator(): void

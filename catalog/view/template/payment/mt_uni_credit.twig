@@ -7,8 +7,6 @@
   <div class="mt-uni-credit-product-calculator__popup-panel mt-uni-credit-checkout-panel__body">
     <h2 class="mt-uni-credit-product-calculator__popup-title">{{ heading_title }}</h2>
 
-    <div class="mt-uni-credit-product-calculator__buttons mt-uni-credit-checkout-panel__offers" data-mtuc-offers hidden></div>
-
     <div class="mt-uni-credit-product-calculator__popup-calc">
       <div class="mt-uni-credit-product-calculator__popup-row">
         <div class="mt-uni-credit-product-calculator__popup-label">{{ text_price }}</div>
@@ -55,18 +53,7 @@
       <div class="mt-uni-credit-product-calculator__popup-row mt-uni-credit-product-calculator__popup-row--note" data-mtuc-popup-error role="alert"></div>
     </div>
 
-    <div class="mt-uni-credit-checkout-panel__customer" data-mtuc-customer-summary>
-      <h3 class="mt-uni-credit-checkout-panel__customer-title">{{ text_customer_summary }}</h3>
-      <dl class="mt-uni-credit-checkout-panel__customer-list">
-        <div><dt>{{ text_firstname }}</dt><dd data-mtuc-customer-display="firstname">{{ customer.firstname }}</dd></div>
-        <div><dt>{{ text_lastname }}</dt><dd data-mtuc-customer-display="lastname">{{ customer.lastname }}</dd></div>
-        <div><dt>{{ text_email }}</dt><dd data-mtuc-customer-display="email">{{ customer.email }}</dd></div>
-        <div><dt>{{ text_telephone }}</dt><dd data-mtuc-customer-display="telephone">{{ customer.telephone }}</dd></div>
-        <div><dt>{{ text_address }}</dt><dd data-mtuc-customer-display="address">{{ customer.address }}</dd></div>
-      </dl>
-    </div>
-
-    {# Customer identity comes from native Checkout session/order at confirm — not hidden POST fields. #}
+    {# Process 1: no customer inputs; native Checkout identity is server-side only. #}
     <form id="mt-uni-credit-checkout-form" novalidate>
       {% if consents %}
         <div class="mt-uni-credit-product-calculator__consents" data-mtuc-consents aria-label="{{ text_consents }}">

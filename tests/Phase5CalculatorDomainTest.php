@@ -82,6 +82,48 @@ final class Phase5CalculatorDomainTest extends TestCase
         self::assertSame('PROMO', $sorted[2]->kopCode);
     }
 
+    public function testCanonicalOrderMonthsAscThenStandardBeforePromo(): void
+    {
+        $shop = CalculatorTestHarness::defaultShop();
+        // Promo listed first in input; must not win equal-month ordering.
+        $schemes = [
+            new AvailableScheme('promo', 'P12', 12, 4, ['uni_promo' => 1], ['interestPercent' => 0, 'coeff' => 0.08]),
+            new AvailableScheme('standard', 'S6', 6, 1, ['uni_promo' => 0], ['interestPercent' => 18, 'coeff' => 0.09]),
+            new AvailableScheme('standard', 'S12', 12, 2, ['uni_promo' => 0], ['interestPercent' => 18, 'coeff' => 0.09]),
+            new AvailableScheme('promo', 'P6', 6, 3, ['uni_promo' => 1], ['interestPercent' => 0, 'coeff' => 0.08]),
+            new AvailableScheme('standard', 'S18', 18, 5, ['uni_promo' => 0], ['interestPercent' => 18, 'coeff' => 0.09]),
+        ];
+        $sorted = \Opencart\System\Library\Extension\MtUniCredit\SchemePresentationCategory::sort($schemes, $shop);
+        $keys = array_map(
+            static fn(AvailableScheme $s): string => $s->months . ':' . $s->type,
+            $sorted
+        );
+        self::assertSame([
+            '6:standard',
+            '6:promo',
+            '12:standard',
+            '12:promo',
+            '18:standard',
+        ], $keys);
+    }
+
+    /**
+     * Regression: promo typed scheme that classifies as presentation "standard" must not
+     * precede a standard-typed scheme at the same months.
+     */
+    public function testTypeBeatsMisclassifiedPresentationRank(): void
+    {
+        $shop = CalculatorTestHarness::defaultShop();
+        $defaultKop = trim((string) ($shop['kop']['by_default']['uni_kop_default'] ?? 'STD'));
+        $schemes = [
+            new AvailableScheme('promo', $defaultKop, 12, 9, ['uni_promo' => 1], ['interestPercent' => 5, 'coeff' => 0.09]),
+            new AvailableScheme('standard', 'OTHER', 12, 1, ['uni_promo' => 0], ['interestPercent' => 10, 'coeff' => 0.09]),
+        ];
+        $sorted = \Opencart\System\Library\Extension\MtUniCredit\SchemePresentationCategory::sort($schemes, $shop);
+        self::assertSame('standard', $sorted[0]->type);
+        self::assertSame('promo', $sorted[1]->type);
+    }
+
     public function testQuantityDoesNotChangeCartTotalBasedEligibility(): void
     {
         $resolver = CalculatorTestHarness::cartResolver();

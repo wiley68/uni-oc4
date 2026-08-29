@@ -87,6 +87,18 @@ CheckoutOperationIdentity::hash(store_id, order_id)
 
 Selection hash: `CheckoutSelectionHash` (order_id + order_total + fingerprint + scheme + authoritative first installment + actor).
 
+## Checkout UI (Process 1)
+
+```text
+title
+→ scheme dropdown (unified standard+promo, canonical order)
+→ financing calculation block
+→ consents (only if configured)
+→ Потвърди поръчката
+```
+
+No Standard/Promo toggle buttons. No „Данни от поръчката“ customer summary. No customer input fields.
+
 ## Existing order reuse
 
 `CheckoutExistingOrderGateway` never calls `addOrder()`. It validates `session.order_id` payment identity (`mt_uni_credit.mt_uni_credit`) and status via `FinancingOrderStatusPolicy`.
