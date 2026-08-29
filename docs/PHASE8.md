@@ -11,6 +11,12 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Product lost Step 2 context + Cart Address::getAddress (2026-08-29)
+
+**Product:** Enabled `Изпрати` could still hit frontend guard (`!scheme || !lastCalculation`) after calculator rebuild cleared financing context while Step 2 stayed visible; readiness previously only required `lastCalculation` (not token/scheme). Fix: `hasAuthoritativeCalculation` requires calculation+token+scheme; `invalidateIssuedSelection` on rebuild; Step 2 refresh always re-issues; submit recovers once via `recalculateSelection` before POST.
+
+**Cart `technical_failure`:** `ArgumentCountError` — OpenCart 4.1 `Account\Address::getAddress(int $customer_id, int $address_id)` called with one argument from Cart/Product address resolver closures. Fix: pass `(customerId, addressId)` in both catalog models.
+
 ## Runtime remediation — Product/Cart final submit (2026-08-29)
 
 **Product no-action:** `Изпрати` relied only on form `submit`; shared `abortController` from Product refresh could abort the submit fetch; silent early-return when scheme/form/calculation missing; locked first installment used `disabled` (fragile for payload reads).

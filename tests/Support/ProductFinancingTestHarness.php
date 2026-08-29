@@ -146,7 +146,7 @@ final class ProductFinancingTestHarness
 
         $addressResolver = new OpenCartCatalogAddressResolver(
             static fn(int $addressId, int $customerId): bool => $addressId === 900 && $customerId === 5,
-            static fn(int $addressId): ?array => $addressId === 900 ? [
+            static fn(int $addressId, int $customerId): ?array => ($addressId === 900 && $customerId === 5) ? [
                 'address_id' => 900,
                 'firstname' => 'Ivan',
                 'lastname' => 'Petrov',

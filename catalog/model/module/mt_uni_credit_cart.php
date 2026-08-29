@@ -276,14 +276,21 @@ class MtUniCreditCart extends \Opencart\System\Engine\Model
 
         return new OpenCartCatalogAddressResolver(
             function (int $addressId, int $customerId) use ($model): bool {
+                if ($customerId <= 0 || $addressId <= 0) {
+                    return false;
+                }
                 $model->load->model('account/address');
+                // OpenCart 4.1: getAddress(customer_id, address_id) — both required.
+                $address = $model->model_account_address->getAddress($customerId, $addressId);
 
-                return $model->model_account_address->getAddress($addressId) !== []
-                    && (int) ($model->customer->getId()) === $customerId;
+                return $address !== [];
             },
-            function (int $addressId) use ($model): ?array {
+            function (int $addressId, int $customerId) use ($model): ?array {
+                if ($customerId <= 0 || $addressId <= 0) {
+                    return null;
+                }
                 $model->load->model('account/address');
-                $address = $model->model_account_address->getAddress($addressId);
+                $address = $model->model_account_address->getAddress($customerId, $addressId);
 
                 return $address !== [] ? $address : null;
             },

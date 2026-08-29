@@ -7,8 +7,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 final class OpenCartCatalogAddressResolver implements ProductAddressCatalogPort
 {
     /**
-     * @param callable(int, int): bool $addressOwnershipChecker
-     * @param callable(int): array<string, mixed>|null $addressLoader
+     * @param callable(int, int): bool $addressOwnershipChecker ($addressId, $customerId)
+     * @param callable(int, int): array<string, mixed>|null $addressLoader ($addressId, $customerId)
      * @param callable(array<string, string>, FinancingCustomerData): FinancingAddressData $postedAddressBuilder
      * @param callable(FinancingAddressData, OpenCartProductLine): array<string, string>|null $shippingMethodResolver
      */
@@ -27,7 +27,7 @@ final class OpenCartCatalogAddressResolver implements ProductAddressCatalogPort
     /** @var callable(int, int): bool */
     private $addressOwnershipChecker;
 
-    /** @var callable(int): array<string, mixed>|null */
+    /** @var callable(int, int): array<string, mixed>|null */
     private $addressLoader;
 
     /** @var callable(array<string, string>, FinancingCustomerData): FinancingAddressData */
@@ -48,7 +48,7 @@ final class OpenCartCatalogAddressResolver implements ProductAddressCatalogPort
                     'address_id' => 'Избраният адрес не принадлежи на текущия клиент.',
                 ]);
             }
-            $loaded = ($this->addressLoader)($postedAddressId);
+            $loaded = ($this->addressLoader)($postedAddressId, $customerId);
             if ($loaded === null) {
                 throw new ProductFinancingFlowException('validation', 'Адресът не е намерен.');
             }
@@ -73,7 +73,7 @@ final class OpenCartCatalogAddressResolver implements ProductAddressCatalogPort
             if (!($this->addressOwnershipChecker)($postedShippingAddressId, $customerId)) {
                 throw new ProductFinancingFlowException('validation', 'Избраният адрес за доставка не принадлежи на текущия клиент.');
             }
-            $loaded = ($this->addressLoader)($postedShippingAddressId);
+            $loaded = ($this->addressLoader)($postedShippingAddressId, $customerId);
             if ($loaded === null) {
                 throw new ProductFinancingFlowException('validation', 'Адресът за доставка не е намерен.');
             }

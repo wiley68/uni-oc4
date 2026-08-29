@@ -326,12 +326,17 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
     private function logFailure(\Throwable $exception): void
     {
         $file = basename(str_replace('\\', '/', $exception->getFile()));
+        $trace = $exception->getTrace();
+        $caller = isset($trace[0]['file'])
+            ? (basename(str_replace('\\', '/', (string) $trace[0]['file'])) . ':' . (int) ($trace[0]['line'] ?? 0))
+            : 'n/a';
         $this->log->write(sprintf(
-            'mt_uni_credit.cart: %s: %s in %s:%d',
+            'mt_uni_credit.cart: %s: %s in %s:%d via %s',
             $exception::class,
             $exception->getMessage(),
             $file,
-            $exception->getLine()
+            $exception->getLine(),
+            $caller
         ));
     }
 }

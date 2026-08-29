@@ -195,9 +195,9 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('if (!updateSubmitState(true))', $js);
         self::assertStringContainsString('!lastCalculation', $js);
 
-        // Transition to Step 2 requires calculation then evaluates readiness.
+        // Transition to Step 2 requires authoritative calculation+token+scheme then evaluates readiness.
         self::assertMatchesRegularExpression(
-            '/data-mtuc-apply[\s\S]*?!apply\.disabled && lastCalculation[\s\S]*?setStep\(2\);[\s\S]*?updateSubmitState\(false\)/',
+            '/data-mtuc-apply[\s\S]*?!apply\.disabled && hasAuthoritativeCalculation\(\)[\s\S]*?setStep\(2\);[\s\S]*?updateSubmitState\(false\)/',
             $js
         );
 

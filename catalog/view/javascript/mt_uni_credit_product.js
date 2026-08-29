@@ -552,8 +552,50 @@
     }
 
     function hasAuthoritativeCalculation() {
-      // Issued selection: calculation payload from issueSubmission (Woo gates Step2 entry the same way).
-      return !!lastCalculation;
+      // Step 2 readiness ≡ submit-ready financing context (calculation + token + live scheme).
+      return !!(lastCalculation && submissionToken && selectedScheme());
+    }
+
+    function syncSelectedSchemeFromDom() {
+      const select = schemeSelect();
+      if (select && select.value) {
+        selectedSchemeKey = select.value;
+      }
+      const offer = selectedOffer();
+      if (!offer) {
+        const offerTypes = Object.keys(state.calculator?.offers || {});
+        if (offerTypes.length > 0 && offerTypes.indexOf(selectedOfferType) === -1) {
+          selectedOfferType = offerTypes[0];
+        }
+      }
+      const scheme = selectedScheme();
+      if (scheme) {
+        selectedSchemeKey = scheme.key;
+      }
+      return scheme;
+    }
+
+    function invalidateIssuedSelection(reason) {
+      submissionToken = '';
+      lastCalculation = null;
+      const apply = applyBtn();
+      if (apply) {
+        apply.disabled = true;
+        apply.setAttribute('aria-disabled', 'true');
+      }
+      const submit = submitBtn();
+      if (submit) {
+        submit.disabled = true;
+        submit.setAttribute('aria-disabled', 'true');
+        submit.classList.add('is-disabled');
+      }
+      if (!modal.hidden && currentStep === 2) {
+        updateSubmitState(false);
+        const submitError = modal.querySelector('[data-mtuc-submit-error]');
+        if (submitError && reason) {
+          submitError.textContent = reason;
+        }
+      }
     }
 
     /**
@@ -820,23 +862,20 @@
       if (!data.offers?.[selectedOfferType]) {
         selectedOfferType = Object.keys(data.offers || {})[0] || 'standard';
       }
-      selectedSchemeKey = data.offers?.[selectedOfferType]?.preferred_scheme_key || selectedSchemeKey;
+      const preferred = data.offers?.[selectedOfferType]?.preferred_scheme_key || '';
+      if (preferred) {
+        selectedSchemeKey = preferred;
+      }
       const scheme = selectedScheme();
       if (scheme) {
         selectedSchemeKey = scheme.key;
       }
       renderOfferButtons(data);
       applyRootLayoutFromData(root, state);
-      // Invalidate issued selection when calculator offers rebuild. If Step 2 is open,
-      // keep lastCalculation until a fresh issue runs — do not orphan readiness as null
-      // without a replacement calculation when still on Step 1 path only.
-      submissionToken = '';
-      lastCalculation = null;
+      // Calculator rebuild invalidates issued financing context. Step 2 must not stay submit-ready.
+      invalidateIssuedSelection('');
       syncBootstrap();
       calculator.setAttribute('aria-busy', 'false');
-      if (!modal.hidden && currentStep === 2) {
-        updateSubmitState(false);
-      }
     }
 
     let refreshTimer = null;
@@ -914,10 +953,15 @@
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
           if (!modal.hidden && (currentStep === 1 || currentStep === 2)) {
-            if (currentStep === 1) {
-              populateSchemeSelect();
+            populateSchemeSelect();
+            setProcessing(currentStep === 2);
+            try {
+              await recalculateSelection();
+            } finally {
+              if (currentStep === 2) {
+                setProcessing(false);
+              }
             }
-            await recalculateSelection();
             if (currentStep === 2) {
               updateSubmitState(false);
             }
@@ -1172,10 +1216,25 @@
         return;
       }
       const activeForm = form || modal.querySelector('#mt-uni-credit-product-form');
-      const scheme = selectedScheme();
       const button = submitBtn();
       const submitError = modal.querySelector('[data-mtuc-submit-error]');
-      if (!scheme || !button || !activeForm || !lastCalculation) {
+      let scheme = syncSelectedSchemeFromDom();
+
+      // Recover once if calculator refresh invalidated context while Step 2 stayed open.
+      if ((!scheme || !lastCalculation || !submissionToken) && !modal.hidden && currentStep === 2) {
+        setProcessing(true);
+        try {
+          populateSchemeSelect();
+          scheme = syncSelectedSchemeFromDom();
+          await recalculateSelection();
+          scheme = syncSelectedSchemeFromDom();
+        } finally {
+          setProcessing(false);
+        }
+      }
+
+      if (!scheme || !button || !activeForm || !lastCalculation || !submissionToken) {
+        updateSubmitState(false);
         if (submitError) {
           submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
         }
@@ -1268,7 +1327,7 @@
       const apply = event.target.closest('[data-mtuc-apply]');
       if (apply) {
         event.preventDefault();
-        if (!apply.disabled && lastCalculation) {
+        if (!apply.disabled && hasAuthoritativeCalculation()) {
           setStep(2);
           updateSubmitState(false);
           form?.querySelector('input, select, textarea')?.focus();
