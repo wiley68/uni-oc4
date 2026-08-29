@@ -275,11 +275,15 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         $this->load->model('checkout/order');
         $order = $this->model_checkout_order->getOrder($orderId);
         if (!$order) {
+            unset($this->session->data['order_id']);
+
             return null;
         }
 
         $storeId = (int) $this->config->get('config_store_id');
         if ((int) ($order['store_id'] ?? -1) !== $storeId) {
+            unset($this->session->data['order_id']);
+
             return null;
         }
 
@@ -287,8 +291,30 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         if ($this->customer->isLogged()) {
             $customerId = (int) $this->customer->getId();
             if ($customerId > 0 && (int) ($order['customer_id'] ?? 0) !== $customerId) {
+                unset($this->session->data['order_id']);
+
                 return null;
             }
+        }
+
+        // Defense in depth: refuse Voided/stale order when live cart has moved on.
+        $orderProducts = $this->model_checkout_order->getProducts($orderId) ?: [];
+        $cartProducts = $this->cart->getProducts();
+        $cartTotal = (float) $this->cart->getTotal();
+        $currency = (string) ($this->session->data['currency'] ?? $this->config->get('config_currency'));
+        $getOptions = function (int $oid, int $orderProductId): array {
+            return $this->model_checkout_order->getOptions($oid, $orderProductId) ?: [];
+        };
+        if (\Opencart\System\Library\Extension\MtUniCredit\CheckoutSessionOrderGuard::reconcileSessionOrder(
+            $this->session->data,
+            $order,
+            $orderProducts,
+            $getOptions,
+            $cartProducts,
+            $cartTotal,
+            $currency
+        )) {
+            return null;
         }
 
         return $order;

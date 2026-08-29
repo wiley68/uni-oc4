@@ -5,7 +5,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Deterministic, scoped event definitions for this extension.
  *
- * Feature phases register Product, Cart, and Checkout success events here.
+ * Feature phases register Product, Cart, Checkout success, and checkout
+ * session.order_id hygiene events here.
  *
  * @phpstan-type EventDefinition array{
  *     code: string,
@@ -67,6 +68,42 @@ final class EventRegistry
                 'trigger'     => 'catalog/view/common/success/after',
                 'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_success',
                 'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_cart_add',
+                'description' => 'Clear stale session.order_id after cart add',
+                'trigger'     => 'catalog/controller/checkout/cart/add/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_session_order',
+                'method'      => 'onCartMutated',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_cart_edit',
+                'description' => 'Clear stale session.order_id after cart edit',
+                'trigger'     => 'catalog/controller/checkout/cart/edit/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_session_order',
+                'method'      => 'onCartMutated',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_cart_remove',
+                'description' => 'Clear stale session.order_id after cart remove',
+                'trigger'     => 'catalog/controller/checkout/cart/remove/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_session_order',
+                'method'      => 'onCartMutated',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_before_checkout_confirm',
+                'description' => 'Invalidate stale session.order_id before confirm',
+                'trigger'     => 'catalog/controller/checkout/confirm/before',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_session_order',
+                'method'      => 'onConfirmBefore',
                 'status'      => true,
                 'sort_order'  => 0,
             ],

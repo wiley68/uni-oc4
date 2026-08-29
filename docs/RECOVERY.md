@@ -16,7 +16,18 @@ Operation lock `(store_id, entry_point, operation_key_hash)` serializes material
 
 ## Checkout
 
-No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when status is 0, awaiting-financing, or OC4.1 void (`config_void_status_id`).
+No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when status is 0, awaiting-financing, or OC4.1 void (`config_void_status_id`) **and** the stored order still matches the live cart (products/options/qty, currency, total).
+
+### Stale `session.order_id` (Guest / logged)
+
+Native OC4.1 `editOrder()` voids the draft (`config_void_status_id`). Cart add/edit/remove clear `payment_method` but **not** `order_id`. Confirm only `editOrder()`s when `order_status_id == 0`, so a Voided id after a cart change is neither updated nor replaced — payment modules then show the old `order.total`.
+
+Module remediation (no core patch):
+
+1. Cart mutation events clear `session.order_id` so confirm can `addOrder()` again.
+2. `confirm/before` + UniCredit `resolveSessionOrder()` reconcile parity and clear when the order no longer matches the live cart.
+
+Old Voided rows remain in DB/history. Old financing attempts stay bound to the old `order_id`; a materially new checkout gets a new local order / attempt lifecycle. Unchanged cart retries keep the same `session.order_id` (no duplicate draft).
 
 ## Status visibility (Phase 10A / remediated)
 

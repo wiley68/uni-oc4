@@ -86,6 +86,12 @@ CP success alone does not change OpenCart status. CP failure leaves Product/Cart
 
 There is **no** separate module setting `module_mt_uni_credit_awaiting_financing_order_status_id`.
 
+## Stale checkout `session.order_id`
+
+Invariant: `session.order_id` may be reused only when it still represents the current cart and is lifecycle-valid for confirm reuse. A Voided order for an older cart must not supply price/products/CP payload for a changed cart.
+
+See `docs/RECOVERY.md` (Checkout / stale session.order_id). Guards: `CheckoutSessionOrderGuard`, `CheckoutOrderCartParity`, events on cart add/edit/remove + confirm before.
+
 ## Out of scope
 
 SmartUCF, Process 1/2 execution, bank redirect, `updateOrderStatus`, final customer bank redirect.
