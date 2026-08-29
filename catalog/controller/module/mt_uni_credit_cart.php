@@ -224,6 +224,11 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
             throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
         }
 
+        // Authoritative first installment from scheme calculation (locked schemes ignore raw POST 0).
+        // Without this, issue hashes 0 then submit hashes the rendered mandatory amount → false stale_selection
+        // (operator-visible copy: "Избраните условия са променени...").
+        $firstInstallment = (float) ($calculation['first_installment'] ?? $firstInstallment);
+
         $fingerprint = CartFingerprint::hash($cart, $currency);
         $postedFingerprint = trim((string) ($this->request->post['cart_fingerprint'] ?? ''));
         if ($postedFingerprint !== '' && !hash_equals($fingerprint, $postedFingerprint)) {

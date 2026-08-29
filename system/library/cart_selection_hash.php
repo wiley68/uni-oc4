@@ -25,16 +25,21 @@ final class CartSelectionHash
             'store_id'           => $storeId,
             'cart_fingerprint'   => $cartFingerprint,
             'currency'           => strtoupper($currencyCode),
-            'cart_total'         => round($cartTotal, 2),
+            'cart_total'         => self::normalizeAmount($cartTotal),
             'scheme_key'         => $schemeKey,
             'scheme_type'        => $schemeType,
             'kop_code'           => $kopCode,
             'months'             => $months,
             'filter_id'          => $filterId,
-            'first_installment'  => round($firstInstallment, 2),
+            'first_installment'  => self::normalizeAmount($firstInstallment),
             'actor_binding_hash' => $actorBindingHash,
         ];
 
         return hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private static function normalizeAmount(float $value): string
+    {
+        return number_format(round($value, 2), 2, '.', '');
     }
 }

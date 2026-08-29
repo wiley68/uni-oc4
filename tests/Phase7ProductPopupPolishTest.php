@@ -99,10 +99,13 @@ final class Phase7ProductPopupPolishTest extends TestCase
         self::assertStringContainsString("first.removeAttribute('readonly')", $js);
         self::assertStringContainsString("first.removeAttribute('disabled')", $js);
 
-        // renderCalculation still applies authoritative server value + lock state.
+        // renderCalculation still applies authoritative server value + lock state (readonly only — not disabled).
         self::assertStringContainsString('calculation.first_installment_locked', $js);
         self::assertStringContainsString('setAttribute(\'readonly\'', $js);
-        self::assertStringContainsString('setAttribute(\'disabled\'', $js);
+        self::assertDoesNotMatchRegularExpression(
+            '/first_installment_locked[\s\S]{0,240}setAttribute\(\'disabled\'/',
+            $js
+        );
     }
 
     public function testFocusCssRemovesGenericOutlineOnSchemeAndFirstInstallment(): void

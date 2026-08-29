@@ -220,6 +220,10 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
         }
 
+        // Authoritative first installment from scheme calculation (locked schemes ignore raw POST 0).
+        // Issue + submit must hash the same server-resolved amount or Step 2 submit falsely returns stale_selection.
+        $firstInstallment = (float) ($calculation['first_installment'] ?? $firstInstallment);
+
         $actorBindingHash = $model->actorBindingHash();
         $selectionHash = ProductSelectionHash::hash(
             $storeId,

@@ -39,17 +39,27 @@ final class OpenCartCartContextFactory
             $unit = ($this->taxCalculator)((float) ($product['price'] ?? 0.0), (int) ($product['tax_class_id'] ?? 0));
             $lineTotal = round($unit * $quantity, 2);
             $categories = ($this->categoryLoader)($productId);
-            $attributeId = 0;
+            $categories = array_values(array_unique(array_map('intval', $categories)));
+            sort($categories);
+            $optionValueIds = [];
             if (!empty($product['option']) && is_array($product['option'])) {
                 foreach ($product['option'] as $option) {
-                    $attributeId = max($attributeId, (int) ($option['product_option_value_id'] ?? 0));
+                    $optionValueId = (int) ($option['product_option_value_id'] ?? 0);
+                    if ($optionValueId > 0) {
+                        $optionValueIds[] = $optionValueId;
+                    }
                 }
             }
+            $optionValueIds = array_values(array_unique($optionValueIds));
+            sort($optionValueIds);
+            // Legacy single attribute id retained for scheme helpers; fingerprint uses full sorted option set.
+            $attributeId = $optionValueIds === [] ? 0 : max($optionValueIds);
             $lines[] = new CartLine(
                 new ProductContext($productId, $categories, $lineTotal),
                 $attributeId,
                 $quantity,
-                $lineTotal
+                $lineTotal,
+                $optionValueIds
             );
         }
 

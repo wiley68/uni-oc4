@@ -738,7 +738,8 @@
         first.value = String(calculation.first_installment ?? 0);
         if (calculation.first_installment_locked) {
           first.setAttribute('readonly', 'readonly');
-          first.setAttribute('disabled', 'disabled');
+          // Keep enabled so value remains reliably readable for submit payload (readonly is enough UX lock).
+          first.removeAttribute('disabled');
         } else {
           first.removeAttribute('readonly');
           first.removeAttribute('disabled');
@@ -850,7 +851,8 @@
       }, 250);
     }
 
-    async function postJson(url, payload) {
+    async function postJson(url, payload, options) {
+      const opts = options || {};
       const body = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
         if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -870,13 +872,18 @@
         body.append(key, value);
       });
 
-      const response = await fetch(url, {
+      const fetchOptions = {
         method: 'POST',
         body,
         credentials: 'same-origin',
-        signal: abortController ? abortController.signal : undefined,
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      });
+      };
+      // Submit must not share refresh abort signal — otherwise a Product AJAX refresh aborts Изпрати silently.
+      if (opts.abort !== false && abortController) {
+        fetchOptions.signal = abortController.signal;
+      }
+
+      const response = await fetch(url, fetchOptions);
       return response.json();
     }
 
@@ -925,8 +932,22 @@
       }
     }
 
+    function resolveFirstInstallmentAmount(scheme) {
+      const first = firstInput();
+      const locked = !!(lastCalculation && lastCalculation.first_installment_locked);
+      if (locked && lastCalculation && lastCalculation.first_installment != null) {
+        return parseFloat(String(lastCalculation.first_installment).replace(',', '.')) || 0;
+      }
+      if (first) {
+        return parseFloat(String(first.value).replace(',', '.')) || 0;
+      }
+      if (lastCalculation && lastCalculation.first_installment != null) {
+        return parseFloat(String(lastCalculation.first_installment).replace(',', '.')) || 0;
+      }
+      return scheme.first_installment || 0;
+    }
+
     function buildSelectionPayload(scheme) {
-      const firstInstallment = firstInput() ? parseFloat(firstInput().value.replace(',', '.')) || 0 : (scheme.first_installment || 0);
       return {
         csrf_token: state.csrf_token,
         product_id: state.product_id,
@@ -938,7 +959,7 @@
         months: scheme.months,
         filter_id: scheme.filter_id,
         scheme_key: scheme.key,
-        first_installment: firstInstallment,
+        first_installment: resolveFirstInstallmentAmount(scheme),
         submission_token: submissionToken,
       };
     }
@@ -1144,13 +1165,20 @@
     }
 
     async function submitForm(event) {
-      event.preventDefault();
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
       if (submitBusy) {
         return;
       }
+      const activeForm = form || modal.querySelector('#mt-uni-credit-product-form');
       const scheme = selectedScheme();
       const button = submitBtn();
-      if (!scheme || !button || !form || !lastCalculation) {
+      const submitError = modal.querySelector('[data-mtuc-submit-error]');
+      if (!scheme || !button || !activeForm || !lastCalculation) {
+        if (submitError) {
+          submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
+        }
         return;
       }
       if (!updateSubmitState(true)) {
@@ -1162,18 +1190,18 @@
       clearFieldErrors();
       setProcessing(true);
 
-      const payload = buildSelectionPayload(scheme);
-      payload.submission_token = submissionToken;
-      const formData = new FormData(form);
-      formData.forEach((value, key) => {
-        payload[key] = value;
-      });
-      form.querySelectorAll('input[name="consent[]"]:checked').forEach((input, index) => {
-        payload[`consent[${index}]`] = input.value;
-      });
-
       try {
-        const json = await postJson(state.submit_url, payload);
+        const payload = buildSelectionPayload(scheme);
+        payload.submission_token = submissionToken;
+        const formData = new FormData(activeForm);
+        formData.forEach((value, key) => {
+          payload[key] = value;
+        });
+        activeForm.querySelectorAll('input[name="consent[]"]:checked').forEach((input, index) => {
+          payload[`consent[${index}]`] = input.value;
+        });
+
+        const json = await postJson(state.submit_url, payload, { abort: false });
         if (json.success) {
           const successMessage = modal.querySelector('[data-mtuc-success-message]');
           if (successMessage) {
@@ -1182,14 +1210,14 @@
           setStep(3);
         } else {
           showFieldErrors(json.errors || {});
-          const submitError = modal.querySelector('[data-mtuc-submit-error]');
           if (submitError && json.message) {
             submitError.textContent = json.message;
+          } else if (submitError && !json.message) {
+            submitError.textContent = 'Заявката не може да бъде обработена.';
           }
           updateSubmitState(false);
         }
       } catch (error) {
-        const submitError = modal.querySelector('[data-mtuc-submit-error]');
         if (submitError) {
           submitError.textContent = 'Заявката не може да бъде обработена.';
         }
@@ -1245,6 +1273,12 @@
           updateSubmitState(false);
           form?.querySelector('input, select, textarea')?.focus();
         }
+        return;
+      }
+      const submit = event.target.closest('[data-mtuc-submit]');
+      if (submit) {
+        event.preventDefault();
+        submitForm(event);
       }
     });
 

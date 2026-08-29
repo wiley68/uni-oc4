@@ -2,6 +2,10 @@
 
 Phase 7 adds the OpenCart 4.1 standard-theme **Product** financing flow only. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Cart, Checkout payment, SmartUCF, snapshot, email, or callbacks.
 
+## Runtime remediation — Product `Изпрати` no-action (2026-08-29)
+
+See Phase 8 doc § “Product/Cart final submit”. Product submit now binds `[data-mtuc-submit]` click, isolates submit fetch from refresh abort, and uses authoritative calculated first installment in selection hash (shared with Cart).
+
 ## Placement
 
 | Piece             | Route / file                                                                                |

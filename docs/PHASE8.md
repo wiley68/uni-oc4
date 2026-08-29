@@ -11,6 +11,18 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Product/Cart final submit (2026-08-29)
+
+**Product no-action:** `Изпрати` relied only on form `submit`; shared `abortController` from Product refresh could abort the submit fetch; silent early-return when scheme/form/calculation missing; locked first installment used `disabled` (fragile for payload reads).
+
+**Cart false stale rejection:** Operator copy matched `stale_selection` (“Избраните условия са променени…”), not `cart_changed`. `readSelectionContext` hashed raw POST `first_installment` (often `0` at issue) while submit sent the rendered mandatory amount → selection-hash mismatch with unchanged Cart.
+
+**Fix:**
+
+- Product + Cart: hash **authoritative** `calculation.first_installment` after scheme calculate.
+- Product + Cart: explicit `[data-mtuc-submit]` click → `submitForm`; submit `postJson(..., { abort: false })`; non-silent guards; locked first installment = `readonly` only.
+- Cart fingerprint: sorted categories/options, normalized money amounts.
+
 ## Runtime remediation — Cart offer A→B stale popup state (2026-08-29)
 
 **Root cause:** Cart `openModal()` did not call Product’s `resetFirstInstallmentForSchemeChange()` (or equivalent). Closing offer A left DOM calculation values + `lastCalculation`/`submissionToken`; opening offer B briefly showed A until the new response arrived (and could reuse stale readiness).
