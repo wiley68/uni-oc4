@@ -70,6 +70,19 @@ Process 2 (`uni_proces === 1`) добавя при create:
 
 **Разминаване:** съобщението за `currency.in` споменава USD, правилото приема само BGN и EUR.
 
+### OC4 Checkout phone handoff (frozen for Phase 10+)
+
+Native Checkout primary telephone is optional (Process 1 does not collect it in the UniCredit panel). Legacy `uni-oc4-old` sends empty strings when OC has no phone:
+
+| Channel   | Field            | When telephone absent |
+| --------- | ---------------- | --------------------- |
+| CP create | `customer.phone` | `''`                  |
+| SmartUCF  | `clientPhone`    | `''`                  |
+
+Do not invent placeholders. Re-test against live bank after CP/SmartUCF is wired.
+
+Process 2 Checkout UI (deferred): only `egn` + `phone2` may be added to the UniCredit panel.
+
 ---
 
 ## 3. HMAC / replay
@@ -386,7 +399,7 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 | ---------------- | -------------------------------------------------------------------------------------------------- |
 | Payment identity | `mt_uni_credit.mt_uni_credit`                                                                      |
 | Routes           | `extension/mt_uni_credit/payment/mt_uni_credit` (+ `.calculate` / `.issueSubmission` / `.confirm`) |
-| Eligibility      | `CheckoutFinancingEligibility` (module+payment+currency+amount+intersection)                         |
+| Eligibility      | `CheckoutFinancingEligibility` (module+payment+currency+amount+intersection)                       |
 | Amount           | Eligibility: cart total; issue/confirm: **order.total**                                            |
 | Intersection     | Same Phase 5 `CartSchemeResolver` (`type\|kopCode\|months`)                                        |
 | Operation key    | `CheckoutOperationIdentity::hash(store_id, order_id)`                                              |

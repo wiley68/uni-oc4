@@ -99,9 +99,14 @@ session.order_id
 → session.customer / payment_address / shipping_address
 → optional verified Address::getAddress(customer_id, address_id) when logged-in + owned
 → CheckoutOrderCustomerAdapter::fromCheckoutContext()
-→ ProductCustomerValidator (unchanged required set)
+→ CheckoutCustomerValidator (telephone optional)
 → FinancingCustomerData + FinancingAddressData
 ```
+
+**Checkout required:** `firstname`, `lastname`, `address`, `email`.  
+**Checkout optional:** primary `telephone` (native value or `''` — never fabricated).
+
+Product/Cart continue to use `ProductCustomerValidator` where telephone remains **required**.
 
 Precedence (first non-empty wins per field):
 
@@ -113,22 +118,45 @@ Precedence (first non-empty wins per field):
 6. `session.customer`
 7. verified owned address row (logged-in only; never `getAddress(0, …)`)
 
-Mapping (financing keys):
-
 | Financing field      | Typical sources                                                        |
 | -------------------- | ---------------------------------------------------------------------- |
 | firstname / lastname | order payment/shipping/customer → session addresses/customer           |
 | address              | order payment/shipping address_1 → session payment/shipping → verified |
-| telephone            | order.telephone → session.customer.telephone (never `phone`)           |
+| telephone            | order.telephone → session.customer → verified (optional; else `''`)    |
 | email                | order.email → session.customer.email                                   |
 
-Guest `customer_id = 0` is first-class. Logged-in ownership (`order.customer_id === session customer`) remains enforced in `resolveSessionOrder()`. Stale/malicious POST customer fields cannot override native Checkout identity (hidden customer inputs removed from payment twig).
+Guest `customer_id = 0` is first-class. Logged-in ownership (`order.customer_id === session customer`) remains enforced in `resolveSessionOrder()`. Stale/malicious POST customer fields cannot override native Checkout identity (no customer inputs in payment twig — display-only summary + consents).
 
-True missing after all sources → `invalid_customer` + diagnostic `checkout_customer_missing_fields`.
+True missing **required** fields after all sources → `invalid_customer` + diagnostic `checkout_customer_missing_fields`. Missing telephone alone must **not** produce that error.
 
 Consents still come from the financing panel POST (`consent[]` / `consent[n]`).
 
 Confirm button wording: `Потвърди поръчката` / `Confirm order`.
+
+### Frozen future contracts (not implemented in Phase 9)
+
+**Process 2 Checkout UI** — only additional UniCredit panel fields allowed later:
+
+```text
+egn
+phone2
+```
+
+Do **not** add firstname / lastname / primary telephone / email / address to the Checkout financing panel; those stay native OpenCart.
+
+**Future CP create** (Phase 10+), when Checkout has no native primary telephone:
+
+```text
+customer.phone = ''
+```
+
+**Future SmartUCF Process 1** (same case):
+
+```text
+clientPhone = ''
+```
+
+Mirrors `wiley68/uni-oc4-old`. No placeholders (`N/A`, `000…`, `-`). Bank acceptance of empty phone must be re-verified against live CP/SmartUCF later.
 
 ## Stale / idempotency
 

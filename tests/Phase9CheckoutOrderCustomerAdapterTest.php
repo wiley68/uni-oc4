@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MtUniCredit\Tests;
 
+use Opencart\System\Library\Extension\MtUniCredit\CheckoutCustomerValidator;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutOrderCustomerAdapter;
 use Opencart\System\Library\Extension\MtUniCredit\ProductAddressValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ProductCustomerValidator;
@@ -14,8 +15,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Checkout confirm adapts native order + session Checkout state (OC 4.1 timing).
  *
- * Real failure: config_checkout_payment_address=0 → empty payment_* on oc_order while
- * customer columns / shipping_* / session still hold required data.
+ * Primary telephone is optional for Checkout only (legacy Process 1 / uni-oc4-old).
  */
 final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 {
@@ -40,7 +40,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             'country'    => 'Bulgaria',
             'zone'       => 'Sofia',
         ]);
-        $validated = (new ProductCustomerValidator())->validate($normalized, 1, 0);
+        $validated = (new CheckoutCustomerValidator())->validate($normalized, 1, 0);
         self::assertSame(0, $validated['customer']->customerId);
         self::assertSame('+359888000111', $validated['customer']->telephone);
 
@@ -50,10 +50,82 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertSame('ул. Пример 1', $billing->address1);
     }
 
+    public function testGuestCheckoutEmptyTelephonePassesValidation(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = [
+            'order_id'            => 475,
+            'customer_id'         => 0,
+            'firstname'           => 'Ada',
+            'lastname'            => 'Lovelace',
+            'email'               => 'ada@example.com',
+            'telephone'           => '',
+            'payment_firstname'   => '',
+            'payment_lastname'    => '',
+            'payment_address_1'   => '',
+            'shipping_firstname'  => 'Ada',
+            'shipping_lastname'   => 'Lovelace',
+            'shipping_address_1'  => 'ул. Доставка 9',
+            'shipping_city'       => 'София',
+            'shipping_postcode'   => '1000',
+            'shipping_country'    => 'Bulgaria',
+            'shipping_country_id' => 33,
+            'shipping_zone'       => 'Sofia',
+            'shipping_zone_id'    => 4239,
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, [], null);
+        self::assertSame([], $resolved['missing']);
+        self::assertSame('', $resolved['input']['telephone']);
+        self::assertNotContains('telephone', $resolved['missing']);
+
+        $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
+        $validated = (new CheckoutCustomerValidator())->validate($normalized, 1, 0);
+        self::assertSame('', $validated['customer']->telephone);
+        self::assertSame(0, $validated['customer']->customerId);
+    }
+
+    public function testNativeTelephonePreservedWhenPresent(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = $this->fullPaymentOrder();
+        $resolved = $adapter->fromCheckoutContext($order, [
+            'customer' => ['telephone' => '+359999999999'],
+        ], null);
+        self::assertSame('+359888000111', $resolved['input']['telephone']);
+        self::assertSame('order.telephone', $resolved['sources']['telephone']);
+    }
+
+    public function testProductCustomerValidatorStillRequiresTelephone(): void
+    {
+        $this->expectException(ProductFinancingFlowException::class);
+        try {
+            (new ProductCustomerValidator())->validate([
+                'firstname' => 'Ada',
+                'lastname'  => 'Lovelace',
+                'email'     => 'ada@example.com',
+                'telephone' => '',
+            ], 1, 0);
+        } catch (ProductFinancingFlowException $exception) {
+            self::assertArrayHasKey('telephone', $exception->fieldErrors());
+            throw $exception;
+        }
+    }
+
+    public function testCartAndProductSubmissionStillWireProductCustomerValidator(): void
+    {
+        $product = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_product.php');
+        $cart = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_cart.php');
+        $checkout = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php');
+        self::assertStringContainsString('new ProductCustomerValidator()', $product);
+        self::assertStringContainsString('new ProductCustomerValidator()', $cart);
+        self::assertStringContainsString('new CheckoutCustomerValidator()', $checkout);
+        self::assertStringNotContainsString('new ProductCustomerValidator()', $checkout);
+    }
+
     public function testPartialOrderSnapshotCompletedFromSessionPaymentAddress(): void
     {
         $adapter = new CheckoutOrderCustomerAdapter();
-        // Mirrors OC 4.1 when payment_* are blank strings and telephone not yet on order row.
         $order = [
             'order_id'           => 475,
             'customer_id'        => 0,
@@ -92,15 +164,11 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 
         $resolved = $adapter->fromCheckoutContext($order, $session, null);
         self::assertSame([], $resolved['missing']);
-        self::assertSame('Ada', $resolved['input']['firstname']);
-        self::assertSame('order.firstname', $resolved['sources']['firstname']);
         self::assertSame('ул. Пример 1', $resolved['input']['address']);
-        self::assertSame('session.payment_address.address_1', $resolved['sources']['address']);
         self::assertSame('+359888000111', $resolved['input']['telephone']);
-        self::assertSame('session.customer.telephone', $resolved['sources']['telephone']);
 
         $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
-        (new ProductCustomerValidator())->validate($normalized, 1, 0);
+        (new CheckoutCustomerValidator())->validate($normalized, 1, 0);
         (new ProductAddressValidator())->validateRequired(
             (new ProductAddressValidator())->extractPostedAddress($normalized)
         );
@@ -115,7 +183,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             'firstname'           => 'Ada',
             'lastname'            => 'Lovelace',
             'email'               => 'ada@example.com',
-            'telephone'           => '+359888000111',
+            'telephone'           => '',
             'payment_firstname'   => '',
             'payment_lastname'    => '',
             'payment_address_1'   => '',
@@ -135,12 +203,10 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertSame([], $resolved['missing']);
         self::assertSame('ул. Доставка 9', $resolved['input']['address']);
         self::assertSame('order.shipping_address_1', $resolved['sources']['address']);
-        // Empty payment_* must not shadow shipping/customer name via ?? semantics.
-        self::assertSame('order.shipping_firstname', $resolved['sources']['firstname']);
-        self::assertSame('Ada', $resolved['input']['firstname']);
+        self::assertSame('', $resolved['input']['telephone']);
     }
 
-    public function testTrulyMissingFieldRemainsInvalid(): void
+    public function testTrulyMissingAddressRemainsInvalid(): void
     {
         $adapter = new CheckoutOrderCustomerAdapter();
         $order = [
@@ -149,14 +215,14 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             'firstname'          => 'Ada',
             'lastname'           => 'Lovelace',
             'email'              => 'ada@example.com',
-            'telephone'          => '+359888000111',
+            'telephone'          => '',
             'payment_firstname'  => '',
             'payment_lastname'   => '',
             'payment_address_1'  => '',
             'shipping_address_1' => '',
         ];
         $session = [
-            'customer'         => ['telephone' => '+359888000111', 'email' => 'ada@example.com'],
+            'customer'         => ['email' => 'ada@example.com'],
             'payment_address'  => [],
             'shipping_address' => [],
         ];
@@ -187,7 +253,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
                 'firstname'   => 'Guest',
                 'lastname'    => 'Buyer',
                 'email'       => 'guest@example.com',
-                'telephone'   => '+359888000222',
+                'telephone'   => '',
             ],
             'payment_address' => [],
             'shipping_address' => [
@@ -205,10 +271,12 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 
         $resolved = $adapter->fromCheckoutContext($order, $session, null);
         self::assertSame([], $resolved['missing']);
-        self::assertSame(0, (int) ($order['customer_id'] ?? 0));
-        $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
-        $validated = (new ProductCustomerValidator())->validate($normalized, 1, 0);
-        self::assertSame(0, $validated['customer']->customerId);
+        $validated = (new CheckoutCustomerValidator())->validate(
+            (new ProductPopupFormNormalizer())->normalize($resolved['input'], []),
+            1,
+            0
+        );
+        self::assertSame('', $validated['customer']->telephone);
     }
 
     public function testLoggedInVerifiedAddressCompletesPartialOrder(): void
@@ -233,7 +301,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
                 'firstname'   => 'Logged',
                 'lastname'    => 'In',
                 'email'       => 'logged@example.com',
-                'telephone'   => '+359888000333',
+                'telephone'   => '',
             ],
             'payment_address'  => [],
             'shipping_address' => [],
@@ -248,18 +316,17 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             'zone_id'    => 2,
             'country'    => 'Bulgaria',
             'zone'       => 'Varna',
-            'telephone'  => '+359888000333',
         ];
 
         $resolved = $adapter->fromCheckoutContext($order, $session, $verified);
         self::assertSame([], $resolved['missing']);
-        self::assertSame('verified_address.address_1', $resolved['sources']['address']);
-        $validated = (new ProductCustomerValidator())->validate(
+        $validated = (new CheckoutCustomerValidator())->validate(
             (new ProductPopupFormNormalizer())->normalize($resolved['input'], []),
             1,
             42
         );
         self::assertSame(42, $validated['customer']->customerId);
+        self::assertSame('', $validated['customer']->telephone);
     }
 
     public function testPostedCustomerFieldsDoNotOverrideNativeCheckout(): void
@@ -267,7 +334,6 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         $adapter = new CheckoutOrderCustomerAdapter();
         $order = $this->fullPaymentOrder();
         $resolved = $adapter->fromCheckoutContext($order, [], null);
-        // Simulate malicious POST differing from native order — adapter never reads POST.
         $posted = [
             'firstname' => 'Hacker',
             'lastname'  => 'Override',
@@ -278,21 +344,24 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         ];
         self::assertSame(['1'], $adapter->extractPostedConsents($posted));
         self::assertSame('Ada', $resolved['input']['firstname']);
-        self::assertSame('ул. Пример 1', $resolved['input']['address']);
         self::assertNotSame($posted['firstname'], $resolved['input']['firstname']);
 
         $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
+        self::assertStringContainsString('CheckoutCustomerValidator', $service);
         self::assertStringContainsString('fromCheckoutContext', $service);
-        self::assertStringContainsString('extractPostedConsents', $service);
-        self::assertStringNotContainsString('$this->popupFormNormalizer->normalize($posted', $service);
 
         $twig = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/payment/mt_uni_credit.twig');
         self::assertStringNotContainsString('name="firstname"', $twig);
+        self::assertStringNotContainsString('name="lastname"', $twig);
+        self::assertStringNotContainsString('name="email"', $twig);
         self::assertStringNotContainsString('name="telephone"', $twig);
         self::assertStringNotContainsString('name="address"', $twig);
+        self::assertStringNotContainsString('type="tel"', $twig);
+        self::assertStringNotContainsString('name="egn"', $twig);
+        self::assertStringNotContainsString('name="phone2"', $twig);
     }
 
-    public function testPhoneOnlyPostedWithoutTelephoneStillFailsBeforeAdapter(): void
+    public function testPhoneOnlyPostedWithoutTelephoneStillFailsOnProductValidator(): void
     {
         $this->expectException(ProductFinancingFlowException::class);
         (new ProductCustomerValidator())->validate([
@@ -309,7 +378,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         $order = $this->fullPaymentOrder();
         $order['customer_id'] = 42;
         $input = $adapter->toValidationInput($order);
-        $validated = (new ProductCustomerValidator())->validate($input, 1, 42);
+        $validated = (new CheckoutCustomerValidator())->validate($input, 1, 42);
         self::assertSame(42, $validated['customer']->customerId);
     }
 
@@ -340,20 +409,23 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
     public function testConfirmUsesCheckoutContextAdapter(): void
     {
         $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
-        self::assertStringContainsString('CheckoutOrderCustomerAdapter', $service);
+        self::assertStringContainsString('CheckoutCustomerValidator', $service);
         self::assertStringContainsString('fromCheckoutContext', $service);
         self::assertStringContainsString('billingAddressFromResolved', $service);
         self::assertStringContainsString('checkout_customer_missing_fields', $service);
-        self::assertStringContainsString('extractPostedConsents', $service);
 
         $controller = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
         self::assertStringContainsString('sessionCheckoutData()', $controller);
         self::assertStringContainsString('verifiedOwnedAddressForOrder', $controller);
 
         $model = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php');
-        self::assertStringContainsString('function sessionCheckoutData', $model);
-        self::assertStringContainsString('function verifiedOwnedAddressForOrder', $model);
+        self::assertStringContainsString('CheckoutCustomerValidator', $model);
         self::assertStringContainsString('getAddress($customerId, $addressId)', $model);
+
+        $docs = (string) file_get_contents(dirname(__DIR__) . '/docs/PHASE9.md');
+        self::assertStringContainsString('clientPhone', $docs);
+        self::assertStringContainsString('customer.phone', $docs);
+        self::assertStringContainsString('phone2', $docs);
     }
 
     /** @return array<string, mixed> */

@@ -34,7 +34,7 @@ use Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository;
 use Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository;
 use Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationService;
 use Opencart\System\Library\Extension\MtUniCredit\ProductAddressValidator;
-use Opencart\System\Library\Extension\MtUniCredit\ProductCustomerValidator;
+use Opencart\System\Library\Extension\MtUniCredit\CheckoutCustomerValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ProductModalPresenter;
 use Opencart\System\Library\Extension\MtUniCredit\ProductPopupCustomerPrefill;
 
@@ -220,7 +220,7 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             $this->createSchemeCalculator(),
             new Calculator(),
             new CartSchemeResolver(new Calculator()),
-            new ProductCustomerValidator(),
+            new CheckoutCustomerValidator(),
             new ProductAddressValidator(),
             $this->createAddressResolver(),
             new ConsentResolver(),

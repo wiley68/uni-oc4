@@ -37,6 +37,8 @@ native checkout
 
 Authoritative financing amount at confirm = **order.total**. Eligibility before order uses cart total. Shared Phase 5 intersection unchanged.
 
+Checkout customer: `CheckoutCustomerValidator` — primary telephone **optional** (`''` when native OC has none). Product/Cart keep required telephone via `ProductCustomerValidator`.
+
 Details: `docs/PHASE9.md`.
 
 ## Phase 8 Cart path

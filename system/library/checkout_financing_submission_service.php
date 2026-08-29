@@ -17,7 +17,7 @@ final class CheckoutFinancingSubmissionService
         private CartSchemeCalculator $schemeCalculator,
         private Calculator $calculator,
         private CartSchemeResolver $resolver,
-        private ProductCustomerValidator $customerValidator,
+        private CheckoutCustomerValidator $customerValidator,
         private ProductAddressValidator $addressValidator,
         private ProductAddressCatalogPort $addressCatalog,
         private ConsentResolver $consents,
