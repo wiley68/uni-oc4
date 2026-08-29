@@ -59,6 +59,7 @@ final class ProductCalculatorPresenter
             if ($schemes === []) {
                 continue;
             }
+            $schemes = SchemePresentationOrder::sortPresentedRows($schemes, $shop);
             $offers[$type] = [
                 'type'                 => $type,
                 'months'               => $preferred[$type]->months,

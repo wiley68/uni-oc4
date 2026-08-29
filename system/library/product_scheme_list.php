@@ -17,7 +17,7 @@ final class ProductSchemeList
     public function schemes(array $shop, ProductContext $product, string $popupType): array
     {
         if ($popupType === 'promo') {
-            return SchemePresentationCategory::sort(
+            return SchemePresentationOrder::sort(
                 $this->calculator->availableSchemes($shop, $product, 'promo'),
                 $shop
             );
@@ -26,7 +26,7 @@ final class ProductSchemeList
             return [];
         }
 
-        return SchemePresentationCategory::sort(array_merge(
+        return SchemePresentationOrder::sort(array_merge(
             $this->calculator->availableSchemes($shop, $product, 'standard'),
             $this->calculator->availableSchemes($shop, $product, 'promo')
         ), $shop);

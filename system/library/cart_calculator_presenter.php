@@ -39,7 +39,7 @@ final class CartCalculatorPresenter
                 ? $resolution->promoSchemes
                 : $this->resolver->unifiedSchemes($resolution, $shop);
             $seen = [];
-            foreach (SchemePresentationCategory::sort($pool, $shop) as $scheme) {
+            foreach (SchemePresentationOrder::sort($pool, $shop) as $scheme) {
                 if ($scheme->firstInstallmentAmbiguous) {
                     continue;
                 }
@@ -73,6 +73,7 @@ final class CartCalculatorPresenter
             if ($schemes === []) {
                 continue;
             }
+            $schemes = SchemePresentationOrder::sortPresentedRows($schemes, $shop);
             $offers[$type] = [
                 'type'                 => $type,
                 'months'               => $preferred->months,

@@ -7,11 +7,11 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Presentation-only scheme category. Does not change AvailableScheme::type or identity.
  *
- * Canonical list order (Product / Cart / Checkout):
+ * Canonical list order (Product / Cart / Checkout) — see SchemePresentationOrder:
  * 1. months ASC
- * 2. AvailableScheme::type — standard BEFORE promo
- * 3. within same type: presentation rank standard → nonzero_promo → zero_promo
- * 4. filterId ASC, kopCode, type (stable)
+ * 2. business type rank — standard(0) BEFORE promo-like(1)
+ * 3. presentation category rank — standard → nonzero_promo → zero_promo
+ * 4. filterId ASC, kopCode, type, scheme key (stable)
  */
 final class SchemePresentationCategory
 {
@@ -41,6 +41,11 @@ final class SchemePresentationCategory
             return self::NONZERO_PROMO;
         }
 
+        // No reliable baseline: promotional description marks overlay schemes.
+        if ($defaultKop === '' && self::hasPromotionalDescription($scheme, $shop) && !$zeroInterest) {
+            return self::NONZERO_PROMO;
+        }
+
         return self::STANDARD;
     }
 
@@ -54,9 +59,16 @@ final class SchemePresentationCategory
         };
     }
 
-    /** standard=0, promo=1 — equal-month secondary key. */
-    public static function typeRank(AvailableScheme $scheme): int
+    /**
+     * Explicit business bucket for AvailableScheme::type: standard=0, promo=1.
+     * Overlay schemes that remain type=standard are ordered via presentation rank.
+     *
+     * @param array<string, mixed> $shop unused; kept for call-site uniformity
+     */
+    public static function typeRank(AvailableScheme $scheme, array $shop = []): int
     {
+        unset($shop);
+
         return $scheme->type === 'promo' ? 1 : 0;
     }
 
@@ -67,8 +79,8 @@ final class SchemePresentationCategory
             return $left->months <=> $right->months;
         }
 
-        $leftType = self::typeRank($left);
-        $rightType = self::typeRank($right);
+        $leftType = self::typeRank($left, $shop);
+        $rightType = self::typeRank($right, $shop);
         if ($leftType !== $rightType) {
             return $leftType <=> $rightType;
         }
@@ -88,7 +100,12 @@ final class SchemePresentationCategory
             return $kop;
         }
 
-        return strcmp($left->type, $right->type);
+        $type = strcmp($left->type, $right->type);
+        if ($type !== 0) {
+            return $type;
+        }
+
+        return strcmp(ProductSchemeList::key($left), ProductSchemeList::key($right));
     }
 
     /**
@@ -120,10 +137,70 @@ final class SchemePresentationCategory
     }
 
     /** @param array<string, mixed> $shop */
-    private static function defaultKop(array $shop): string
+    public static function defaultKop(array $shop): string
     {
         $byDefault = is_array($shop['kop']['by_default'] ?? null) ? $shop['kop']['by_default'] : [];
+        $configured = trim((string) ($byDefault['uni_kop_default'] ?? ''));
+        if ($configured !== '') {
+            return $configured;
+        }
 
-        return trim((string) ($byDefault['uni_kop_default'] ?? ''));
+        return self::inferBaselineKop($shop);
+    }
+
+    /**
+     * Schema-mode shops often leave kop.by_default.uni_kop_default empty.
+     * Prefer the broadest non-promo filter as the baseline KOP (PS parity intent).
+     *
+     * @param array<string, mixed> $shop
+     */
+    private static function inferBaselineKop(array $shop): string
+    {
+        $filters = $shop['kop']['by_schema']['filters'] ?? [];
+        if (!is_array($filters)) {
+            return '';
+        }
+
+        $bestKop = '';
+        $bestScore = -1;
+        $bestFilterId = PHP_INT_MAX;
+        foreach ($filters as $filter) {
+            if (!is_array($filter) || (int) ($filter['uni_promo'] ?? 0) === 1) {
+                continue;
+            }
+            $kop = trim((string) ($filter['uni_kop'] ?? ''));
+            if ($kop === '') {
+                continue;
+            }
+            $score = 0;
+            if (self::isBlankFilterScope($filter['product_id'] ?? null)) {
+                $score += 4;
+            }
+            if (self::isBlankFilterScope($filter['category_id'] ?? null)) {
+                $score += 4;
+            }
+            if (self::isBlankFilterScope($filter['uni_meseci'] ?? null)) {
+                $score += 4;
+            }
+            $filterId = (int) ($filter['id'] ?? 0);
+            if ($score > $bestScore || ($score === $bestScore && $filterId < $bestFilterId)) {
+                $bestScore = $score;
+                $bestFilterId = $filterId;
+                $bestKop = $kop;
+            }
+        }
+
+        return $bestKop;
+    }
+
+    private static function isBlankFilterScope(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === false;
+    }
+
+    /** @param array<string, mixed> $shop */
+    private static function hasPromotionalDescription(AvailableScheme $scheme, array $shop): bool
+    {
+        return ProductSchemeList::description($shop, $scheme) !== '';
     }
 }

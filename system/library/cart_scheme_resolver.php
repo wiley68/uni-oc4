@@ -70,7 +70,7 @@ final class CartSchemeResolver
             $seen[$this->key($scheme)] = true;
         }
 
-        return SchemePresentationCategory::sort($schemes, $shop);
+        return SchemePresentationOrder::sort($schemes, $shop);
     }
 
     /**
@@ -148,7 +148,7 @@ final class CartSchemeResolver
             $common
         );
 
-        return SchemePresentationCategory::sort($common, $shop);
+        return SchemePresentationOrder::sort($common, $shop);
     }
 
     /**
