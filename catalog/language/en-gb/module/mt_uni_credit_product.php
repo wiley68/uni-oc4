@@ -29,3 +29,4 @@ $_['text_required']                   = '*';
 $_['text_processing_title']           = 'Processing request';
 $_['text_processing_message']         = 'Please wait...';
 $_['text_local_order_prepared']       = 'The local order has been prepared. Financing will follow in the next step.';
+$_['text_error_required_options']     = 'Please select the required product options.';

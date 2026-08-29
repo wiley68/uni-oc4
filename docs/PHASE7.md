@@ -188,6 +188,28 @@ Mobile ≤768px: frame radius becomes `14px` (no calc background image); Step 1 
 
 `product_button_action=add_to_cart` still clicks native `#button-cart` (OpenCart `#form-product` → `checkout/cart.add`). UniCredit binds a **namespaced one-shot** `ajaxSuccess.mtUniCreditCart` listener and calls existing `closeModal()` only when the response JSON has `success`. Validation/`error` responses leave the popup open. Duplicate clicks while awaiting are ignored; listeners are unbound on close/Cancel/Escape. `buy` still redirects to `checkout_url` unchanged.
 
+## Required Product options (popup entry)
+
+Missing required OpenCart Product options (`.mb-3.required` / `option[…]` including checkbox `option[N][]`) must not open a broken modal via `issueSubmission` 422.
+
+| Layer        | Behavior                                                                                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend     | Offer click inspects Product DOM; if incomplete → friendly message near calculator (`data-mtuc-entry-error`); **no** `issueSubmission` / attempt / modal |
+| Server       | Still authoritative: `missing_required_option` → HTTP 422 + same Bulgarian message                                                                       |
+| 422 fallback | JS maps `error_code` / known messages → same entry error; closes incomplete modal; clears submission token                                               |
+
+Customer message (bg): `Моля, изберете задължителните опции на продукта.` (Jet-aligned; not raw English / HTTP codes).
+
+## First installment on scheme change
+
+Woo/PS: scheme `change` → reset first installment to `0` + unlock UI → clear `lastCalculation` / submission token → server recalculation returns authoritative value + locked/editable state. Never reuse the previous scheme’s input/`lastCalculation.first_installment` as the new default.
+
+## Focus styling (scheme select + first installment)
+
+Woo/PS reference: `:focus` / `:focus-visible` use `outline: none; box-shadow: none` (no browser blue rectangle, no Bootstrap form-control ring). Approved value-like chrome (red text, bottom border only) is unchanged.
+
+**Accessibility compromise:** keyboard focus remains possible (Tab / Escape / modal trap), but these two Step 1 controls intentionally have **no visible focus frame**, matching Woo/PS UniCredit popups. Customer Step 2 fields retain their own treatment.
+
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.

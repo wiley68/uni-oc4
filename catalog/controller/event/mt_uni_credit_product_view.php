@@ -65,6 +65,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'text_processing_title',
             'text_processing_message',
             'text_local_order_prepared',
+            'text_error_required_options',
         ];
         $assetBase = 'extension/mt_uni_credit/catalog/view/image/product/';
         foreach ($languageKeys as $key) {
@@ -207,6 +208,9 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'button_top_spacing'    => ModuleLocalSettings::normalizeButtonTopSpacing(
                 $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)
             ),
+            'i18n'                  => [
+                'error_required_options' => (string) $this->language->get('text_error_required_options'),
+            ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $data['mt_uni_credit_modal_html'] = $this->load->view(
             'extension/mt_uni_credit/module/mt_uni_credit_product_modal',

@@ -375,15 +375,25 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
 
         foreach ($productOptions as $option) {
             $productOptionId = (int) ($option['product_option_id'] ?? 0);
+            $isRequired = (bool) ($option['required'] ?? false);
             if ($productOptionId <= 0 || !array_key_exists($productOptionId, $requestedOptions)) {
-                if ($requireSelectedOptions && (bool) ($option['required'] ?? false)) {
-                    throw new ProductFinancingFlowException('validation', 'Missing required product option.');
+                if ($requireSelectedOptions && $isRequired) {
+                    throw new ProductFinancingFlowException(
+                        'missing_required_option',
+                        'Моля, изберете задължителните опции на продукта.'
+                    );
                 }
                 continue;
             }
             $type = (string) ($option['type'] ?? '');
             $value = $requestedOptions[$productOptionId];
             if ($type === 'checkbox' && is_array($value)) {
+                if ($requireSelectedOptions && $isRequired && $value === []) {
+                    throw new ProductFinancingFlowException(
+                        'missing_required_option',
+                        'Моля, изберете задължителните опции на продукта.'
+                    );
+                }
                 foreach ($value as $productOptionValueId) {
                     $resolved = $this->resolveOptionValue($option, (int) $productOptionValueId, $quantity, $languageId);
                     $optionPrice += $resolved['price_delta'];
@@ -393,20 +403,33 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
                 continue;
             }
             if (in_array($type, ['select', 'radio'], true)) {
+                if ($requireSelectedOptions && $isRequired && (int) $value <= 0) {
+                    throw new ProductFinancingFlowException(
+                        'missing_required_option',
+                        'Моля, изберете задължителните опции на продукта.'
+                    );
+                }
                 $resolved = $this->resolveOptionValue($option, (int) $value, $quantity, $languageId);
                 $optionPrice += $resolved['price_delta'];
                 $orderOptions[] = $resolved['order_option'];
                 $normalized[$productOptionId] = (int) $value;
                 continue;
             }
+            $scalar = is_scalar($value) ? trim((string) $value) : '';
+            if ($requireSelectedOptions && $isRequired && $scalar === '') {
+                throw new ProductFinancingFlowException(
+                    'missing_required_option',
+                    'Моля, изберете задължителните опции на продукта.'
+                );
+            }
             $orderOptions[] = [
                 'product_option_id'       => $productOptionId,
                 'product_option_value_id' => 0,
                 'name'                    => (string) ($option['name'] ?? ''),
-                'value'                   => is_scalar($value) ? (string) $value : '',
+                'value'                   => $scalar,
                 'type'                    => $type,
             ];
-            $normalized[$productOptionId] = is_scalar($value) ? (string) $value : '';
+            $normalized[$productOptionId] = $scalar;
         }
 
         return [
@@ -446,7 +469,10 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
             ];
         }
 
-        throw new ProductFinancingFlowException('validation', 'Invalid product option.');
+        throw new ProductFinancingFlowException(
+            'missing_required_option',
+            'Моля, изберете задължителните опции на продукта.'
+        );
     }
 
     /** @return array{name:string,code:string}|null */

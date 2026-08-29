@@ -29,3 +29,4 @@ $_['text_required']                   = '*';
 $_['text_processing_title']           = 'Обработване на заявката';
 $_['text_processing_message']         = 'Моля, изчакайте...';
 $_['text_local_order_prepared']       = 'Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.';
+$_['text_error_required_options']     = 'Моля, изберете задължителните опции на продукта.';

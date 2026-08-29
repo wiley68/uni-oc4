@@ -140,6 +140,185 @@
       return options;
     }
 
+    function requiredOptionsMessage() {
+      return (state.i18n && state.i18n.error_required_options)
+        || 'Моля, изберете задължителните опции на продукта.';
+    }
+
+    /**
+     * OpenCart product.twig marks required options with .mb-3.required (and quantity).
+     * Detect from live Product DOM — never hardcode product_option_id.
+     * @returns {Element|null} first incomplete required option block
+     */
+    function firstMissingRequiredOptionBlock() {
+      const form = productFormEl();
+      if (!form) {
+        return null;
+      }
+      const blocks = form.querySelectorAll('.mb-3.required, .required');
+      for (let i = 0; i < blocks.length; i += 1) {
+        const block = blocks[i];
+        const candidates = block.querySelectorAll('select, textarea, input');
+        const optionFields = [];
+        candidates.forEach((field) => {
+          const name = field.getAttribute('name') || '';
+          if (name.indexOf('option[') === 0) {
+            optionFields.push(field);
+          }
+        });
+        if (optionFields.length === 0) {
+          continue;
+        }
+        const first = optionFields[0];
+        const name = first.getAttribute('name') || '';
+        const type = (first.getAttribute('type') || first.tagName || '').toLowerCase();
+        if (type === 'radio' || name.indexOf('[]') !== -1 || type === 'checkbox') {
+          let checked = 0;
+          optionFields.forEach((field) => {
+            if ((field.type === 'radio' || field.type === 'checkbox') && field.checked) {
+              checked += 1;
+            }
+          });
+          if (checked === 0) {
+            return block;
+          }
+          continue;
+        }
+        if (type === 'file') {
+          let fileValue = '';
+          optionFields.forEach((field) => {
+            if (field.type === 'hidden' && String(field.value || '').trim() !== '') {
+              fileValue = String(field.value || '').trim();
+            }
+          });
+          if (fileValue === '') {
+            return block;
+          }
+          continue;
+        }
+        let filled = false;
+        optionFields.forEach((field) => {
+          if (field.type === 'hidden') {
+            return;
+          }
+          if (String(field.value || '').trim() !== '') {
+            filled = true;
+          }
+        });
+        if (!filled) {
+          return block;
+        }
+      }
+      return null;
+    }
+
+    function requiredProductOptionsSatisfied() {
+      return firstMissingRequiredOptionBlock() === null;
+    }
+
+    function entryErrorEl() {
+      return root.querySelector('[data-mtuc-entry-error]');
+    }
+
+    function showEntryError(message) {
+      const el = entryErrorEl();
+      if (!el) {
+        return;
+      }
+      el.textContent = message;
+      el.hidden = false;
+    }
+
+    function clearEntryError() {
+      const el = entryErrorEl();
+      if (!el) {
+        return;
+      }
+      el.textContent = '';
+      el.hidden = true;
+    }
+
+    function focusFirstMissingRequiredOption() {
+      const block = firstMissingRequiredOptionBlock();
+      if (!block) {
+        return;
+      }
+      if (typeof block.scrollIntoView === 'function') {
+        block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      const candidates = block.querySelectorAll('select, textarea, input');
+      for (let i = 0; i < candidates.length; i += 1) {
+        const field = candidates[i];
+        const name = field.getAttribute('name') || '';
+        if (name.indexOf('option[') !== 0) {
+          continue;
+        }
+        if (field.type === 'hidden') {
+          continue;
+        }
+        if (typeof field.focus === 'function') {
+          field.focus();
+        }
+        break;
+      }
+    }
+
+    function isMissingRequiredOptionError(json) {
+      if (!json || json.success) {
+        return false;
+      }
+      if (json.error_code === 'missing_required_option') {
+        return true;
+      }
+      const message = String(json.message || '');
+      return message.indexOf('задължителните опции') !== -1
+        || message.indexOf('Missing required product option') !== -1
+        || message.indexOf('Invalid product option') !== -1
+        || message.indexOf('required product option') !== -1;
+    }
+
+    function handleMissingRequiredOptions() {
+      submissionToken = '';
+      lastCalculation = null;
+      showEntryError(requiredOptionsMessage());
+      if (modal && !modal.hidden) {
+        closeModal();
+      }
+      focusFirstMissingRequiredOption();
+    }
+
+    /**
+     * Woo/PS: scheme change clears first installment before server recalculation
+     * so the previous scheme's value cannot leak into the new selection payload.
+     */
+    function resetFirstInstallmentForSchemeChange() {
+      lastCalculation = null;
+      submissionToken = '';
+      const first = firstInput();
+      if (first) {
+        first.value = '0';
+        first.removeAttribute('readonly');
+        first.removeAttribute('disabled');
+      }
+      const firstRow = modal.querySelector('[data-mtuc-first-row]');
+      if (firstRow) {
+        firstRow.hidden = false;
+      }
+      const apply = applyBtn();
+      if (apply) {
+        apply.disabled = true;
+        apply.setAttribute('aria-disabled', 'true');
+      }
+      const submit = submitBtn();
+      if (submit) {
+        submit.disabled = true;
+        submit.setAttribute('aria-disabled', 'true');
+      }
+      if (popupErrorEl()) {
+        popupErrorEl().textContent = '';
+      }
+    }
+
     function quantityValue() {
       const qty = document.querySelector('#input-quantity, input[name="quantity"]');
       const parsed = qty ? parseInt(qty.value, 10) : 1;
@@ -187,6 +366,9 @@
           return;
         }
         if (isOptionControl(target)) {
+          if (requiredProductOptionsSatisfied()) {
+            clearEntryError();
+          }
           scheduleRefreshCalculator('option change');
         }
       });
@@ -588,6 +770,9 @@
         if (json.success) {
           submissionToken = json.submission_token || submissionToken;
           renderCalculation(json.calculation || null);
+          clearEntryError();
+        } else if (isMissingRequiredOptionError(json)) {
+          handleMissingRequiredOptions();
         } else {
           if (popupErrorEl()) {
             popupErrorEl().textContent = json.message || 'Неуспешно изчисление.';
@@ -643,6 +828,8 @@
 
     async function openModal(trigger) {
       lastTrigger = trigger || null;
+      clearEntryError();
+      resetFirstInstallmentForSchemeChange();
       if (modal.parentElement !== document.body) {
         modalHomeParent = modal.parentElement;
         modalHomeNext = modal.nextSibling;
@@ -829,6 +1016,10 @@
         return;
       }
       event.preventDefault();
+      if (!requiredProductOptionsSatisfied()) {
+        handleMissingRequiredOptions();
+        return;
+      }
       if (trigger.dataset.offerType) {
         selectedOfferType = trigger.dataset.offerType;
         selectedSchemeKey = trigger.dataset.preferredKey || selectedSchemeKey;
@@ -872,6 +1063,7 @@
 
     schemeSelect()?.addEventListener('change', () => {
       selectedSchemeKey = schemeSelect().value;
+      resetFirstInstallmentForSchemeChange();
       recalculateSelection();
     });
 
