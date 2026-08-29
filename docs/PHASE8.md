@@ -11,6 +11,14 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Cart calculator not visible (2026-08-29)
+
+**Root cause:** `EventRegistry` defined cart hooks, but `oc_event` only had Product events. Cart `before`/`after` callbacks never ran (Admin Save not executed after Phase 8 deploy).
+
+**Evidence:** Live `oc_event` before fix had Jet cart events + UniCredit product events only. Product-40 CartContext against store_id=0 shop cache yields standard+promo offers; placement after `#shopping-cart` works. Domain was not the failure.
+
+**Fix:** Inserted cart events into `oc_event`; added `ensureEventsSynchronized()` on Admin module `index()` so future EventRegistry gaps self-heal without relying solely on Save.
+
 ## Manual browser matrix (operator)
 
 1. one eligible Cart product

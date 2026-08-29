@@ -21,6 +21,10 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->load->language($this->route);
         $this->document->setTitle($this->language->get('heading_title'));
 
+        $this->load->model('extension/mt_uni_credit/module/mt_uni_credit');
+        // Heal oc_event gaps after file deploys that add EventRegistry codes without Save.
+        $this->model_extension_mt_uni_credit_module_mt_uni_credit->ensureEventsSynchronized();
+
         $data['breadcrumbs'] = [];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_home'),
@@ -40,7 +44,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['refresh_bank_data'] = $this->url->link(OpenCartCompatibility::adminRoute($this->route, 'refreshBankData'), $token);
         $data['back'] = $this->url->link('marketplace/extension', $token . '&type=module');
 
-        $this->load->model('extension/mt_uni_credit/module/mt_uni_credit');
         $defaults = $this->model_extension_mt_uni_credit_module_mt_uni_credit->getDefaultSettings();
         foreach ($defaults as $key => $default) {
             $stored = $this->config->get($key);

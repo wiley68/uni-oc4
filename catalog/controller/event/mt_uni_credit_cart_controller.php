@@ -23,6 +23,13 @@ class MtUniCreditCartController extends \Opencart\System\Engine\Controller
             return;
         }
 
+        $debug = (bool) $this->config->get(\Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings::DEBUG_ENABLED);
+        \Opencart\System\Library\Extension\MtUniCredit\ProductVisibilityDebugLog::write(
+            $this->log,
+            $debug,
+            'Cart assets event executed route=' . $route
+        );
+
         // Reuse Product visual system (shared CSS) + thin cart refresh JS.
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_fonts.css'));
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'));

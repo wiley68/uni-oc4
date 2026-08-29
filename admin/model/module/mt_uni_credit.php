@@ -80,6 +80,33 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         }
     }
 
+    /**
+     * Re-sync when any EventRegistry code is missing from oc_event (e.g. Phase 8 cart hooks
+     * after a file deploy without Admin Save).
+     *
+     * @return list<string> missing codes that triggered the sync (empty when already complete)
+     */
+    public function ensureEventsSynchronized(): array
+    {
+        $this->load->model('setting/event');
+        $installed = [];
+        foreach (EventRegistry::eventCodes() as $code) {
+            $row = $this->model_setting_event->getEventByCode($code);
+            if ($row !== []) {
+                $installed[] = $code;
+            }
+        }
+
+        $missing = \Opencart\System\Library\Extension\MtUniCredit\EventRegistrationGap::missingCodes($installed);
+        if ($missing === []) {
+            return [];
+        }
+
+        $this->syncEvents();
+
+        return $missing;
+    }
+
     public function removeEvents(): void
     {
         $this->load->model('setting/event');
