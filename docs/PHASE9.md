@@ -91,25 +91,40 @@ Selection hash: `CheckoutSelectionHash` (order_id + order_total + fingerprint + 
 
 Confirm does **not** trust Product-style popup POST for customer fields.
 
+OpenCart 4.1.0.3 timing: `checkout/confirm.index` may persist **empty** `payment_*` when `config_checkout_payment_address` is off, while `firstname`/`lastname`/`email` come from `session.customer` and the delivery address lives in `shipping_*` / `session.shipping_address`. `telephone` may also be empty on the order row at payment-controller time.
+
 ```text
 session.order_id
 → order snapshot
-→ CheckoutOrderCustomerAdapter
-→ ProductCustomerValidator / address fields
+→ session.customer / payment_address / shipping_address
+→ optional verified Address::getAddress(customer_id, address_id) when logged-in + owned
+→ CheckoutOrderCustomerAdapter::fromCheckoutContext()
+→ ProductCustomerValidator (unchanged required set)
 → FinancingCustomerData + FinancingAddressData
 ```
 
-Mapping:
+Precedence (first non-empty wins per field):
 
-| Order column        | Financing field     |
-| ------------------- | ------------------- |
-| `payment_firstname` | firstname           |
-| `payment_lastname`  | lastname            |
-| `payment_address_1` | address / address_1 |
-| `telephone`         | telephone (phone)   |
-| `email`             | email               |
+1. order `payment_*`
+2. order `shipping_*` (name/address when payment address unused)
+3. order customer columns (`firstname` / `lastname` / `email` / `telephone`)
+4. `session.payment_address`
+5. `session.shipping_address`
+6. `session.customer`
+7. verified owned address row (logged-in only; never `getAddress(0, …)`)
 
-Guest `customer_id = 0` is valid. Logged-in ownership (`order.customer_id === session customer`) remains enforced in `resolveSessionOrder()`.
+Mapping (financing keys):
+
+| Financing field      | Typical sources                                                        |
+| -------------------- | ---------------------------------------------------------------------- |
+| firstname / lastname | order payment/shipping/customer → session addresses/customer           |
+| address              | order payment/shipping address_1 → session payment/shipping → verified |
+| telephone            | order.telephone → session.customer.telephone (never `phone`)           |
+| email                | order.email → session.customer.email                                   |
+
+Guest `customer_id = 0` is first-class. Logged-in ownership (`order.customer_id === session customer`) remains enforced in `resolveSessionOrder()`. Stale/malicious POST customer fields cannot override native Checkout identity (hidden customer inputs removed from payment twig).
+
+True missing after all sources → `invalid_customer` + diagnostic `checkout_customer_missing_fields`.
 
 Consents still come from the financing panel POST (`consent[]` / `consent[n]`).
 

@@ -12,14 +12,17 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductPopupFormNormalizer;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Checkout confirm must adapt native order snapshot — not Product popup POST phone naming.
+ * Checkout confirm adapts native order + session Checkout state (OC 4.1 timing).
+ *
+ * Real failure: config_checkout_payment_address=0 → empty payment_* on oc_order while
+ * customer columns / shipping_* / session still hold required data.
  */
 final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 {
     public function testGuestOrderSnapshotMapsToSharedValidatorKeys(): void
     {
         $adapter = new CheckoutOrderCustomerAdapter();
-        $order = $this->guestOrder();
+        $order = $this->fullPaymentOrder();
         $input = $adapter->toValidationInput($order);
 
         self::assertSame('Ada', $input['firstname']);
@@ -47,9 +50,250 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertSame('ул. Пример 1', $billing->address1);
     }
 
+    public function testPartialOrderSnapshotCompletedFromSessionPaymentAddress(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        // Mirrors OC 4.1 when payment_* are blank strings and telephone not yet on order row.
+        $order = [
+            'order_id'           => 475,
+            'customer_id'        => 0,
+            'firstname'          => 'Ada',
+            'lastname'           => 'Lovelace',
+            'email'              => 'ada@example.com',
+            'telephone'          => '',
+            'payment_firstname'  => '',
+            'payment_lastname'   => '',
+            'payment_address_1'  => '',
+            'payment_address_id' => 0,
+            'shipping_firstname' => '',
+            'shipping_address_1' => '',
+        ];
+        $session = [
+            'customer' => [
+                'customer_id' => 0,
+                'firstname'   => 'Ada',
+                'lastname'    => 'Lovelace',
+                'email'       => 'ada@example.com',
+                'telephone'   => '+359888000111',
+            ],
+            'payment_address' => [
+                'firstname'  => 'Ada',
+                'lastname'   => 'Lovelace',
+                'address_1'  => 'ул. Пример 1',
+                'city'       => 'София',
+                'postcode'   => '1000',
+                'country'    => 'Bulgaria',
+                'country_id' => 33,
+                'zone'       => 'Sofia',
+                'zone_id'    => 4239,
+            ],
+            'shipping_address' => [],
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, $session, null);
+        self::assertSame([], $resolved['missing']);
+        self::assertSame('Ada', $resolved['input']['firstname']);
+        self::assertSame('order.firstname', $resolved['sources']['firstname']);
+        self::assertSame('ул. Пример 1', $resolved['input']['address']);
+        self::assertSame('session.payment_address.address_1', $resolved['sources']['address']);
+        self::assertSame('+359888000111', $resolved['input']['telephone']);
+        self::assertSame('session.customer.telephone', $resolved['sources']['telephone']);
+
+        $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
+        (new ProductCustomerValidator())->validate($normalized, 1, 0);
+        (new ProductAddressValidator())->validateRequired(
+            (new ProductAddressValidator())->extractPostedAddress($normalized)
+        );
+    }
+
+    public function testOc41PaymentAddressDisabledUsesShippingOnOrder(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = [
+            'order_id'            => 475,
+            'customer_id'         => 0,
+            'firstname'           => 'Ada',
+            'lastname'            => 'Lovelace',
+            'email'               => 'ada@example.com',
+            'telephone'           => '+359888000111',
+            'payment_firstname'   => '',
+            'payment_lastname'    => '',
+            'payment_address_1'   => '',
+            'payment_address_id'  => 0,
+            'shipping_firstname'  => 'Ada',
+            'shipping_lastname'   => 'Lovelace',
+            'shipping_address_1'  => 'ул. Доставка 9',
+            'shipping_city'       => 'София',
+            'shipping_postcode'   => '1000',
+            'shipping_country'    => 'Bulgaria',
+            'shipping_country_id' => 33,
+            'shipping_zone'       => 'Sofia',
+            'shipping_zone_id'    => 4239,
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, [], null);
+        self::assertSame([], $resolved['missing']);
+        self::assertSame('ул. Доставка 9', $resolved['input']['address']);
+        self::assertSame('order.shipping_address_1', $resolved['sources']['address']);
+        // Empty payment_* must not shadow shipping/customer name via ?? semantics.
+        self::assertSame('order.shipping_firstname', $resolved['sources']['firstname']);
+        self::assertSame('Ada', $resolved['input']['firstname']);
+    }
+
+    public function testTrulyMissingFieldRemainsInvalid(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = [
+            'order_id'           => 1,
+            'customer_id'        => 0,
+            'firstname'          => 'Ada',
+            'lastname'           => 'Lovelace',
+            'email'              => 'ada@example.com',
+            'telephone'          => '+359888000111',
+            'payment_firstname'  => '',
+            'payment_lastname'   => '',
+            'payment_address_1'  => '',
+            'shipping_address_1' => '',
+        ];
+        $session = [
+            'customer'         => ['telephone' => '+359888000111', 'email' => 'ada@example.com'],
+            'payment_address'  => [],
+            'shipping_address' => [],
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, $session, null);
+        self::assertSame(['address'], $resolved['missing']);
+        self::assertSame('missing', $resolved['sources']['address']);
+    }
+
+    public function testGuestPartialOrderCompletedFromSessionWithoutAddressModel(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = [
+            'order_id'           => 900,
+            'customer_id'        => 0,
+            'firstname'          => '',
+            'lastname'           => '',
+            'email'              => '',
+            'telephone'          => '',
+            'payment_firstname'  => '',
+            'payment_lastname'   => '',
+            'payment_address_1'  => '',
+            'shipping_address_1' => '',
+        ];
+        $session = [
+            'customer' => [
+                'customer_id' => 0,
+                'firstname'   => 'Guest',
+                'lastname'    => 'Buyer',
+                'email'       => 'guest@example.com',
+                'telephone'   => '+359888000222',
+            ],
+            'payment_address' => [],
+            'shipping_address' => [
+                'firstname'  => 'Guest',
+                'lastname'   => 'Buyer',
+                'address_1'  => 'ул. Гост 2',
+                'city'       => 'Пловдив',
+                'postcode'   => '4000',
+                'country_id' => 33,
+                'zone_id'    => 1,
+                'country'    => 'Bulgaria',
+                'zone'       => 'Plovdiv',
+            ],
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, $session, null);
+        self::assertSame([], $resolved['missing']);
+        self::assertSame(0, (int) ($order['customer_id'] ?? 0));
+        $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
+        $validated = (new ProductCustomerValidator())->validate($normalized, 1, 0);
+        self::assertSame(0, $validated['customer']->customerId);
+    }
+
+    public function testLoggedInVerifiedAddressCompletesPartialOrder(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = [
+            'order_id'           => 901,
+            'customer_id'        => 42,
+            'firstname'          => 'Logged',
+            'lastname'           => 'In',
+            'email'              => 'logged@example.com',
+            'telephone'          => '',
+            'payment_firstname'  => '',
+            'payment_lastname'   => '',
+            'payment_address_1'  => '',
+            'payment_address_id' => 7,
+            'shipping_address_1' => '',
+        ];
+        $session = [
+            'customer' => [
+                'customer_id' => 42,
+                'firstname'   => 'Logged',
+                'lastname'    => 'In',
+                'email'       => 'logged@example.com',
+                'telephone'   => '+359888000333',
+            ],
+            'payment_address'  => [],
+            'shipping_address' => [],
+        ];
+        $verified = [
+            'firstname'  => 'Logged',
+            'lastname'   => 'In',
+            'address_1'  => 'ул. Клиент 5',
+            'city'       => 'Варна',
+            'postcode'   => '9000',
+            'country_id' => 33,
+            'zone_id'    => 2,
+            'country'    => 'Bulgaria',
+            'zone'       => 'Varna',
+            'telephone'  => '+359888000333',
+        ];
+
+        $resolved = $adapter->fromCheckoutContext($order, $session, $verified);
+        self::assertSame([], $resolved['missing']);
+        self::assertSame('verified_address.address_1', $resolved['sources']['address']);
+        $validated = (new ProductCustomerValidator())->validate(
+            (new ProductPopupFormNormalizer())->normalize($resolved['input'], []),
+            1,
+            42
+        );
+        self::assertSame(42, $validated['customer']->customerId);
+    }
+
+    public function testPostedCustomerFieldsDoNotOverrideNativeCheckout(): void
+    {
+        $adapter = new CheckoutOrderCustomerAdapter();
+        $order = $this->fullPaymentOrder();
+        $resolved = $adapter->fromCheckoutContext($order, [], null);
+        // Simulate malicious POST differing from native order — adapter never reads POST.
+        $posted = [
+            'firstname' => 'Hacker',
+            'lastname'  => 'Override',
+            'email'     => 'evil@example.com',
+            'telephone' => '+359000000000',
+            'address'   => 'evil street',
+            'consent'   => ['1'],
+        ];
+        self::assertSame(['1'], $adapter->extractPostedConsents($posted));
+        self::assertSame('Ada', $resolved['input']['firstname']);
+        self::assertSame('ул. Пример 1', $resolved['input']['address']);
+        self::assertNotSame($posted['firstname'], $resolved['input']['firstname']);
+
+        $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
+        self::assertStringContainsString('fromCheckoutContext', $service);
+        self::assertStringContainsString('extractPostedConsents', $service);
+        self::assertStringNotContainsString('$this->popupFormNormalizer->normalize($posted', $service);
+
+        $twig = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/payment/mt_uni_credit.twig');
+        self::assertStringNotContainsString('name="firstname"', $twig);
+        self::assertStringNotContainsString('name="telephone"', $twig);
+        self::assertStringNotContainsString('name="address"', $twig);
+    }
+
     public function testPhoneOnlyPostedWithoutTelephoneStillFailsBeforeAdapter(): void
     {
-        // Documents the operator 422: ProductCustomerValidator reads telephone, not phone.
         $this->expectException(ProductFinancingFlowException::class);
         (new ProductCustomerValidator())->validate([
             'firstname' => 'Ada',
@@ -62,7 +306,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
     public function testLoggedInOwnershipUsesOrderCustomerIdInSnapshot(): void
     {
         $adapter = new CheckoutOrderCustomerAdapter();
-        $order = $this->guestOrder();
+        $order = $this->fullPaymentOrder();
         $order['customer_id'] = 42;
         $input = $adapter->toValidationInput($order);
         $validated = (new ProductCustomerValidator())->validate($input, 1, 42);
@@ -93,23 +337,27 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertStringNotContainsString('Confirm financing', $en);
     }
 
-    public function testConfirmUsesOrderSnapshotAdapter(): void
+    public function testConfirmUsesCheckoutContextAdapter(): void
     {
         $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
         self::assertStringContainsString('CheckoutOrderCustomerAdapter', $service);
-        self::assertStringContainsString('toValidationInput', $service);
-        self::assertStringContainsString('billingAddressFromOrder', $service);
+        self::assertStringContainsString('fromCheckoutContext', $service);
+        self::assertStringContainsString('billingAddressFromResolved', $service);
+        self::assertStringContainsString('checkout_customer_missing_fields', $service);
         self::assertStringContainsString('extractPostedConsents', $service);
 
         $controller = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
-        self::assertMatchesRegularExpression(
-            '/LockOwnerTokenGenerator::generate\(\),\s*\(int\) \$order\[\'order_id\'\],\s*\$order,/',
-            $controller
-        );
+        self::assertStringContainsString('sessionCheckoutData()', $controller);
+        self::assertStringContainsString('verifiedOwnedAddressForOrder', $controller);
+
+        $model = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php');
+        self::assertStringContainsString('function sessionCheckoutData', $model);
+        self::assertStringContainsString('function verifiedOwnedAddressForOrder', $model);
+        self::assertStringContainsString('getAddress($customerId, $addressId)', $model);
     }
 
     /** @return array<string, mixed> */
-    private function guestOrder(): array
+    private function fullPaymentOrder(): array
     {
         return [
             'order_id'            => 1001,

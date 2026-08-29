@@ -66,21 +66,8 @@
       </dl>
     </div>
 
+    {# Customer identity comes from native Checkout session/order at confirm — not hidden POST fields. #}
     <form id="mt-uni-credit-checkout-form" novalidate>
-      <input type="hidden" name="firstname" value="{{ customer.firstname }}">
-      <input type="hidden" name="lastname" value="{{ customer.lastname }}">
-      <input type="hidden" name="email" value="{{ customer.email }}">
-      <input type="hidden" name="telephone" value="{{ customer.telephone }}">
-      <input type="hidden" name="address" value="{{ customer.address }}">
-      <input type="hidden" name="address_1" value="{{ customer.address }}">
-      <input type="hidden" name="company" value="{{ customer.company|default('') }}">
-      <input type="hidden" name="city" value="{{ customer.city|default('') }}">
-      <input type="hidden" name="postcode" value="{{ customer.postcode|default('') }}">
-      <input type="hidden" name="country" value="{{ customer.country|default('') }}">
-      <input type="hidden" name="country_id" value="{{ customer.country_id|default(0) }}">
-      <input type="hidden" name="zone" value="{{ customer.zone|default('') }}">
-      <input type="hidden" name="zone_id" value="{{ customer.zone_id|default(0) }}">
-
       {% if consents %}
         <div class="mt-uni-credit-product-calculator__consents" data-mtuc-consents aria-label="{{ text_consents }}">
           {% for consent in consents %}

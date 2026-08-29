@@ -304,33 +304,118 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
     }
 
     /**
-     * Prefill from native order payment_* fields (guest-safe).
+     * Current native Checkout session slices used by CheckoutOrderCustomerAdapter.
+     *
+     * @return array{
+     *     customer: array<string, mixed>,
+     *     payment_address: array<string, mixed>,
+     *     shipping_address: array<string, mixed>
+     * }
+     */
+    public function sessionCheckoutData(): array
+    {
+        $customer = $this->session->data['customer'] ?? [];
+        $paymentAddress = $this->session->data['payment_address'] ?? [];
+        $shippingAddress = $this->session->data['shipping_address'] ?? [];
+
+        $customer = is_array($customer) ? $customer : [];
+        $paymentAddress = is_array($paymentAddress) ? $paymentAddress : [];
+        $shippingAddress = is_array($shippingAddress) ? $shippingAddress : [];
+
+        // Logged-in: fill blanks from owned customer account (session may lag after address edits).
+        if ($this->customer->isLogged()) {
+            $customerId = (int) $this->customer->getId();
+            $sessionCustomerId = (int) ($customer['customer_id'] ?? 0);
+            if ($customerId > 0 && ($sessionCustomerId === 0 || $sessionCustomerId === $customerId)) {
+                $this->load->model('account/customer');
+                $account = $this->model_account_customer->getCustomer($customerId);
+                if (is_array($account) && $account !== []) {
+                    foreach (['firstname', 'lastname', 'email', 'telephone'] as $field) {
+                        if (trim((string) ($customer[$field] ?? '')) === '' && trim((string) ($account[$field] ?? '')) !== '') {
+                            $customer[$field] = $account[$field];
+                        }
+                    }
+                    $customer['customer_id'] = $customerId;
+                }
+            }
+        }
+
+        return [
+            'customer'         => $customer,
+            'payment_address'  => $paymentAddress,
+            'shipping_address' => $shippingAddress,
+        ];
+    }
+
+    /**
+     * Logged-in only: Address::getAddress when order/session address_id belongs to the customer.
+     * Guest (customer_id=0) never loads address model rows.
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, mixed>|null
+     */
+    public function verifiedOwnedAddressForOrder(array $order): ?array
+    {
+        $customerId = (int) ($order['customer_id'] ?? 0);
+        if ($customerId <= 0 || !$this->customer->isLogged() || (int) $this->customer->getId() !== $customerId) {
+            return null;
+        }
+
+        $session = $this->sessionCheckoutData();
+        $addressId = (int) ($order['payment_address_id'] ?? 0);
+        if ($addressId <= 0) {
+            $addressId = (int) ($session['payment_address']['address_id'] ?? 0);
+        }
+        if ($addressId <= 0) {
+            $addressId = (int) ($order['shipping_address_id'] ?? 0);
+        }
+        if ($addressId <= 0) {
+            $addressId = (int) ($session['shipping_address']['address_id'] ?? 0);
+        }
+        if ($addressId <= 0) {
+            return null;
+        }
+
+        $this->load->model('account/address');
+        $row = $this->model_account_address->getAddress($customerId, $addressId);
+        if (!is_array($row) || $row === []) {
+            return null;
+        }
+
+        return $row;
+    }
+
+    /**
+     * Display prefill from current native Checkout context (guest-safe). Not used as confirm authority.
      *
      * @param array<string, mixed> $order
      * @return array<string, mixed>
      */
     public function customerPrefillFromOrder(array $order): array
     {
-        $address1 = trim((string) ($order['payment_address_1'] ?? ''));
-        $address2 = trim((string) ($order['payment_address_2'] ?? ''));
-        $parts = array_values(array_filter([$address1, $address2], static fn(string $v): bool => $v !== ''));
-        $address = substr(implode(', ', $parts), 0, 256);
+        $adapter = new \Opencart\System\Library\Extension\MtUniCredit\CheckoutOrderCustomerAdapter();
+        $resolved = $adapter->fromCheckoutContext(
+            $order,
+            $this->sessionCheckoutData(),
+            $this->verifiedOwnedAddressForOrder($order)
+        );
+        $input = $resolved['input'];
 
         return [
-            'firstname'  => trim((string) ($order['payment_firstname'] ?? $order['firstname'] ?? '')),
-            'lastname'   => trim((string) ($order['payment_lastname'] ?? $order['lastname'] ?? '')),
-            'address'    => $address,
-            'telephone'  => trim((string) ($order['telephone'] ?? '')),
-            'email'      => trim((string) ($order['email'] ?? '')),
+            'firstname'  => (string) ($input['firstname'] ?? ''),
+            'lastname'   => (string) ($input['lastname'] ?? ''),
+            'address'    => (string) ($input['address'] ?? ''),
+            'telephone'  => (string) ($input['telephone'] ?? ''),
+            'email'      => (string) ($input['email'] ?? ''),
             'address_id' => 0,
             'is_logged'  => (int) ($order['customer_id'] ?? 0) > 0,
-            'company'    => (string) ($order['payment_company'] ?? ''),
-            'city'       => (string) ($order['payment_city'] ?? ''),
-            'postcode'   => (string) ($order['payment_postcode'] ?? ''),
-            'country'    => (string) ($order['payment_country'] ?? ''),
-            'country_id' => (int) ($order['payment_country_id'] ?? 0),
-            'zone'       => (string) ($order['payment_zone'] ?? ''),
-            'zone_id'    => (int) ($order['payment_zone_id'] ?? 0),
+            'company'    => (string) ($input['company'] ?? ''),
+            'city'       => (string) ($input['city'] ?? ''),
+            'postcode'   => (string) ($input['postcode'] ?? ''),
+            'country'    => (string) ($input['country'] ?? ''),
+            'country_id' => (int) ($input['country_id'] ?? 0),
+            'zone'       => (string) ($input['zone'] ?? ''),
+            'zone_id'    => (int) ($input['zone_id'] ?? 0),
         ];
     }
 

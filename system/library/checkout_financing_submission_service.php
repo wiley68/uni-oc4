@@ -70,7 +70,9 @@ final class CheckoutFinancingSubmissionService
         int $existingOrderId,
         array $orderSnapshot = [],
         string $ip = '127.0.0.1',
-        array $storeAddressDefaults = []
+        array $storeAddressDefaults = [],
+        array $sessionCheckout = [],
+        ?array $verifiedAddress = null
     ): ProductFinancingResult {
         if ($existingOrderId <= 0) {
             throw new ProductFinancingFlowException(
@@ -88,10 +90,27 @@ final class CheckoutFinancingSubmissionService
             );
         }
 
-        // Customer/address come from native order snapshot — not Product/Cart popup POST keys.
+        // Customer/address: native Checkout context (order + session). POST customer keys ignored.
         $postedConsents = $this->orderCustomerAdapter->extractPostedConsents($posted);
-        $orderInput = $this->orderCustomerAdapter->toValidationInput($orderSnapshot);
-        $customerPosted = $this->popupFormNormalizer->normalize($orderInput, $storeAddressDefaults);
+        $resolved = $this->orderCustomerAdapter->fromCheckoutContext(
+            $orderSnapshot,
+            $sessionCheckout,
+            $verifiedAddress
+        );
+        if ($resolved['missing'] !== []) {
+            $missingMap = [
+                'checkout_customer_missing_fields' => implode(',', $resolved['missing']),
+            ];
+            foreach ($resolved['missing'] as $field) {
+                $missingMap[$field] = 'required';
+            }
+            throw new ProductFinancingFlowException(
+                'invalid_customer',
+                'Данните на клиента в поръчката са непълни. Моля, върнете се към адресните данни в касата и опитайте отново.',
+                $missingMap
+            );
+        }
+        $customerPosted = $this->popupFormNormalizer->normalize($resolved['input'], $storeAddressDefaults);
         $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
         if ($attemptRow === null) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
@@ -205,8 +224,8 @@ final class CheckoutFinancingSubmissionService
             );
         }
 
-        $billingAddress = $this->orderCustomerAdapter->billingAddressFromOrder(
-            $orderSnapshot,
+        $billingAddress = $this->orderCustomerAdapter->billingAddressFromResolved(
+            $resolved['input'],
             $validatedCustomer['customer']
         );
         $shippingAddress = $shippingRequired

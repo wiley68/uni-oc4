@@ -295,7 +295,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                     (int) $order['order_id'],
                     $order,
                     (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
-                    $model->storeAddressDefaults()
+                    $model->storeAddressDefaults(),
+                    $model->sessionCheckoutData(),
+                    $model->verifiedOwnedAddressForOrder($order)
                 );
             } catch (ProductFinancingFlowException $exception) {
                 http_response_code($exception->httpStatus());
