@@ -30,8 +30,17 @@
     }
 
     const calculator = root.querySelector('.mt-uni-credit-product-calculator__calculator');
-    const form = document.getElementById('mt-uni-credit-product-form');
     const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    /**
+     * Live financing form — never cache at init.
+     * Nested inside #form-product the HTML5 parser drops the inner <form>, so
+     * an init-time getElementById is permanently null even after modal→body move.
+     */
+    function activeProductFinancingForm() {
+      return modal.querySelector('#mt-uni-credit-product-form')
+        || document.getElementById('mt-uni-credit-product-form');
+    }
 
     let sequence = 0;
     let abortController = null;
@@ -485,8 +494,9 @@
       if (popupErrorEl()) {
         popupErrorEl().textContent = '';
       }
-      if (form) {
-        form.querySelectorAll('.mt-uni-credit-product-calculator__customer-input').forEach((input) => {
+      const financingForm = activeProductFinancingForm();
+      if (financingForm) {
+        financingForm.querySelectorAll('.mt-uni-credit-product-calculator__customer-input').forEach((input) => {
           input.setAttribute('aria-invalid', 'false');
         });
       }
@@ -530,7 +540,7 @@
     }
 
     function customerField(name) {
-      const scope = form || step2Root() || modal;
+      const scope = activeProductFinancingForm() || step2Root() || modal;
       return scope ? scope.querySelector(`[name="${name}"]`) : null;
     }
 
@@ -556,7 +566,7 @@
     }
 
     function consentCheckboxes() {
-      const scope = form || step2Root() || modal;
+      const scope = activeProductFinancingForm() || step2Root() || modal;
       if (!scope) {
         return [];
       }
@@ -698,7 +708,7 @@
     }
 
     function bindStep2ReadinessListeners() {
-      const scope = form || step2Root();
+      const scope = activeProductFinancingForm() || step2Root();
       if (!scope) {
         return;
       }
@@ -1286,13 +1296,13 @@
       if (submitBusy) {
         return;
       }
-      // Prefer live modal form — init-time getElementById can be null if placement races DOMContentLoaded.
-      const activeForm = modal.querySelector('#mt-uni-credit-product-form') || form;
+      const activeForm = activeProductFinancingForm();
       const button = submitBtn();
       const submitError = modal.querySelector('[data-mtuc-submit-error]');
+      const initialHasContext = hasAuthoritativeCalculation();
       syncSelectedSchemeFromDom();
 
-      if (!hasAuthoritativeCalculation()) {
+      if (!initialHasContext) {
         setProcessing(true);
         try {
           populateSchemeSelect();
@@ -1312,10 +1322,24 @@
       }
 
       const scheme = syncSelectedSchemeFromDom();
-      if (!scheme || !button || !activeForm || !hasAuthoritativeCalculation()) {
+      const schemePresent = !!scheme;
+      const buttonPresent = !!(button && button.isConnected);
+      const activeFormPresent = !!(activeForm && activeForm.isConnected);
+      const finalHasContext = hasAuthoritativeCalculation();
+
+      if (!schemePresent || !finalHasContext) {
         updateSubmitState(false);
         if (submitError) {
+          // Internal reason: schemePresent ? 'submit_missing_context' : 'submit_missing_scheme'
           submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
+        }
+        return;
+      }
+      if (!buttonPresent || !activeFormPresent) {
+        updateSubmitState(false);
+        if (submitError) {
+          // Internal reason: !activeFormPresent ? 'submit_missing_form' : 'submit_missing_button'
+          submitError.textContent = 'Заявката не може да бъде обработена. Моля, опитайте отново.';
         }
         return;
       }
@@ -1409,7 +1433,7 @@
         if (!apply.disabled && hasAuthoritativeCalculation()) {
           setStep(2);
           updateSubmitState(false);
-          form?.querySelector('input, select, textarea')?.focus();
+          activeProductFinancingForm()?.querySelector('input, select, textarea')?.focus();
         }
         return;
       }
@@ -1433,7 +1457,7 @@
       firstInstallmentTimer = setTimeout(() => recalculateSelection(), 400);
     });
 
-    form?.addEventListener('submit', submitForm);
+    activeProductFinancingForm()?.addEventListener('submit', submitForm);
 
     bindProductRecalculationListeners();
     bindStep2ReadinessListeners();

@@ -66,13 +66,17 @@ final class Phase7ProductFlowTest extends TestCase
 
     public function testStandardThemeInsertionIsDeterministic(): void
     {
-        $html = '<form><button type="submit" id="button-cart">Add</button><div></div></form>';
+        $html = '<form id="form-product"><button type="submit" id="button-cart">Add</button><div></div></form>';
         $adapter = new StandardThemeProductPlacement();
         $fragment = '<div id="mt-uni-credit"></div>';
         $result = $adapter->insertAfterAddToCartBlock($html, $fragment);
         self::assertStringContainsString($fragment, $result);
         self::assertSame($result, $adapter->insertAfterAddToCartBlock($html, $fragment));
-        self::assertStringStartsWith('<form><button type="submit" id="button-cart">Add</button><div></div>', $result);
+        self::assertStringEndsWith('</form>' . $fragment, $result);
+        self::assertGreaterThan(
+            (int) strpos($result, '</form>'),
+            (int) strpos($result, 'id="mt-uni-credit"')
+        );
     }
 
     public function testModalTwigHasDialogSemantics(): void

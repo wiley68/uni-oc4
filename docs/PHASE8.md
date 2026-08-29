@@ -11,7 +11,21 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
-## Runtime remediation — Product submit recovery / calcBusy race (2026-08-29)
+## Runtime remediation — Product nested form / activeFormPresent=false (2026-08-29)
+
+**Proven operands at `Изпрати` (no recovery POST, no product.submit):**
+
+```text
+initialHasContext=true
+schemePresent=true
+buttonPresent=true
+activeFormPresent=false
+finalHasContext=true
+```
+
+**Root cause:** `StandardThemeProductPlacement` inserted the calculator **inside** `#form-product`. HTML5 ignores nested `<form>` start tags → `#mt-uni-credit-product-form` never exists → `activeForm` null. Same customer message was used for scheme/context and DOM failures. Modal→body move is unrelated (form was never created).
+
+**Fix (Product only; Cart untouched):** insert fragment after `</form>` of `#form-product`; live `activeProductFinancingForm()`; split DOM vs scheme/context customer messages.
 
 **Evidence:** Operator click showed the scheme/calculation guard message; access log had **no** `product.submit` and **no** recovery `issueSubmission`. Previous recovery called `recalculateSelection()` which returned early on `calcBusy` / missing scheme without a boolean result — silent no-op.
 

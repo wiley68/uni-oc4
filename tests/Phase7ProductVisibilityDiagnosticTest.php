@@ -51,6 +51,8 @@ final class Phase7ProductVisibilityDiagnosticTest extends TestCase
     public function testOc4103StandardThemeButtonCartPlacementInjectsFragment(): void
     {
         $html = <<<'HTML'
+              <div id="product">
+              <form id="form-product" method="post">
               <div class="mb-3">
                 <div class="input-group">
                   <div class="input-group-text">Qty</div>
@@ -60,6 +62,8 @@ final class Phase7ProductVisibilityDiagnosticTest extends TestCase
                 <input type="hidden" name="product_id" value="40" id="input-product-id"/>
                 <div id="error-quantity" class="form-text"></div>
               </div>
+            </form>
+          </div>
 HTML;
         $fragment = '<div id="mt-uni-credit-product-root" class="mt-uni-credit-product"></div>';
         $placed = (new StandardThemeProductPlacement())->insertAfterAddToCartBlock($html, $fragment);
@@ -67,6 +71,10 @@ HTML;
         self::assertStringContainsString('mt-uni-credit-product-root', $placed);
         self::assertTrue(
             strpos($placed, 'id="button-cart"') < strpos($placed, 'mt-uni-credit-product-root')
+        );
+        self::assertTrue(
+            strpos($placed, '</form>') < strpos($placed, 'mt-uni-credit-product-root'),
+            'financing root must be outside #form-product'
         );
     }
 

@@ -28,7 +28,7 @@ final class Phase78SubmitRuntimeContractTest extends TestCase
             '/closest\(\'\\[data-mtuc-submit\\]\'\)[\s\S]*?submitForm\(/',
             $js
         );
-        self::assertStringContainsString("form?.addEventListener('submit', submitForm)", $js);
+        self::assertStringContainsString("activeProductFinancingForm()?.addEventListener('submit', submitForm)", $js);
     }
 
     public function testProductSubmitPostsToSubmitUrlWithoutRefreshAbort(): void

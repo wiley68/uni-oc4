@@ -102,9 +102,7 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
     public function testActiveFormResolvedFromModalAtSubmit(): void
     {
         $js = $this->productJs();
-        self::assertStringContainsString(
-            "modal.querySelector('#mt-uni-credit-product-form') || form",
-            $js
-        );
+        self::assertStringContainsString('function activeProductFinancingForm(', $js);
+        self::assertStringContainsString('const activeForm = activeProductFinancingForm()', $js);
     }
 }
