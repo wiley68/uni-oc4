@@ -59,6 +59,21 @@
   margin-top: 0.75rem;
 }
 
+/* Process helper — parity with uni-woo .mtuc-checkout-payment__intro / PS .unipayment-checkout__intro */
+#mt-uni-credit-checkout-root .mt-uni-credit-checkout-panel__helper {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mtuc-popup-red, #ed1c24);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .mt-uni-credit-checkout-panel__success[hidden],
 .mt-uni-credit-checkout-panel [data-mtuc-processing][hidden] {
   display: none !important;

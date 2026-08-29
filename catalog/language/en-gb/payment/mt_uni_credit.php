@@ -30,6 +30,10 @@ $_['text_success_financing'] = 'The data has been accepted. The order has been p
 $_['text_offer_standard'] = 'Standard';
 $_['text_offer_promo'] = 'Promo';
 
+// Checkout process helpers (no separate EN msgid in uni-woo; Process 2 BG matches Process 1 intro there)
+$_['text_checkout_helper_process1'] = 'You can choose the credit term, your preferred monthly installment and, if desired, an initial payment. Then confirm your choice. You will be redirected to the UniCredit page to complete your purchase on credit.';
+$_['text_checkout_helper_process2'] = 'You can choose the credit term, your preferred monthly installment and, if desired, an initial payment. Then confirm your choice. You will be redirected to the UniCredit page to complete your purchase on credit.';
+
 // Error
 $_['error_order'] = 'There is no order in the session. Please restart checkout.';
 $_['error_order_changed'] = 'The order or checkout contents changed. Please reload the payment step.';

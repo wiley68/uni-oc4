@@ -9,7 +9,7 @@
     "field": "uni_proces",
     "process_2_when": 1,
     "process_1_otherwise": true,
-    "note": "isProcess2() returns true iff (int) uni_proces === 1. The numeric value is inverted relative to the process name."
+    "note": "OC4 ShopConfigurationFlags::isSecondaryProcess() (parity with PS isProcess2) returns true iff (int) uni_proces === 1. The numeric value is inverted relative to the process name."
   },
   "module_outbound_bank_status": [
     {

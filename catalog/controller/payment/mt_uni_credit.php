@@ -12,6 +12,7 @@ use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductStorefrontCsrf;
+use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags;
 use Opencart\System\Library\Extension\MtUniCredit\SubmissionTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\UnavailableSchemeException;
 
@@ -119,6 +120,10 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['consents'] = $modal['consents'] ?? [];
         $data['show_first_installment'] = !empty($presenter['show_first_installment']);
         $data['badge_url'] = $assetBase . 'uni_mini_logo.png';
+        $secondaryProcess = ShopConfigurationFlags::isSecondaryProcess($shop);
+        $data['checkout_helper'] = $this->language->get(
+            $secondaryProcess ? 'text_checkout_helper_process2' : 'text_checkout_helper_process1'
+        );
         $data['mt_uni_credit_bootstrap_json'] = json_encode([
             'source'               => 'checkout',
             'order_id'             => (int) $order['order_id'],

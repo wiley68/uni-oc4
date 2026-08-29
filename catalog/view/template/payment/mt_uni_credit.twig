@@ -7,6 +7,10 @@
   <div class="mt-uni-credit-product-calculator__popup-panel mt-uni-credit-checkout-panel__body">
     <h2 class="mt-uni-credit-product-calculator__popup-title">{{ heading_title }}</h2>
 
+    {% if checkout_helper %}
+      <p class="mt-uni-credit-checkout-panel__helper" data-mtuc-checkout-helper>{{ checkout_helper }}</p>
+    {% endif %}
+
     <div class="mt-uni-credit-product-calculator__popup-calc">
       <div class="mt-uni-credit-product-calculator__popup-row">
         <div class="mt-uni-credit-product-calculator__popup-label">{{ text_price }}</div>

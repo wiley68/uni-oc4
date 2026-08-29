@@ -131,7 +131,7 @@ Headers: `X-UniPayment-Timestamp`, `X-UniPayment-Nonce`, `X-UniPayment-Signature
 | `bank_send_failed_cp`       | `Неуспешно изпратен Банка - КП`       | CP create fail при Process 1                  |
 | `bank_send_failed_smartucf` | `Неуспешно изпратен Банка - SmartUCF` | CP създадена **и** SmartUCF Process 1 fail    |
 
-Флаг: `ShopConfigurationFlags::isProcess2` → `(int) uni_proces === 1`. Името на процеса е **обърнато** спрямо числото.
+Флаг: `ShopConfigurationFlags::isSecondaryProcess` → `(int) uni_proces === 1`. Името на процеса е **обърнато** спрямо числото.
 
 Process 1 (`uni_proces !== 1`): след CP → SmartUCF; create payload **без** status полета; без ЕГН.  
 Process 2 (`uni_proces === 1`): native confirmation; **без** SmartUCF; create payload **със** status полета; ЕГН + `phone2`.

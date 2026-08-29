@@ -37,6 +37,95 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
         self::assertStringContainsString('data-mtuc-submit', $twig);
         self::assertStringContainsString('{% if consents %}', $twig);
         self::assertStringContainsString('data-mtuc-consents', $twig);
+        self::assertStringContainsString('data-mtuc-checkout-helper', $twig);
+        self::assertStringContainsString('checkout_helper', $twig);
+    }
+
+    public function testCheckoutHelperLanguageKeysExistAndProcess2MatchesWooSource(): void
+    {
+        $bgFile = (string) file_get_contents(dirname(__DIR__) . '/catalog/language/bg-bg/payment/mt_uni_credit.php');
+        $enFile = (string) file_get_contents(dirname(__DIR__) . '/catalog/language/en-gb/payment/mt_uni_credit.php');
+        self::assertStringContainsString('text_checkout_helper_process1', $bgFile);
+        self::assertStringContainsString('text_checkout_helper_process2', $bgFile);
+        self::assertStringContainsString('text_checkout_helper_process1', $enFile);
+        self::assertStringContainsString('text_checkout_helper_process2', $enFile);
+
+        // Verbatim copy from wiley68/uni-woo templates/checkout-payment-fields.php (esc_html_e msgid).
+        // Current uni-woo / PS8 / PS9 use the same intro for Process 1 and Process 2
+        // (Process 2 only adds EGN + phone2 fields; no distinct P2 helper string).
+        $wooIntro = "Можете да изберете 'Срок за кредита', предпочитаната от Вас 'Месечна вноска', както и при желание 'Първоначална вноска'. След което да потвърдите избора си. Ще бъдете прехвърлени към страницата на UniCredit за довършване на покупката си на кредит.";
+
+        $_ = [];
+        include dirname(__DIR__) . '/catalog/language/bg-bg/payment/mt_uni_credit.php';
+        self::assertSame($wooIntro, $_['text_checkout_helper_process1']);
+        self::assertSame($wooIntro, $_['text_checkout_helper_process2']);
+        self::assertStringContainsString('UniCredit', $_['text_checkout_helper_process1']);
+        self::assertStringNotContainsString('УниКредит', $_['text_checkout_helper_process1']);
+        self::assertStringNotContainsString('Въведете необходимите лични данни', $_['text_checkout_helper_process2']);
+    }
+
+    public function testPrimaryProcessSelectsOnlyHelperProcess1Key(): void
+    {
+        $langs = $this->loadCheckoutHelperLangs();
+        $shop = ['uni_proces' => 0];
+        $secondary = \Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags::isSecondaryProcess($shop);
+        $key = $secondary ? 'text_checkout_helper_process2' : 'text_checkout_helper_process1';
+        self::assertFalse($secondary);
+        self::assertSame('text_checkout_helper_process1', $key);
+        self::assertSame($langs['bg']['text_checkout_helper_process1'], $langs['bg'][$key]);
+        self::assertNotSame('text_checkout_helper_process2', $key);
+    }
+
+    public function testSecondaryProcessSelectsOnlyExactCopiedHelperKey(): void
+    {
+        $langs = $this->loadCheckoutHelperLangs();
+        $shop = ['uni_proces' => 1];
+        $secondary = \Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags::isSecondaryProcess($shop);
+        $key = $secondary ? 'text_checkout_helper_process2' : 'text_checkout_helper_process1';
+        self::assertTrue($secondary);
+        self::assertSame('text_checkout_helper_process2', $key);
+        self::assertSame($langs['bg']['text_checkout_helper_process2'], $langs['bg'][$key]);
+        self::assertNotSame('text_checkout_helper_process1', $key);
+        $wooIntro = "Можете да изберете 'Срок за кредита', предпочитаната от Вас 'Месечна вноска', както и при желание 'Първоначална вноска'. След което да потвърдите избора си. Ще бъдете прехвърлени към страницата на UniCredit за довършване на покупката си на кредит.";
+        self::assertSame($wooIntro, $langs['bg']['text_checkout_helper_process2']);
+    }
+
+    public function testControllerSelectsHelperFromShopProcessFlag(): void
+    {
+        $controller = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
+        self::assertStringContainsString('ShopConfigurationFlags::isSecondaryProcess', $controller);
+        self::assertStringContainsString('text_checkout_helper_process2', $controller);
+        self::assertStringContainsString('text_checkout_helper_process1', $controller);
+        self::assertStringContainsString('checkout_helper', $controller);
+        self::assertStringNotContainsString('data-mtuc-offers', $controller);
+        self::assertStringNotContainsString('Process2', $controller);
+        self::assertStringNotContainsString('Process1', $controller);
+        $twig = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/payment/mt_uni_credit.twig');
+        self::assertSame(1, substr_count($twig, 'data-mtuc-checkout-helper'));
+        self::assertStringNotContainsString('text_checkout_helper_process1', $twig);
+        self::assertStringNotContainsString('text_checkout_helper_process2', $twig);
+    }
+
+    public function testShopConfigurationFlagsSecondaryProcess(): void
+    {
+        self::assertFalse(\Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags::isSecondaryProcess([]));
+        self::assertFalse(\Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 0]));
+        self::assertTrue(\Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 1]));
+    }
+
+    /**
+     * @return array{bg: array<string, string>, en: array<string, string>}
+     */
+    private function loadCheckoutHelperLangs(): array
+    {
+        $_ = [];
+        include dirname(__DIR__) . '/catalog/language/bg-bg/payment/mt_uni_credit.php';
+        $bg = $_;
+        $_ = [];
+        include dirname(__DIR__) . '/catalog/language/en-gb/payment/mt_uni_credit.php';
+        $en = $_;
+
+        return ['bg' => $bg, 'en' => $en];
     }
 
     public function testCheckoutJsUsesUnifiedDropdownWithoutOfferTabs(): void
