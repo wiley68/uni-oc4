@@ -11,6 +11,12 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Cart offer A→B stale popup state (2026-08-29)
+
+**Root cause:** Cart `openModal()` did not call Product’s `resetFirstInstallmentForSchemeChange()` (or equivalent). Closing offer A left DOM calculation values + `lastCalculation`/`submissionToken`; opening offer B briefly showed A until the new response arrived (and could reuse stale readiness).
+
+**Fix:** Canonical `resetCartModalOfferState()` clears token, `lastCalculation`, first installment, all `[data-mtuc-display]` values, and Step 1 controls. Called on open (before recalc + processing), on close, on scheme change, and on cart invalidate. Offer click sets `selectedSchemeKey` from the clicked button only (no A key carryover).
+
 ## Runtime remediation — Cart unstyled / JS seeming absent (2026-08-29)
 
 **Classification:** Case C — Cart before-controller registered fonts + product CSS + cart CSS/JS (`Cart assets event executed` in logs). Assets used `ModuleAssetVersion` like Product.

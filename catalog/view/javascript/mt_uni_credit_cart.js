@@ -107,9 +107,21 @@
       el.textContent = '';
     }
 
-    function resetFirstInstallmentForSchemeChange() {
+    function clearCalculationDisplays() {
+      modal.querySelectorAll('[data-mtuc-display]').forEach((el) => {
+        el.textContent = '';
+      });
+    }
+
+    /**
+     * Canonical offer-state reset (Product openModal parity).
+     * Clears financing-specific JS + Step 1 DOM before a new offer/scheme calculation.
+     * Customer Step 2 field values are intentionally preserved.
+     */
+    function resetCartModalOfferState() {
       lastCalculation = null;
       submissionToken = '';
+      clearCalculationDisplays();
       const first = firstInput();
       if (first) {
         first.value = '0';
@@ -129,15 +141,20 @@
       if (submit) {
         submit.disabled = true;
         submit.setAttribute('aria-disabled', 'true');
+        submit.classList.add('is-disabled');
       }
       if (popupErrorEl()) {
         popupErrorEl().textContent = '';
       }
     }
 
+    /** Scheme-switch alias — same contract as Product resetFirstInstallmentForSchemeChange. */
+    function resetFirstInstallmentForSchemeChange() {
+      resetCartModalOfferState();
+    }
+
     function invalidateOpenPopupForCartChange() {
-      lastCalculation = null;
-      submissionToken = '';
+      resetCartModalOfferState();
       cartFingerprint = '';
       if (!modal.hidden) {
         if (popupErrorEl()) {
@@ -148,11 +165,6 @@
           submitError.textContent = cartChangedMessage();
         }
         setStep(1);
-        const apply = applyBtn();
-        if (apply) {
-          apply.disabled = true;
-          apply.setAttribute('aria-disabled', 'true');
-        }
         updateSubmitState(false);
       }
     }
@@ -796,6 +808,9 @@
     async function openModal(trigger) {
       lastTrigger = trigger;
       hideSecondaryAction();
+      // Product parity: reset offer-specific state before any new calculation (prevents A→B leak).
+      resetCartModalOfferState();
+      clearFieldErrors();
       modal.hidden = false;
       modal.removeAttribute('hidden');
       modal.setAttribute('aria-hidden', 'false');
@@ -807,11 +822,24 @@
       document.addEventListener('keydown', trapFocus);
       setStep(1);
       populateSchemeSelect();
-      await recalculateSelection();
+      const apply = applyBtn();
+      if (apply) {
+        apply.disabled = true;
+        apply.setAttribute('aria-disabled', 'true');
+      }
       dialogEl()?.focus();
+      setProcessing(true);
+      try {
+        await recalculateSelection();
+      } finally {
+        setProcessing(false);
+      }
     }
 
     function closeModal() {
+      // Product resets on open (not close). Clear transient offer financing state so a later
+      // open never briefly inherits A after close→open B; Step 2 customer fields stay.
+      resetCartModalOfferState();
       modal.hidden = true;
       modal.setAttribute('hidden', 'hidden');
       modal.setAttribute('aria-hidden', 'true');
@@ -908,7 +936,8 @@
       event.preventDefault();
       if (trigger.dataset.offerType) {
         selectedOfferType = trigger.dataset.offerType;
-        selectedSchemeKey = trigger.dataset.preferredKey || selectedSchemeKey;
+        // Prefer clicked button key only — never keep offer A's preferred_scheme_key for B.
+        selectedSchemeKey = trigger.dataset.preferredKey || '';
       }
       openModal(trigger);
     });
