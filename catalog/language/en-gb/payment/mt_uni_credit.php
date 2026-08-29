@@ -4,7 +4,7 @@
 $_['heading_title'] = 'UniCredit';
 
 // Text
-$_['button_confirm'] = 'Confirm financing';
+$_['button_confirm'] = 'Confirm order';
 $_['text_loading'] = 'Loading...';
 $_['text_price'] = 'Order total';
 $_['text_months'] = 'Number of months';

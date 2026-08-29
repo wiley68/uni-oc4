@@ -23,6 +23,7 @@ final class CheckoutFinancingSubmissionService
         private ConsentResolver $consents,
         private CartOrderDraftFactory $draftFactory,
         private PersistenceClock $clock,
+        private CheckoutOrderCustomerAdapter $orderCustomerAdapter = new CheckoutOrderCustomerAdapter(),
         private ProductPopupFormNormalizer $popupFormNormalizer = new ProductPopupFormNormalizer()
     ) {
     }
@@ -67,6 +68,7 @@ final class CheckoutFinancingSubmissionService
         string $invoicePrefix,
         string $lockOwnerToken,
         int $existingOrderId,
+        array $orderSnapshot = [],
         string $ip = '127.0.0.1',
         array $storeAddressDefaults = []
     ): ProductFinancingResult {
@@ -79,8 +81,17 @@ final class CheckoutFinancingSubmissionService
         if ($submissionToken === '' || !SubmissionTokenGenerator::isValidFormat($submissionToken)) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
         }
+        if ($orderSnapshot === [] || (int) ($orderSnapshot['order_id'] ?? 0) !== $existingOrderId) {
+            throw new ProductFinancingFlowException(
+                'checkout_order_missing',
+                'Поръчката от касата липсва. Моля, започнете отново от плащането.'
+            );
+        }
 
-        $posted = $this->popupFormNormalizer->normalize($posted, $storeAddressDefaults);
+        // Customer/address come from native order snapshot — not Product/Cart popup POST keys.
+        $postedConsents = $this->orderCustomerAdapter->extractPostedConsents($posted);
+        $orderInput = $this->orderCustomerAdapter->toValidationInput($orderSnapshot);
+        $customerPosted = $this->popupFormNormalizer->normalize($orderInput, $storeAddressDefaults);
         $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
         if ($attemptRow === null) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
@@ -172,45 +183,41 @@ final class CheckoutFinancingSubmissionService
         $calculation = $this->calculator->calculateScheme($shop, $cart->total, $scheme, $firstInstallment);
 
         try {
-            $validatedCustomer = $this->customerValidator->validate($posted, $customerGroupId, $customerId);
+            $validatedCustomer = $this->customerValidator->validate($customerPosted, $customerGroupId, $customerId);
         } catch (ProductFinancingFlowException $exception) {
             throw new ProductFinancingFlowException(
                 'invalid_customer',
-                $exception->getMessage(),
+                'Данните на клиента в поръчката са непълни. Моля, върнете се към адресните данни в касата и опитайте отново.',
                 $exception->fieldErrors(),
                 $exception
             );
         }
 
-        $addressInput = $this->addressValidator->extractPostedAddress($posted);
-        $this->addressValidator->validateRequired($addressInput);
-        $postedAddressId = isset($posted['address_id']) ? (int) $posted['address_id'] : null;
-        $billingAddress = $this->addressCatalog->resolveBillingAddress(
-            $customerId,
-            $addressInput,
-            $postedAddressId,
-            $validatedCustomer['customer']
-        );
-        $shippingAddressId = isset($posted['shipping_address_id']) ? (int) $posted['shipping_address_id'] : null;
-        $shippingAddress = $shippingRequired
-            ? $this->addressCatalog->resolveShippingAddress(
-                true,
-                $billingAddress,
-                $addressInput,
-                $shippingAddressId,
-                $customerId
-            )
-            : null;
-        $shippingMethod = ['name' => '', 'code' => ''];
-        if ($shippingRequired) {
-            $shippingMethod = [
-                'name' => (string) ($posted['shipping_method_name'] ?? 'Shipping'),
-                'code' => (string) ($posted['shipping_method_code'] ?? ''),
-            ];
+        try {
+            $addressInput = $this->addressValidator->extractPostedAddress($customerPosted);
+            $this->addressValidator->validateRequired($addressInput);
+        } catch (ProductFinancingFlowException $exception) {
+            throw new ProductFinancingFlowException(
+                'invalid_customer',
+                'Адресът в поръчката е непълен. Моля, върнете се към адресните данни в касата и опитайте отново.',
+                $exception->fieldErrors(),
+                $exception
+            );
         }
 
+        $billingAddress = $this->orderCustomerAdapter->billingAddressFromOrder(
+            $orderSnapshot,
+            $validatedCustomer['customer']
+        );
+        $shippingAddress = $shippingRequired
+            ? $this->orderCustomerAdapter->shippingAddressFromOrder($orderSnapshot, $billingAddress)
+            : null;
+        $shippingMethod = $shippingRequired
+            ? $this->orderCustomerAdapter->shippingMethodFromOrder($orderSnapshot)
+            : ['name' => '', 'code' => ''];
+
         try {
-            $this->consents->validate($shop, $posted['consent'] ?? []);
+            $this->consents->validate($shop, $postedConsents);
         } catch (ProductFinancingFlowException $exception) {
             throw new ProductFinancingFlowException(
                 'invalid_consent',

@@ -293,6 +293,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                     (string) ($order['invoice_prefix'] ?? $this->config->get('config_invoice_prefix') ?? ''),
                     LockOwnerTokenGenerator::generate(),
                     (int) $order['order_id'],
+                    $order,
                     (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
                     $model->storeAddressDefaults()
                 );

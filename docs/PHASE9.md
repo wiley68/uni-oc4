@@ -87,12 +87,33 @@ CheckoutOperationIdentity::hash(store_id, order_id)
 
 Selection hash: `CheckoutSelectionHash` (order_id + order_total + fingerprint + scheme + authoritative first installment + actor).
 
-## Guest / logged-in
+## Customer / address source (Checkout)
 
-- Customer/address prefilled from order `payment_*` / `email` / `telephone`
-- Logged-in: `resolveSessionOrder` requires `order.customer_id === session customer`
-- Address API: `getAddress($customerId, $addressId)` (OC 4.1)
-- CSRF: shared `ProductStorefrontCsrf`
+Confirm does **not** trust Product-style popup POST for customer fields.
+
+```text
+session.order_id
+→ order snapshot
+→ CheckoutOrderCustomerAdapter
+→ ProductCustomerValidator / address fields
+→ FinancingCustomerData + FinancingAddressData
+```
+
+Mapping:
+
+| Order column        | Financing field     |
+| ------------------- | ------------------- |
+| `payment_firstname` | firstname           |
+| `payment_lastname`  | lastname            |
+| `payment_address_1` | address / address_1 |
+| `telephone`         | telephone (phone)   |
+| `email`             | email               |
+
+Guest `customer_id = 0` is valid. Logged-in ownership (`order.customer_id === session customer`) remains enforced in `resolveSessionOrder()`.
+
+Consents still come from the financing panel POST (`consent[]` / `consent[n]`).
+
+Confirm button wording: `Потвърди поръчката` / `Confirm order`.
 
 ## Stale / idempotency
 
