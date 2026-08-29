@@ -447,7 +447,7 @@
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary[aria-disabled="true"],
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary.is-disabled {
   --mtuc-btn-disabled-bg: #d4d4d8;
-  --mtuc-btn-disabled-text: #a1a1aa;
+  --mtuc-btn-disabled-text: #52525b;
   background: var(--mtuc-btn-disabled-bg);
   color: var(--mtuc-btn-disabled-text);
 }
@@ -460,11 +460,16 @@
   box-shadow: none;
 }
 
+/* Woo parity: label face must use disabled bg — otherwise #a1a1aa text on #a1a1aa face is invisible */
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary:disabled b,
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary[aria-disabled="true"] b,
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary.is-disabled b {
+  background: var(--mtuc-btn-disabled-bg);
   color: var(--mtuc-btn-disabled-text);
   text-shadow: none;
+  -webkit-text-fill-color: var(--mtuc-btn-disabled-text);
+  opacity: 1;
+  visibility: visible;
 }
 
 #mt-uni-credit-product-modal button.mt-uni-credit-product-calculator__popup-button--primary:disabled i,

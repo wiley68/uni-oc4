@@ -226,6 +226,14 @@ Reference: Woo `mtuc-popup.css` / `mtuc-product-popup.js`; PS9 `product-calculat
 
 Client readiness reuses Woo/PS patterns (`nonEmpty`, phone/email regex). Server `ProductCustomerValidator` / consent resolver remain authoritative on submit.
 
+### Step 2 submit runtime remediation
+
+| Issue                             | Root cause                                                                                          | Fix                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Invisible `Изпрати` when disabled | Disabled label color `#a1a1aa` on unchanged face background `#a1a1aa`                               | Disabled `b` uses `--mtuc-btn-disabled-bg` + readable `#52525b` text                       |
+| Readiness / Process awareness     | Validate only rendered fields; Process 1 must not require EGN/`phone2`                              | `getStep2FieldErrors()` checks `egn`/`phone2` only if those inputs exist in the DOM        |
+| Calculation sync                  | `lastCalculation` required for enable; Apply gated on it; option refresh re-issues while modal open | `hasAuthoritativeCalculation()` + Apply `&& lastCalculation` + Step 2 refresh recalculates |
+
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.

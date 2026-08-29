@@ -141,6 +141,41 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         );
     }
 
+    public function testDisabledSubmitLabelRemainsReadable(): void
+    {
+        $css = $this->css();
+        $modal = $this->modal();
+        $lang = (string) file_get_contents(
+            dirname(__DIR__) . '/catalog/language/bg-bg/module/mt_uni_credit_product.php'
+        );
+
+        self::assertStringContainsString('{{ text_send }}', $modal);
+        self::assertStringContainsString('text_send', $lang);
+        self::assertStringContainsString('Изпрати', $lang);
+        self::assertMatchesRegularExpression(
+            '/data-mtuc-submit[^>]*>[\s\S]*?<b>\s*\{\{\s*text_send\s*\}\}\s*<\/b>/',
+            $modal
+        );
+
+        self::assertSame(1, preg_match(
+            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button--primary:disabled b,[\s\S]*?'
+            . '\{([^}]+)\}/s',
+            $css,
+            $m
+        ));
+        $disabledLabel = $m[1];
+        self::assertStringContainsString('background: var(--mtuc-btn-disabled-bg)', $disabledLabel);
+        self::assertStringContainsString('color: var(--mtuc-btn-disabled-text)', $disabledLabel);
+        self::assertStringContainsString('opacity: 1', $disabledLabel);
+        self::assertStringContainsString('visibility: visible', $disabledLabel);
+        self::assertStringNotContainsString('color: transparent', $disabledLabel);
+        self::assertStringNotContainsString('opacity: 0', $disabledLabel);
+
+        // Disabled text must not reuse the enabled face grey (#a1a1aa on #a1a1aa).
+        self::assertStringContainsString('--mtuc-btn-disabled-text: #52525b', $css);
+        self::assertStringContainsString('--mtuc-btn-disabled-bg: #d4d4d8', $css);
+    }
+
     public function testSubmitReadinessAlgorithmInJs(): void
     {
         $js = $this->js();
@@ -150,16 +185,19 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('isStep2FormValid', $js);
         self::assertStringContainsString('getStep2FieldErrors', $js);
         self::assertStringContainsString('areMandatoryConsentsChecked', $js);
+        self::assertStringContainsString('hasAuthoritativeCalculation', $js);
         self::assertStringContainsString('bindStep2ReadinessListeners', $js);
         self::assertStringContainsString('PHONE_VALID_PATTERN', $js);
         self::assertStringContainsString('EMAIL_VALID_PATTERN', $js);
+        self::assertStringContainsString('sanitizePhoneValue', $js);
 
         // Gate before POST — UX disabled is not the security boundary.
         self::assertStringContainsString('if (!updateSubmitState(true))', $js);
+        self::assertStringContainsString('!lastCalculation', $js);
 
-        // Transition to Step 2 evaluates readiness (prefill + consent).
+        // Transition to Step 2 requires calculation then evaluates readiness.
         self::assertMatchesRegularExpression(
-            '/data-mtuc-apply[\s\S]*?setStep\(2\);[\s\S]*?updateSubmitState\(false\)/',
+            '/data-mtuc-apply[\s\S]*?!apply\.disabled && lastCalculation[\s\S]*?setStep\(2\);[\s\S]*?updateSubmitState\(false\)/',
             $js
         );
 
@@ -171,7 +209,16 @@ final class Phase7ProductStep2UxContractTest extends TestCase
 
         // Consent absence does not block (empty NodeList → true).
         self::assertStringContainsString('if (!boxes.length)', $js);
-        self::assertStringContainsString('return true', $js);
+
+        // Process-aware: EGN/phone2 only when rendered.
+        self::assertStringContainsString("customerField('egn')", $js);
+        self::assertStringContainsString("customerField('phone2')", $js);
+        self::assertStringContainsString('if (egnField)', $js);
+        self::assertStringContainsString('if (phone2Field)', $js);
+
+        // Process 1 modal does not render Process 2 fields.
+        self::assertStringNotContainsString('name="egn"', $modal);
+        self::assertStringNotContainsString('name="phone2"', $modal);
 
         // Initial markup: submit disabled.
         self::assertMatchesRegularExpression(
@@ -181,13 +228,31 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('aria-disabled="true"', $modal);
         self::assertStringContainsString('is-disabled', $modal);
 
-        // Live listeners on input/change including consent.
-        self::assertStringContainsString("['firstname', 'lastname', 'address', 'phone', 'email']", $js);
+        // Live listeners on input/change including consent (DOM-wide Step 2 scope).
         self::assertStringContainsString('[data-mtuc-consent-checkbox]', $js);
+        self::assertStringContainsString('updateSubmitState(false)', $js);
 
         // Clearing / invalid state toggles disabled again via updateSubmitState.
-        self::assertStringContainsString("submit.disabled = !valid", $js);
+        self::assertStringContainsString('submit.disabled = !valid', $js);
         self::assertStringContainsString("classList.toggle('is-disabled', !valid)", $js);
+
+        // Phone/email patterns match Woo/PS (BG numbers accepted).
+        self::assertStringContainsString('/^[-0-9+() ]+$/', $js);
+        self::assertStringContainsString('/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/', $js);
+    }
+
+    public function testServerProcess1DoesNotRequireEgnOrPhone2(): void
+    {
+        $validator = (string) file_get_contents(
+            dirname(__DIR__) . '/system/library/product_customer_validator.php'
+        );
+        $customer = (string) file_get_contents(
+            dirname(__DIR__) . '/system/library/financing_customer_data.php'
+        );
+
+        self::assertStringNotContainsString('egn', strtolower($validator));
+        self::assertStringNotContainsString('phone2', strtolower($validator));
+        self::assertStringContainsString('EGN is intentionally excluded', $customer);
     }
 
     public function testStep1ApprovedContractsUntouchedByStep2CssScope(): void

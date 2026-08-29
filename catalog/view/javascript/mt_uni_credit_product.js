@@ -497,14 +497,27 @@
     }
 
     const PHONE_VALID_PATTERN = /^[-0-9+() ]+$/;
+    const PHONE_ALLOWED_PATTERN = /[-0-9+() ]/;
     const EMAIL_VALID_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+    function step2Root() {
+      return modal.querySelector('[data-mtuc-step="2"]');
+    }
+
     function customerField(name) {
-      return form ? form.querySelector(`[name="${name}"]`) : null;
+      const scope = form || step2Root() || modal;
+      return scope ? scope.querySelector(`[name="${name}"]`) : null;
     }
 
     function isNonEmpty(value) {
       return String(value || '').trim() !== '';
+    }
+
+    function sanitizePhoneValue(value) {
+      return String(value || '')
+        .split('')
+        .filter((char) => PHONE_ALLOWED_PATTERN.test(char))
+        .join('');
     }
 
     function isValidPhone(value) {
@@ -518,7 +531,11 @@
     }
 
     function consentCheckboxes() {
-      return form ? form.querySelectorAll('[data-mtuc-consent-checkbox]') : [];
+      const scope = form || step2Root() || modal;
+      if (!scope) {
+        return [];
+      }
+      return scope.querySelectorAll('[data-mtuc-consent-checkbox]');
     }
 
     function areMandatoryConsentsChecked() {
@@ -534,7 +551,16 @@
       return true;
     }
 
-    /** Lightweight readiness rules aligned with Woo/PS + server required fields. */
+    function hasAuthoritativeCalculation() {
+      // Issued selection: calculation payload from issueSubmission (Woo gates Step2 entry the same way).
+      return !!lastCalculation;
+    }
+
+    /**
+     * Process / DOM aware readiness:
+     * - Process 1: only rendered base fields (no EGN / phone2).
+     * - Process 2: validate egn/phone2 only when those inputs exist in the DOM.
+     */
     function getStep2FieldErrors() {
       const errors = {};
       if (!isNonEmpty(customerField('firstname')?.value)) {
@@ -558,13 +584,33 @@
       } else if (!isValidEmail(email)) {
         errors.email = 'Въведете валиден e-mail адрес.';
       }
+
+      // Process 2 only when rendered (never require hidden Process 2 fields in Process 1).
+      const egnField = customerField('egn');
+      if (egnField) {
+        const egn = String(egnField.value || '').replace(/\D/g, '');
+        if (egn === '') {
+          errors.egn = 'Полето е задължително.';
+        } else if (!/^\d{10}$/.test(egn)) {
+          errors.egn = 'Въведете валидно ЕГН (10 цифри).';
+        }
+      }
+      const phone2Field = customerField('phone2');
+      if (phone2Field) {
+        const phone2 = phone2Field.value;
+        if (!isNonEmpty(phone2)) {
+          errors.phone2 = 'Полето е задължително.';
+        } else if (!isValidPhone(phone2)) {
+          errors.phone2 = 'Въведете валиден телефонен номер.';
+        }
+      }
       return errors;
     }
 
     function isStep2FormValid() {
       const errors = getStep2FieldErrors();
       const fieldsOk = Object.keys(errors).length === 0;
-      return fieldsOk && areMandatoryConsentsChecked() && !!lastCalculation;
+      return fieldsOk && areMandatoryConsentsChecked() && hasAuthoritativeCalculation();
     }
 
     function updateSubmitState(showErrors) {
@@ -583,30 +629,37 @@
     }
 
     function bindStep2ReadinessListeners() {
-      if (!form) {
+      const scope = form || step2Root();
+      if (!scope) {
         return;
       }
-      form.addEventListener('input', (event) => {
+      // PS/Woo: any Step 2 field input/change re-evaluates readiness (incl. prefilled values on edit).
+      scope.addEventListener('input', (event) => {
         const target = event.target;
         if (!target || !target.getAttribute) {
           return;
         }
         const name = target.getAttribute('name') || '';
-        if (['firstname', 'lastname', 'address', 'phone', 'email'].indexOf(name) !== -1) {
+        if (name === 'phone' || name === 'phone2') {
+          const sanitized = sanitizePhoneValue(target.value);
+          if (target.value !== sanitized) {
+            target.value = sanitized;
+          }
+        }
+        if (name || target.matches('[data-mtuc-consent-checkbox]')) {
           updateSubmitState(false);
         }
       });
-      form.addEventListener('change', (event) => {
+      scope.addEventListener('change', (event) => {
         const target = event.target;
         if (!target || !target.getAttribute) {
           return;
         }
-        if (target.matches('[data-mtuc-consent-checkbox]')
-          || ['firstname', 'lastname', 'address', 'phone', 'email'].indexOf(target.getAttribute('name') || '') !== -1) {
+        if (target.getAttribute('name') || target.matches('[data-mtuc-consent-checkbox]')) {
           updateSubmitState(false);
         }
       });
-      form.addEventListener('mousedown', (event) => {
+      scope.addEventListener('mousedown', (event) => {
         const consentLink = event.target.closest('.mt-uni-credit-product-calculator__consent-label a');
         if (consentLink) {
           event.stopPropagation();
@@ -773,10 +826,16 @@
       }
       renderOfferButtons(data);
       applyRootLayoutFromData(root, state);
+      // Invalidate issued selection when calculator offers rebuild. If Step 2 is open,
+      // keep lastCalculation until a fresh issue runs — do not orphan readiness as null
+      // without a replacement calculation when still on Step 1 path only.
       submissionToken = '';
       lastCalculation = null;
       syncBootstrap();
       calculator.setAttribute('aria-busy', 'false');
+      if (!modal.hidden && currentStep === 2) {
+        updateSubmitState(false);
+      }
     }
 
     let refreshTimer = null;
@@ -847,9 +906,14 @@
         }
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
-          if (!modal.hidden && currentStep === 1) {
-            populateSchemeSelect();
+          if (!modal.hidden && (currentStep === 1 || currentStep === 2)) {
+            if (currentStep === 1) {
+              populateSchemeSelect();
+            }
             await recalculateSelection();
+            if (currentStep === 2) {
+              updateSubmitState(false);
+            }
           }
         } else if (calculator) {
           calculator.setAttribute('aria-busy', 'false');
@@ -1086,7 +1150,7 @@
       }
       const scheme = selectedScheme();
       const button = submitBtn();
-      if (!scheme || !button || !form) {
+      if (!scheme || !button || !form || !lastCalculation) {
         return;
       }
       if (!updateSubmitState(true)) {
@@ -1176,7 +1240,7 @@
       const apply = event.target.closest('[data-mtuc-apply]');
       if (apply) {
         event.preventDefault();
-        if (!apply.disabled) {
+        if (!apply.disabled && lastCalculation) {
           setStep(2);
           updateSubmitState(false);
           form?.querySelector('input, select, textarea')?.focus();
