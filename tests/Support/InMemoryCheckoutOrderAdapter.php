@@ -35,6 +35,21 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
         return count($this->addOrderCalls);
     }
 
+    public function lastOrderId(): int
+    {
+        return $this->addOrderCalls === [] ? 0 : (int) end($this->addOrderCalls);
+    }
+
+    public function lastOrderStatusId(): int
+    {
+        $orderId = $this->lastOrderId();
+        if ($orderId <= 0 || !isset($this->orders[$orderId])) {
+            return 0;
+        }
+
+        return (int) ($this->orders[$orderId]['order_status_id'] ?? 0);
+    }
+
     /**
      * @param array<string, mixed> $orderData
      */

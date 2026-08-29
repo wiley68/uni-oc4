@@ -88,7 +88,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
         );
 
         self::assertTrue($result->success);
-        self::assertSame('local_order_prepared', $result->step);
+        self::assertSame('cp_order_prepared', $result->step);
         self::assertNotNull($result->orderId);
         self::assertSame(1, $orders->addOrderCallCount());
 
@@ -101,8 +101,9 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
 
         $bound = $this->attempts->findById((int) $attempt['attempt_id']);
         self::assertNotNull($bound);
-        self::assertSame(FinancingAttemptState::ORDER_CREATED, (string) $bound['state']);
+        self::assertSame(FinancingAttemptState::CP_CREATED, (string) $bound['state']);
         self::assertSame((int) $result->orderId, (int) $bound['order_id']);
+        self::assertGreaterThan(0, (int) ($bound['control_panel_order_id'] ?? 0));
     }
 
     public function testProductDuplicateSubmitDoesNotDuplicateOrder(): void

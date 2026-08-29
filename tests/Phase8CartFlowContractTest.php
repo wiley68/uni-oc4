@@ -222,7 +222,7 @@ final class Phase8CartFlowContractTest extends TestCase
         );
         self::assertStringContainsString('OperationEntryPoint::CART', $src);
         self::assertStringContainsString('cart_changed', $src);
-        self::assertStringContainsString('local_order_prepared', $src);
+        self::assertStringContainsString('cp_order_prepared', $src);
         self::assertStringContainsString('CartOrderDraftFactory', $src);
         self::assertStringContainsString('cart_modal', $src);
         $doc = (string) file_get_contents(dirname(__DIR__) . '/docs/PHASE8.md');

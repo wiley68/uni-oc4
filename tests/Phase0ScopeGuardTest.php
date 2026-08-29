@@ -57,6 +57,9 @@ final class Phase0ScopeGuardTest extends TestCase
     private static function isPhase4CpProductionFile(string $path): bool
     {
         return str_contains($path, '/system/library/control_panel_client.php')
+            || str_contains($path, '/system/library/control_panel_order_')
+            || str_contains($path, '/system/library/control_panel_error_class.php')
+            || str_contains($path, '/system/library/financing_control_panel_completion.php')
             || str_contains($path, '/system/library/cp_')
             || str_contains($path, '/system/library/shop_configuration_service.php')
             || str_contains($path, '/system/library/shop_configuration_snapshot_validator.php')

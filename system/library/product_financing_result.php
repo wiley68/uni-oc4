@@ -12,7 +12,9 @@ final class ProductFinancingResult
         public ?int $orderId,
         public string $message,
         public bool $replay = false,
-        public string $lifecycleState = 'local_order_prepared'
+        public string $lifecycleState = 'local_order_prepared',
+        public ?int $controlPanelOrderId = null,
+        public ?string $errorCode = null
     ) {
     }
 
@@ -28,6 +30,12 @@ final class ProductFinancingResult
         ];
         if ($this->orderId !== null) {
             $payload['order_id'] = $this->orderId;
+        }
+        if ($this->controlPanelOrderId !== null) {
+            $payload['control_panel_order_id'] = $this->controlPanelOrderId;
+        }
+        if ($this->errorCode !== null) {
+            $payload['error_code'] = $this->errorCode;
         }
         if ($this->replay) {
             $payload['replay'] = true;

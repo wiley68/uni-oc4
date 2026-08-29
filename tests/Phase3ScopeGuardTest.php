@@ -13,8 +13,7 @@ final class Phase3ScopeGuardTest extends TestCase
         'SmartUcfSession',
         'hash_hmac',
         'catalog/controller/module',
-        'createOrder',
-        'updateOrderStatus',
+                'updateOrderStatus',
     ];
 
     /** @var list<string> */

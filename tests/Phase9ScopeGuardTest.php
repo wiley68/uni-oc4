@@ -15,7 +15,6 @@ final class Phase9ScopeGuardTest extends TestCase
         'Process1',
         'Process2',
         'financing_snapshot',
-        'cp_submitting',
         'bank_redirect',
         'SmartUCF',
     ];

@@ -131,6 +131,96 @@ final class FinancingAttemptRepository
         return $this->db->countAffected() === 1;
     }
 
+    /**
+     * @param array<string, mixed> $payload
+     */
+    public function persistCpPayload(int $attemptId, array $payload): bool
+    {
+        if ($attemptId <= 0) {
+            return false;
+        }
+
+        try {
+            $json = json_encode($payload, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new PersistenceValidationException('Control Panel payload could not be encoded.', 0, $exception);
+        }
+
+        $table = $this->tableName();
+        $updatedAt = $this->clock->formatUtc($this->clock->now());
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `cp_payload` = '" . $this->db->escape($json) . "',
+                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
+             WHERE `attempt_id` = " . (int) $attemptId
+        );
+
+        return $this->db->countAffected() === 1;
+    }
+
+    public function persistControlPanelOrderId(int $attemptId, int $controlPanelOrderId): bool
+    {
+        if ($attemptId <= 0 || $controlPanelOrderId <= 0) {
+            return false;
+        }
+
+        $table = $this->tableName();
+        $updatedAt = $this->clock->formatUtc($this->clock->now());
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `control_panel_order_id` = " . (int) $controlPanelOrderId . ",
+                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
+             WHERE `attempt_id` = " . (int) $attemptId . "
+               AND (`control_panel_order_id` IS NULL OR `control_panel_order_id` = " . (int) $controlPanelOrderId . ")"
+        );
+
+        if ($this->db->countAffected() === 1) {
+            return true;
+        }
+
+        $row = $this->findById($attemptId);
+
+        return $row !== null
+            && isset($row['control_panel_order_id'])
+            && (int) $row['control_panel_order_id'] === $controlPanelOrderId;
+    }
+
+    public function persistLastErrorClass(int $attemptId, string $errorClass): bool
+    {
+        if ($attemptId <= 0 || !ControlPanelErrorClass::isValid($errorClass)) {
+            return false;
+        }
+
+        $table = $this->tableName();
+        $updatedAt = $this->clock->formatUtc($this->clock->now());
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `last_error_class` = '" . $this->db->escape($errorClass) . "',
+                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
+             WHERE `attempt_id` = " . (int) $attemptId
+        );
+
+        return $this->db->countAffected() === 1;
+    }
+
+    public function clearLastErrorClass(int $attemptId): bool
+    {
+        if ($attemptId <= 0) {
+            return false;
+        }
+
+        $table = $this->tableName();
+        $updatedAt = $this->clock->formatUtc($this->clock->now());
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `last_error_class` = NULL,
+                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
+             WHERE `attempt_id` = " . (int) $attemptId
+        );
+
+        return $this->db->countAffected() === 1;
+    }
+
     public function attachOrder(int $attemptId, int $orderId): bool
     {
         if ($attemptId <= 0 || $orderId <= 0) {

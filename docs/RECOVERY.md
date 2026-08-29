@@ -21,4 +21,19 @@ No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when
 ## Status visibility (Phase 10A)
 
 Product/Cart apply `addHistory(awaitingFinancingStatusId)` after attach.  
-Resolver: dedicated module setting, else `payment_mt_uni_credit_order_status_id`.
+Resolver: dedicated module setting, else `config_order_status_id` (Pending).
+
+## CP create crash window (Phase 10B)
+
+```text
+POST /orders → CP creates N
+→ OC crashes before control_panel_order_id write
+→ retry same attempt
+→ re-POST frozen cp_payload
+→ CP returns same data.id (idempotent)
+→ persist control_panel_order_id + cp_created
+```
+
+Timeout / unknown: state `cp_outcome_unknown`, then same re-POST recovery. Never invent a second shop `order_id`.
+
+CP has no GET-by-local-order lookup; recovery is create-idempotency only. See `docs/PHASE10B.md`.

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Checkout financing validation against native session.order_id (Phase 9 boundary).
+ * Checkout financing: reuse native session.order_id + shared CP lifecycle (Phase 10B).
  * Does not call addOrder — OrderMaterializationService routes to CheckoutExistingOrderGateway.
  */
 final class CheckoutFinancingSubmissionService
@@ -23,6 +23,7 @@ final class CheckoutFinancingSubmissionService
         private ConsentResolver $consents,
         private CartOrderDraftFactory $draftFactory,
         private PersistenceClock $clock,
+        private ControlPanelOrderLifecycleService $cpLifecycle,
         private CheckoutOrderCustomerAdapter $orderCustomerAdapter = new CheckoutOrderCustomerAdapter(),
         private ProductPopupFormNormalizer $popupFormNormalizer = new ProductPopupFormNormalizer()
     ) {
@@ -126,13 +127,19 @@ final class CheckoutFinancingSubmissionService
         }
 
         $boundOrderId = isset($attemptRow['order_id']) ? (int) $attemptRow['order_id'] : 0;
-        if ($boundOrderId > 0) {
+        $existingCpId = isset($attemptRow['control_panel_order_id']) ? (int) $attemptRow['control_panel_order_id'] : 0;
+        if ($boundOrderId > 0
+            && $existingCpId > 0
+            && (string) ($attemptRow['state'] ?? '') === FinancingAttemptState::CP_CREATED
+        ) {
             return new ProductFinancingResult(
                 true,
-                'local_order_prepared',
+                'cp_order_prepared',
                 $boundOrderId,
-                'Локалната поръчка вече е подготвена. Следващата стъпка ще бъде финансирането.',
-                true
+                ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
+                true,
+                FinancingAttemptState::CP_CREATED,
+                $existingCpId
             );
         }
 
@@ -256,16 +263,25 @@ final class CheckoutFinancingSubmissionService
             FinancingAttemptState::VALIDATING
         )) {
             $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']);
-            if ($fresh !== null && isset($fresh['order_id']) && (int) $fresh['order_id'] > 0) {
+            if ($fresh !== null
+                && isset($fresh['control_panel_order_id'])
+                && (int) $fresh['control_panel_order_id'] > 0
+                && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_CREATED
+            ) {
                 return new ProductFinancingResult(
                     true,
-                    'local_order_prepared',
+                    'cp_order_prepared',
                     (int) $fresh['order_id'],
-                    'Локалната поръчка вече е подготвена. Следващата стъпка ще бъде финансирането.',
-                    true
+                    ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
+                    true,
+                    FinancingAttemptState::CP_CREATED,
+                    (int) $fresh['control_panel_order_id']
                 );
             }
-            throw new ProductFinancingFlowException('operation_processing', 'Заявката се обработва. Моля, изчакайте.');
+            if ($fresh === null || !isset($fresh['order_id']) || (int) $fresh['order_id'] <= 0) {
+                throw new ProductFinancingFlowException('operation_processing', 'Заявката се обработва. Моля, изчакайте.');
+            }
+            $attemptRow = $fresh;
         }
 
         $draft = $this->draftFactory->create(
@@ -319,11 +335,15 @@ final class CheckoutFinancingSubmissionService
             );
         }
 
-        return new ProductFinancingResult(
-            true,
-            'local_order_prepared',
+        $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow;
+
+        return FinancingControlPanelCompletion::apply(
+            $this->cpLifecycle,
+            new FinancingAttemptContext($fresh),
+            $submission,
             $created->orderId,
-            'Локалната поръчка е подготвена успешно. Следващата стъпка ще бъде финансирането.'
+            $shop,
+            $lockOwnerToken
         );
     }
 

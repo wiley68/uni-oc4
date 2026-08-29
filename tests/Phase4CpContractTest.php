@@ -29,12 +29,13 @@ final class Phase4CpContractTest extends TestCase
         self::assertSame(86400, $fixture['cache_ttl_seconds']);
     }
 
-    public function testControlPanelClientHasNoOrderMethodsInPhase4(): void
+    public function testControlPanelClientHasPhase10BCreateOrderOnly(): void
     {
         $source = (string) file_get_contents(dirname(__DIR__) . '/system/library/control_panel_client.php');
-        self::assertStringNotContainsString('/orders', $source);
-        self::assertStringNotContainsString('createOrder', $source);
+        self::assertStringContainsString('/orders', $source);
+        self::assertStringContainsString('function createOrder', $source);
         self::assertStringNotContainsString('updateOrderStatus', $source);
+        self::assertStringNotContainsString('sucfOnlineSessionStart', $source);
     }
 
     public function testLoginPayloadShapeInClient(): void

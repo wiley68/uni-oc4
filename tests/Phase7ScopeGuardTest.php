@@ -12,12 +12,9 @@ final class Phase7ScopeGuardTest extends TestCase
     private const FORBIDDEN_MARKERS = [
         'SmartUcfSession',
         'SmartUCF',
-        'createOrder(',
         'Process1',
         'Process2',
         'financing_snapshot',
-        'ControlPanelClient',
-        'cp_submitting',
     ];
 
     /** @var list<string> */

@@ -13,9 +13,7 @@ final class Phase4ScopeGuardTest extends TestCase
         'SmartUcfSession',
         'hash_hmac',
         'financing_snapshot',
-        'createOrder',
         'updateOrderStatus',
-        'POST /orders',
         '/orders/status',
         'PopupSubmission',
         'CheckoutPayment',
@@ -54,13 +52,16 @@ final class Phase4ScopeGuardTest extends TestCase
         }
     }
 
-    public function testPhase4IncludesCpClientWithoutOrderEndpoints(): void
+    public function testPhase4IncludesCpClientAndPhase10BOrderCreate(): void
     {
         self::assertFileExists(dirname(__DIR__) . '/system/library/control_panel_client.php');
         self::assertFileExists(dirname(__DIR__) . '/system/library/shop_configuration_service.php');
         $client = (string) file_get_contents(dirname(__DIR__) . '/system/library/control_panel_client.php');
         self::assertStringContainsString('class ControlPanelClient', $client);
-        self::assertStringNotContainsString('function createOrder', $client);
+        self::assertStringContainsString('function createOrder', $client);
+        self::assertStringContainsString("'/orders'", $client);
+        self::assertStringNotContainsString('updateOrderStatus', $client);
+        self::assertStringNotContainsString('SmartUcfSession', $client);
     }
 
     public function testSchemaInstallerDoesNotCreateForbiddenTables(): void

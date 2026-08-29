@@ -359,6 +359,8 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 
 Phase 10A: Product/Cart `addOrder()` + `addHistory(interim)`. Order totals must set `extension=opencart` so native `addHistory` can load total confirm handlers. Admin visibility requires `order_status_id > 0`. See `docs/PHASE10A.md`.
 
+Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Recovery = re-POST same payload (CP idempotent on shop+order_id). See `docs/PHASE10B.md`.
+
 ### Store scope (OpenCart)
 
 `store_id` is an explicit non-negative OpenCart store id (`OpenCartStoreScope`). **`0` is the default store** and a real scope. Positive ids are additional stores. Negative ids are rejected. Missing scope is not equivalent to `0`.
@@ -389,9 +391,9 @@ Phase 10A: Product/Cart `addOrder()` + `addHistory(interim)`. Order totals must 
 | Endpoints              | `mt_uni_credit_cart.calculate` / `issueSubmission` / `submit`       |
 | Events                 | `checkout/cart` before (assets) + view after (placement)            |
 | Placement              | After `#shopping-cart` (survives `cart.list` AJAX)                  |
-| Lifecycle stop         | `local_order_prepared`                                              |
-| Live cart after submit | **unchanged** until later CP/bank phase                             |
-| Deferred               | CP create, Process 1/2, SmartUCF (Phase 10+)                        |
+| Lifecycle stop         | `cp_order_prepared` / attempt `cp_created` (Phase 10B)              |
+| Live cart after submit | **unchanged** (not cleared by financing submit)                     |
+| Deferred               | SmartUCF / Process execution (Phase 11+)                            |
 
 ## 17. Phase 9 Checkout payment method
 
@@ -407,6 +409,6 @@ Phase 10A: Product/Cart `addOrder()` + `addHistory(interim)`. Order totals must 
 | Operation key    | `CheckoutOperationIdentity::hash(store_id, order_id)`                                              |
 | Selection hash   | `CheckoutSelectionHash` (includes order_id + order_total)                                          |
 | Gateway          | `CheckoutExistingOrderGateway` — never `addOrder()`                                                |
-| Lifecycle stop   | `local_order_prepared` → `checkout/success`                                                        |
+| Lifecycle stop   | `cp_order_prepared` / attempt `cp_created` (Phase 10B)                                             |
 | Success event    | `catalog/view/common/success/after`                                                                |
-| Deferred         | CP / Process 1/2 / SmartUCF                                                                        |
+| Deferred         | SmartUCF / Process execution (Phase 11+)                                                           |

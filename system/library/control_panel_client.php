@@ -116,6 +116,22 @@ final class ControlPanelClient
     }
 
     /**
+     * POST /orders — Phase 10B financing order create (idempotent by shop_id + order_id).
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, mixed>
+     */
+    public function createOrder(array $order): array
+    {
+        $response = $this->authenticatedRequest('POST', '/orders', $order);
+        if (!isset($response['data']) || !is_array($response['data'])) {
+            throw new CpInvalidPayloadException('The Control Panel order response has no valid data object.');
+        }
+
+        return $response;
+    }
+
+    /**
      * @param array<string, mixed>|null $payload
      * @return array<string, mixed>
      */

@@ -36,6 +36,10 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductSchemeList;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSelectionHash;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSubmissionIssuer;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway;
+use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderLifecycleService;
+use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilder;
+use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleEncryptionKeyProvider;
 use Opencart\System\Library\Extension\MtUniCredit\PersistenceClock;
 
 require_once dirname(__DIR__, 2) . '/tests/fixtures/cp_shop_snapshot.php';
@@ -122,7 +126,8 @@ final class ProductFinancingTestHarness
 
     public static function submissionService(
         ?FinancingAttemptRepository $attempts = null,
-        ?InMemoryCheckoutOrderAdapter $orders = null
+        ?InMemoryCheckoutOrderAdapter $orders = null,
+        ?FakeCpHttpTransport $transport = null
     ): ProductFinancingSubmissionService {
         $db = PersistenceIntegrationHarness::connection();
         $attempts ??= new FinancingAttemptRepository($db);
@@ -179,6 +184,32 @@ final class ProductFinancingTestHarness
                 : null
         );
 
+        $createdTransport = $transport === null;
+        $transport ??= new FakeCpHttpTransport();
+        if ($createdTransport) {
+            $transport->enableAutoAuthAndCreate(901);
+        }
+        $settings = Phase4TestHarness::settings();
+        Phase4TestHarness::prepareCredentials($settings, self::STORE_ID);
+        Phase4TestHarness::prepareCredentials($settings, self::DEFAULT_STORE_ID);
+        $cpServices = CpServiceFactory::create(
+            $db,
+            $settings,
+            self::STORE_ID,
+            Phase4TestHarness::TEST_SHOP_URL,
+            Phase4TestHarness::TEST_SHOP_URL,
+            $transport,
+            new PersistenceClock(),
+            null,
+            ModuleEncryptionKeyProvider::testSecretInput()
+        );
+        $cpLifecycle = new ControlPanelOrderLifecycleService(
+            $attempts,
+            $locks,
+            $cpServices['client'],
+            new ControlPanelOrderPayloadBuilder()
+        );
+
         return new ProductFinancingSubmissionService(
             $attempts,
             $locks,
@@ -191,7 +222,8 @@ final class ProductFinancingTestHarness
             new ConsentResolver(),
             new OpenCartProductOrderDraftBuilder(new ProductOrderDraftFactory()),
             new PersistenceClock(),
-            new Calculator()
+            new Calculator(),
+            $cpLifecycle
         );
     }
 

@@ -20,7 +20,8 @@ validated context → usable local OC order → durable attempt/snapshot → CP 
 | 8 Cart             | UI + submit to local order path                       |
 | 9 Checkout payment | `local_order_prepared` on existing `session.order_id` |
 | 10A Local parity   | Product/Cart visible local orders (`addHistory`)      |
-| Later (10B+)       | CP create, Process 1/2, SmartUCF, bank callbacks      |
+| 10B CP lifecycle   | CP create/recover → `cp_created` (no SmartUCF)        |
+| Later (11+)        | SmartUCF / Process execution / bank redirect          |
 
 ## Unified local boundary (Phase 10A)
 
@@ -31,6 +32,17 @@ Checkout → reuse session.order_id → correlation → local_order_prepared
 ```
 
 Product/Cart post-materialization status: `FinancingOrderStatusPolicy` awaiting id (module setting, else payment order status). See `docs/PHASE10A.md` and `docs/RECOVERY.md`.
+
+## Phase 10B CP boundary
+
+```text
+local_order_prepared (order_created)
+→ ControlPanelOrderLifecycleService
+→ frozen cp_payload → POST /orders (idempotent)
+→ control_panel_order_id + cp_created
+```
+
+Shared builder/lifecycle for Product, Cart, Checkout. See `docs/PHASE10B.md`.
 
 ## Phase 9 Checkout payment path
 

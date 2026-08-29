@@ -229,7 +229,30 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             $this->createAddressResolver(),
             new ConsentResolver(),
             new CartOrderDraftFactory(),
-            new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()
+            new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(),
+            $this->createControlPanelLifecycle($db, $attempts, $locks)
+        );
+    }
+
+    private function createControlPanelLifecycle(
+        \Opencart\System\Library\Extension\MtUniCredit\DbConnection $db,
+        FinancingAttemptRepository $attempts,
+        OperationLockRepository $locks
+    ): \Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderLifecycleService {
+        $services = $this->createCpServices();
+        $logger = null;
+        if ((int) $this->config->get(\Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings::DEBUG_ENABLED) === 1) {
+            $logger = static function (array $context): void {
+                error_log('[mt_uni_credit] ' . json_encode($context, JSON_UNESCAPED_UNICODE));
+            };
+        }
+
+        return new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderLifecycleService(
+            $attempts,
+            $locks,
+            $services['client'],
+            new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilder(),
+            $logger
         );
     }
 

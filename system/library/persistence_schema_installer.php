@@ -19,6 +19,24 @@ final class PersistenceSchemaInstaller
         foreach (self::createTableStatements($this->db->getPrefix()) as $sql) {
             $this->db->query($sql);
         }
+        $this->ensureUpgrades();
+    }
+
+    /**
+     * Idempotent column upgrades for existing installs (CREATE IF NOT EXISTS does not alter).
+     */
+    private function ensureUpgrades(): void
+    {
+        $financingAttempt = $this->db->getPrefix() . PersistenceTableNames::FINANCING_ATTEMPT;
+        try {
+            // CP PK is BIGINT; legacy VARCHAR(13) was sized for shop order_id, not CP id.
+            $this->db->query(
+                "ALTER TABLE `{$financingAttempt}`
+                 MODIFY COLUMN `control_panel_order_id` BIGINT UNSIGNED NULL"
+            );
+        } catch (\Throwable $exception) {
+            // Table may be mid-install or already compatible; CREATE path uses BIGINT.
+        }
     }
 
     /**
@@ -85,7 +103,7 @@ final class PersistenceSchemaInstaller
                 `cart_fingerprint` CHAR(64) NULL,
                 `state` VARCHAR(32) NOT NULL,
                 `order_id` INT UNSIGNED NULL,
-                `control_panel_order_id` VARCHAR(13) NULL,
+                `control_panel_order_id` BIGINT UNSIGNED NULL,
                 `cp_payload` LONGTEXT NULL,
                 `last_error_class` VARCHAR(64) NULL,
                 `expires_at` DATETIME NULL,

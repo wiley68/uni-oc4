@@ -143,6 +143,15 @@ final class OrderMaterializationService
             return;
         }
 
+        if (in_array($attempt->state(), [
+            FinancingAttemptState::CP_SUBMITTING,
+            FinancingAttemptState::CP_CREATED,
+            FinancingAttemptState::CP_FAILED_RETRYABLE,
+            FinancingAttemptState::CP_OUTCOME_UNKNOWN,
+        ], true) && $attempt->orderId() !== null) {
+            return;
+        }
+
         throw new OrderMaterializationException('Financing attempt is not in a materialization-ready state.');
     }
 

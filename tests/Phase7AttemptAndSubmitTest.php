@@ -127,7 +127,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             LockOwnerTokenGenerator::generate()
         );
         self::assertTrue($result->success);
-        self::assertSame('local_order_prepared', $result->step);
+        self::assertSame('cp_order_prepared', $result->step);
         self::assertFalse(str_contains(strtolower($result->message), 'bank'));
 
         $replay = $service->submit(
@@ -334,7 +334,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $owner
         );
         self::assertTrue($result->success);
-        self::assertSame('local_order_prepared', $result->step);
+        self::assertSame('cp_order_prepared', $result->step);
         self::assertGreaterThan(0, $result->orderId);
 
         $correlations = new \Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository(
