@@ -28,17 +28,23 @@ final class Phase7ProductAssetVersionTest extends TestCase
     {
         $jsVer = ModuleAssetVersion::forRelativePath(self::JS);
         $cssVer = ModuleAssetVersion::forRelativePath(self::CSS);
+        $fonts = 'catalog/view/stylesheet/mt_uni_credit_fonts.css';
+        $fontsVer = ModuleAssetVersion::forRelativePath($fonts);
 
         self::assertMatchesRegularExpression('/^\d+$/', $jsVer);
         self::assertMatchesRegularExpression('/^\d+$/', $cssVer);
+        self::assertMatchesRegularExpression('/^\d+$/', $fontsVer);
 
         $jsHref = ModuleAssetVersion::href(self::JS);
         $cssHref = ModuleAssetVersion::href(self::CSS);
+        $fontsHref = ModuleAssetVersion::href($fonts);
 
         self::assertStringContainsString('mt_uni_credit_product.js?ver=' . $jsVer, $jsHref);
         self::assertStringContainsString('mt_uni_credit_product.css?ver=' . $cssVer, $cssHref);
+        self::assertStringContainsString('mt_uni_credit_fonts.css?ver=' . $fontsVer, $fontsHref);
         self::assertStringNotContainsString('?ver=' . ModuleConstants::VERSION, $jsHref);
         self::assertStringNotContainsString('?ver=' . ModuleConstants::VERSION, $cssHref);
+        self::assertStringNotContainsString('?ver=' . ModuleConstants::VERSION, $fontsHref);
     }
 
     public function testDifferentAssetMtimesProduceDifferentVersions(): void
@@ -106,6 +112,7 @@ final class Phase7ProductAssetVersionTest extends TestCase
 
         self::assertStringContainsString('ModuleAssetVersion', $controller);
         self::assertStringContainsString('ModuleAssetVersion::href', $controller);
+        self::assertStringContainsString('mt_uni_credit_fonts.css', $controller);
         self::assertStringNotContainsString('ModuleConstants::VERSION', $controller);
         self::assertStringNotContainsString("?ver=' . \$version", $controller);
 

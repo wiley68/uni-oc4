@@ -58,16 +58,19 @@ final class Phase7ProductModalInteractionTest extends TestCase
         self::assertStringContainsString('lastTrigger.focus()', $js);
     }
 
-    public function testDebugLoggingIsGated(): void
+    public function testNoBrowserConsoleDiagnostics(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
         $calc = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_calculator.twig');
 
-        self::assertStringContainsString('data-mtuc-debug', $calc);
-        self::assertStringContainsString('debugEnabled()', $js);
-        self::assertStringContainsString("console.info('[mt_uni_credit]'", $js);
-        self::assertStringContainsString('product init', $js);
-        self::assertStringContainsString('modal opened', $js);
+        self::assertStringNotContainsString('console.log(', $js);
+        self::assertStringNotContainsString('console.info(', $js);
+        self::assertStringNotContainsString('console.debug(', $js);
+        self::assertStringNotContainsString('console.warn(', $js);
+        self::assertStringNotContainsString('console.error(', $js);
+        self::assertStringNotContainsString('debugLog', $js);
+        self::assertStringNotContainsString('data-mtuc-debug', $calc);
+        self::assertStringNotContainsString('mtUniCreditDebug', $js);
     }
 
     public function testDomFixtureOpenCloseContract(): void
@@ -75,7 +78,7 @@ final class Phase7ProductModalInteractionTest extends TestCase
         $fixture = <<<'HTML'
 <div id="content">
   <button type="submit" id="button-cart">Add</button>
-  <div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="40" data-mtuc-debug="0">
+  <div id="mt-uni-credit-product-root" class="mt-uni-credit-product" data-product-id="40">
     <div class="mt-uni-credit-calculator">
       <div class="mt-uni-credit-offers">
         <button type="button" class="mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--standard" data-offer-type="standard" data-preferred-key="standard|KOP|12|1">

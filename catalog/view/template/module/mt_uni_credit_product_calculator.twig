@@ -9,8 +9,7 @@
      data-logo-alternative="{{ mt_uni_credit.logo_alternative_url }}"
      data-mtuc-button-width="{{ calc.button_width }}"
      data-mtuc-button-height="{{ calc.button_height }}"
-     {% if mt_uni_credit.button_top_spacing > 0 %}data-mtuc-top-spacing="{{ mt_uni_credit.button_top_spacing }}"{% endif %}
-     {% if mt_uni_credit.debug_enabled %}data-mtuc-debug="1"{% endif %}>
+     {% if mt_uni_credit.button_top_spacing > 0 %}data-mtuc-top-spacing="{{ mt_uni_credit.button_top_spacing }}"{% endif %}>
   <div class="mt-uni-credit-product-calculator__calculator" aria-live="polite" aria-busy="false">
     {% if calc.heading %}
       <p class="mt-uni-credit-product-calculator__heading">{{ calc.heading }}</p>

@@ -23,6 +23,8 @@ class MtUniCreditProductController extends \Opencart\System\Engine\Controller
             return;
         }
 
+        // Local Roboto Condensed @font-face before Product UI stylesheet (filemtime cache-bust).
+        $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_fonts.css'));
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'));
         // Footer: product fragment is injected in body; header scripts run too early.
         $this->document->addScript(

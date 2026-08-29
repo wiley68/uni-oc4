@@ -306,6 +306,31 @@ Install: idempotent `CREATE TABLE IF NOT EXISTS`. Uninstall: **не** DROP-ва 
 | Operations journal | UI placeholder disabled until bank-request diagnostics (later phase)                   |
 | SmartUCF mTLS      | Not required for CP login or `GET /shop`                                               |
 
+## Cross-phase storefront contracts (permanent)
+
+These rules apply to Product, Cart, Checkout and future admin/storefront work.
+
+### Browser diagnostics
+
+Storefront production JS emits no intentional developer/debug console output.
+Debug mode uses server-side logging/journal only.
+
+Temporary remediation diagnostics may be used locally during active work; they must be removed before STOP GATE PASS (no console dumps, test-only HTML markers, or dead debug branches).
+
+### Resource locality
+
+All module-owned static assets are packaged locally.
+No external font/CSS/JS/icon dependencies.
+Only CP-provided advertising images from the approved operator CDN may be remote.
+
+### Font
+
+Roboto Condensed is bundled locally with its license and scoped only to UniCredit UI.
+
+### Asset cache identity
+
+Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not module release version alone).
+
 ## 15. Phase 6 order materialization foundation
 
 Подробности: `docs/PHASE6.md`.

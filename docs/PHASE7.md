@@ -146,7 +146,7 @@ Product option/quantity refresh follows the proven `mt_jet_credit` OpenCart inte
 | Debounce | none (Jet)                          | 250ms + AbortController/sequence                        |
 | AJAX     | Jet-specific calculate              | `mt_uni_credit_product.calculate`                       |
 
-Debug ON logs: `option/quantity change detected` → `recalculation request started` → `response received` → `calculator DOM updated`.
+Debug mode (`module_mt_uni_credit_debug_enabled`) writes **server-side** OpenCart log events only (`ProductVisibilityDebugLog`, calculate failure diagnostics). Storefront JS never emits intentional developer/debug console output.
 
 ## Asset cache busting (JS/CSS)
 
@@ -155,11 +155,16 @@ Module release version (`ModuleConstants::VERSION`, e.g. `2.0.x`) is **not** the
 `ModuleAssetVersion` versions each module-owned JS/CSS URL from that file’s `filemtime()`. Conceptual result:
 
 ```text
+mt_uni_credit_fonts.css?ver=1787981230
 mt_uni_credit_product.js?ver=1787981234
 mt_uni_credit_product.css?ver=1787981201
 ```
 
 Missing/unreadable files fall back safely to the module version. Editing an asset changes its URL without a release bump and without a manual Cloudflare purge for that asset. HTML/PHP cache policy remains separate.
+
+## Local fonts (Roboto Condensed)
+
+Packaged under `catalog/view/fonts/roboto-condensed/` (WOFF2 400/700 Cyrillic+Latin, SIL OFL). Loaded via `mt_uni_credit_fonts.css` `@font-face` and scoped only to `#mt-uni-credit-product-root` / `#mt-uni-credit-product-modal` (and later Cart/Checkout UniCredit roots). No Google Fonts / CDN font hosts.
 
 ## Calculate HTTP 500 remediation (runtime)
 

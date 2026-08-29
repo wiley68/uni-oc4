@@ -111,16 +111,17 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         self::assertStringContainsString('#input-quantity, input[name="quantity"]', $js);
         self::assertStringContainsString('bindProductRecalculationListeners', $js);
         self::assertStringContainsString('scheduleRefreshCalculator', $js);
-        self::assertStringContainsString('option change detected', $js);
-        self::assertStringContainsString('quantity change detected', $js);
-        self::assertStringContainsString('recalculation request started', $js);
-        self::assertStringContainsString('recalculation response received', $js);
-        self::assertStringContainsString('calculator DOM updated', $js);
-        self::assertStringContainsString('recalculation stale response ignored', $js);
+        self::assertStringContainsString('refreshCalculator', $js);
+        self::assertStringContainsString('productOptions()', $js);
+        self::assertStringContainsString('quantityValue()', $js);
+        self::assertStringContainsString('renderCalculator', $js);
         self::assertStringContainsString('syncBootstrap', $js);
         self::assertStringContainsString("submissionToken = ''", $js);
         // Avoid brittle CSS attribute selector with unescaped "[" in name^=.
         self::assertStringNotContainsString('[name^="option["]', $js);
+        // Permanent: no intentional storefront console diagnostics.
+        self::assertStringNotContainsString('console.info(', $js);
+        self::assertStringNotContainsString('debugLog', $js);
     }
 
     public function testOc41ProductTwigMatchesJetListenerSelectors(): void

@@ -176,7 +176,6 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         $data['mt_uni_credit'] = [
             'enabled'               => true,
             'product_id'            => $productId,
-            'debug_enabled'         => $debug,
             'button_top_spacing'    => ModuleLocalSettings::normalizeButtonTopSpacing(
                 $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)
             ),

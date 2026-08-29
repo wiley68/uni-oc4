@@ -5,27 +5,11 @@
   const MODAL_ID = 'mt-uni-credit-product-modal';
   const BOOTSTRAP_ID = 'mt-uni-credit-bootstrap';
   const TRIGGER_SELECTOR = '.mt-uni-credit-product-calculator__button[data-offer-type]';
-  const DEBUG_FLAG = 'mtUniCreditDebug';
-
-  function debugEnabled() {
-    if (window[DEBUG_FLAG] === true) {
-      return true;
-    }
-    const root = document.getElementById(ROOT_ID);
-    return !!(root && root.getAttribute('data-mtuc-debug') === '1');
-  }
-
-  function debugLog(...args) {
-    if (debugEnabled()) {
-      console.info('[mt_uni_credit]', ...args);
-    }
-  }
 
   function init() {
     const bootstrapEl = document.getElementById(BOOTSTRAP_ID);
     const root = document.getElementById(ROOT_ID);
     if (!bootstrapEl || !root) {
-      debugLog('init skipped: calculator root or bootstrap missing');
       return;
     }
     if (root.dataset.mtucBound === '1') {
@@ -37,13 +21,11 @@
     try {
       state = JSON.parse(bootstrapEl.textContent || '{}');
     } catch (error) {
-      debugLog('init skipped: bootstrap JSON invalid');
       return;
     }
 
     let modal = document.getElementById(MODAL_ID);
     if (!modal) {
-      debugLog('init skipped: modal root missing');
       return;
     }
 
@@ -65,7 +47,6 @@
     let modalHomeParent = modal.parentElement;
     let modalHomeNext = modal.nextSibling;
 
-    debugLog('product init');
     applyRootLayoutFromData(root, state);
 
     function applyRootLayoutFromData(element, bootstrap) {
@@ -172,33 +153,27 @@
           return;
         }
         node.addEventListener('change', () => {
-          debugLog('quantity change detected');
           scheduleRefreshCalculator('quantity change');
         });
         node.addEventListener('input', () => {
-          debugLog('quantity change detected');
           scheduleRefreshCalculator('quantity change');
         });
       });
-      debugLog('quantity listeners bound:', quantityNodes.length);
 
       const optionNodes = document.querySelectorAll('[id^="input-option"]');
       optionNodes.forEach((node) => {
         node.addEventListener('change', (event) => {
           const target = event.target;
           if (target && isOptionControl(target)) {
-            debugLog('option change detected');
             scheduleRefreshCalculator('option change');
             return;
           }
           // Wrapper div (#input-option-N) receives bubbled radio/checkbox change.
           if (node !== target && isOptionControl(node)) {
-            debugLog('option change detected');
             scheduleRefreshCalculator('option change');
           }
         });
       });
-      debugLog('option listeners bound:', optionNodes.length);
 
       // Document-level backup (survives late DOM quirks; Jet-equivalent selectors).
       document.addEventListener('change', (event) => {
@@ -207,12 +182,10 @@
           return;
         }
         if (isQuantityControl(target)) {
-          debugLog('quantity change detected');
           scheduleRefreshCalculator('quantity change');
           return;
         }
         if (isOptionControl(target)) {
-          debugLog('option change detected');
           scheduleRefreshCalculator('option change');
         }
       });
@@ -492,8 +465,6 @@
       lastCalculation = null;
       syncBootstrap();
       calculator.setAttribute('aria-busy', 'false');
-      debugLog('product recalculation completed');
-      debugLog('calculator refreshed');
     }
 
     let refreshTimer = null;
@@ -504,7 +475,6 @@
       }
       refreshTimer = setTimeout(() => {
         refreshTimer = null;
-        debugLog('product recalculation triggered:', reason);
         refreshCalculator(reason);
       }, 250);
     }
@@ -550,7 +520,6 @@
       }
       const qty = quantityValue();
       const options = productOptions();
-      debugLog('recalculation request started', reason || '', 'qty=', qty, 'options=', Object.keys(options).length);
       try {
         const json = await postJson(state.calculate_url, {
           csrf_token: state.csrf_token,
@@ -560,28 +529,22 @@
           sequence: currentSequence,
         });
         if (currentSequence !== sequence) {
-          debugLog('recalculation stale response ignored', currentSequence, sequence);
           return;
         }
-        debugLog('recalculation response received', json.success ? 'ok' : (json.error_code || 'fail'));
         if (!json.success && (json.error_code === 'missing_csrf' || json.error_code === 'invalid_csrf')) {
-          debugLog('csrf validation failed — reload product page');
         }
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
-          debugLog('calculator DOM updated');
           if (!modal.hidden && currentStep === 1) {
             populateSchemeSelect();
             await recalculateSelection();
           }
         } else if (calculator) {
           calculator.setAttribute('aria-busy', 'false');
-          debugLog('product recalculation failed', reason || '', json.message || '');
         }
       } catch (error) {
         if (error.name !== 'AbortError' && calculator) {
           calculator.setAttribute('aria-busy', 'false');
-          debugLog('product recalculation failed', reason || '');
         }
       }
     }
@@ -695,7 +658,6 @@
         apply.setAttribute('aria-disabled', 'true');
       }
       dialogEl()?.focus();
-      debugLog('modal opened', selectedOfferType, selectedSchemeKey);
       await recalculateSelection();
     }
 
@@ -715,7 +677,6 @@
       if (lastTrigger && typeof lastTrigger.focus === 'function') {
         lastTrigger.focus();
       }
-      debugLog('modal closed');
     }
 
     function secondaryActionUsesNativeAddToCart() {
@@ -855,7 +816,6 @@
     form?.addEventListener('submit', submitForm);
 
     bindProductRecalculationListeners();
-    debugLog('product recalculation listeners ready');
 
     renderCalculator(state.calculator);
   }

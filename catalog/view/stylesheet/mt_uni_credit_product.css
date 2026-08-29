@@ -17,7 +17,8 @@
   --mtuc-popup-border: #d4d4d8;
   --mtuc-popup-shadow: #f4f4f5;
   --mtuc-popup-muted: #696969;
-  font-family: "Roboto Condensed", sans-serif;
+  --mtuc-font-family: "Roboto Condensed", sans-serif;
+  font-family: var(--mtuc-font-family);
 }
 
 #mt-uni-credit-product-root .mt-uni-credit-product-calculator__heading {
@@ -120,7 +121,8 @@
   position: fixed;
   inset: 0;
   z-index: 100050;
-  font-family: "Roboto Condensed", sans-serif;
+  --mtuc-font-family: "Roboto Condensed", sans-serif;
+  font-family: var(--mtuc-font-family);
 }
 
 #mt-uni-credit-product-modal[hidden],
