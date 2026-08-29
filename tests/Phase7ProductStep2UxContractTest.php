@@ -40,7 +40,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringNotContainsString('name="egn"', $modal);
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__customer-input \{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__customer-input \{([^}]+)\}/s',
             $css,
             $m
         ));
@@ -68,7 +68,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('mt-uni-credit-product-calculator__required', $modal);
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__customer-label \{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__customer-label \{([^}]+)\}/s',
             $css,
             $m
         ));
@@ -86,8 +86,8 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         $css = $this->css();
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__customer-input:focus,\s*'
-            . '#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__customer-input:focus-visible \{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__customer-input:focus,\s*'
+            . ':is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__customer-input:focus-visible \{([^}]+)\}/s',
             $css,
             $m
         ));
@@ -114,7 +114,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('mt-uni-credit-product-calculator__consent-label', $modal);
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__consent-checkbox \{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__consent-checkbox \{([^}]+)\}/s',
             $css,
             $m
         ));
@@ -124,8 +124,8 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('accent-color: var(--mtuc-popup-red', $box);
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__consent-label,\s*'
-            . '#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__consent-text \{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__consent-label,\s*'
+            . ':is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__consent-text \{([^}]+)\}/s',
             $css,
             $m2
         ));
@@ -158,7 +158,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         );
 
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button--primary:disabled b,[\s\S]*?'
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) button\.mt-uni-credit-product-calculator__popup-button--primary:disabled b,[\s\S]*?'
             . '\{([^}]+)\}/s',
             $css,
             $m
@@ -267,7 +267,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         );
         // Customer input rules stay under modal id — no bare form-control.
         self::assertStringContainsString(
-            '#mt-uni-credit-product-modal .mt-uni-credit-product-calculator__customer-input',
+            ':is(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal) .mt-uni-credit-product-calculator__customer-input',
             $css
         );
     }

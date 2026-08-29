@@ -11,6 +11,14 @@ Verification (this environment):
 
 Phase 8 adds the OpenCart 4.1 standard-theme **Cart** financing entry point. It stops at successful **local OpenCart order materialization** via Phase 6 — no CP, Checkout payment, Process 1/2, SmartUCF, emails, or callbacks.
 
+## Runtime remediation — Cart unstyled / JS seeming absent (2026-08-29)
+
+**Classification:** Case C — Cart before-controller registered fonts + product CSS + cart CSS/JS (`Cart assets event executed` in logs). Assets used `ModuleAssetVersion` like Product.
+
+**Root cause:** Shared `mt_uni_credit_product.css` was scoped only to `#mt-uni-credit-product-root` / `#mt-uni-credit-product-modal`, while Cart Twig/JS use `#mt-uni-credit-cart-root` / `#mt-uni-credit-cart-modal`. CSS loaded but matched nothing → unstyled UI; behavior looked “broken”.
+
+**Fix:** Dual-scope shared visual CSS with `:is(#mt-uni-credit-product-*, #mt-uni-credit-cart-*)`. Cart keeps thin layout CSS + footer JS.
+
 ## Runtime remediation — Cart calculator not visible (2026-08-29)
 
 **Root cause:** `EventRegistry` defined cart hooks, but `oc_event` only had Product events. Cart `before`/`after` callbacks never ran (Admin Save not executed after Phase 8 deploy).

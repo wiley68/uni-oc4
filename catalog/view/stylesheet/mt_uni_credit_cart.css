@@ -1,4 +1,5 @@
-/* Cart-specific layout tweaks; visual system lives in mt_uni_credit_product.css */
+/* Cart layout tweaks only. Visual system: mt_uni_credit_product.css
+   (dual-scoped to #mt-uni-credit-product-root|modal and #mt-uni-credit-cart-root|modal). */
 
 .mt-uni-credit-cart-calculator {
   margin: 1rem 0 1.25rem;

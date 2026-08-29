@@ -111,10 +111,10 @@ final class Phase7ProductPopupPolishTest extends TestCase
 
         // Isolate the Step 1 calc focus rule block (select + first installment only).
         self::assertSame(1, preg_match(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-select:focus,\s*'
-            . '#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-select:focus-visible,\s*'
-            . '#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-input:focus,\s*'
-            . '#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-input:focus-visible\s*\{([^}]+)\}/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__popup-select:focus,\s*'
+            . ':is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__popup-select:focus-visible,\s*'
+            . ':is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__popup-input:focus,\s*'
+            . ':is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__popup-input:focus-visible\s*\{([^}]+)\}/s',
             $css,
             $block
         ));

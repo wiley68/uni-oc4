@@ -154,7 +154,7 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('mt-uni-credit-product-calculator__popup-calc', $modal);
         self::assertStringContainsString('border-radius: 14.5px 14.5px 80px 14.5px', $css);
         self::assertMatchesRegularExpression(
-            '/#mt-uni-credit-product-modal[^{]*\{[^}]*--mtuc-popup-red:\s*#ed1c24/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\)[^{]*\{[^}]*--mtuc-popup-red:\s*#ed1c24/s',
             $css
         );
 
@@ -177,7 +177,7 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('border-bottom: 1px solid #b0b0b0', $css);
         // No generic form-control chrome on calc input/select.
         self::assertDoesNotMatchRegularExpression(
-            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-input \{[^}]*border:\s*1px solid/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__popup-input \{[^}]*border:\s*1px solid/s',
             $css
         );
     }
@@ -233,11 +233,11 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('box-shadow: 6px 6px 7px rgba(105, 105, 105, .75)', $css);
         // Modal popup buttons use 6px layered radius — not offer-pill 9999px.
         self::assertMatchesRegularExpression(
-            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*6px/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*6px/s',
             $css
         );
         self::assertDoesNotMatchRegularExpression(
-            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*9999px/s',
+            '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*9999px/s',
             $css
         );
     }
