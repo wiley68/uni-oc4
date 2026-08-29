@@ -184,6 +184,10 @@ Reference CSS: Woo `mtuc-popup.css`, PS9 `product-calculator.css`.
 
 Mobile ≤768px: frame radius becomes `14px` (no calc background image); Step 1 actions stack full-width (Woo parity).
 
+### Secondary `Добави в количката` → close on cart success
+
+`product_button_action=add_to_cart` still clicks native `#button-cart` (OpenCart `#form-product` → `checkout/cart.add`). UniCredit binds a **namespaced one-shot** `ajaxSuccess.mtUniCreditCart` listener and calls existing `closeModal()` only when the response JSON has `success`. Validation/`error` responses leave the popup open. Duplicate clicks while awaiting are ignored; listeners are unbound on close/Cancel/Escape. `buy` still redirects to `checkout_url` unchanged.
+
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.

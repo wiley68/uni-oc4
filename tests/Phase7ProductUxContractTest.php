@@ -111,6 +111,41 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('Локалната поръчка е подготвена', $js);
     }
 
+    public function testAddToCartSecondaryClosesModalOnlyOnOpenCartSuccess(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        $productTwig = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/catalog/view/template/product/product.twig'
+        );
+
+        // Native OC4.1 Product cart.add contract (authoritative success signal).
+        self::assertStringContainsString("route=checkout/cart.add", $productTwig);
+        self::assertStringContainsString("if (json['success'])", $productTwig);
+        self::assertStringContainsString("id=\"button-cart\"", $productTwig);
+
+        // UniCredit observes jQuery ajaxSuccess for cart.add, then reuses closeModal().
+        self::assertStringContainsString('ajaxSuccess.mtUniCreditCart', $js);
+        self::assertStringContainsString('bindNativeCartAddSuccessCloser', $js);
+        self::assertStringContainsString('isCheckoutCartAddUrl', $js);
+        self::assertStringContainsString('route=checkout/cart.add', $js);
+        self::assertStringContainsString('json.success', $js);
+        self::assertStringContainsString('closeModal()', $js);
+        self::assertStringContainsString('awaitingNativeCartAdd', $js);
+        self::assertStringContainsString('unbindNativeCartAddObserver', $js);
+        self::assertStringContainsString("$(document).off('ajaxSuccess.mtUniCreditCart')", $js);
+
+        // Still one native click — no UniCredit cart AJAX payload reconstruction.
+        self::assertStringContainsString('cartBtn.click()', $js);
+        self::assertStringNotContainsString('checkout/cart.add&', $js);
+        self::assertStringNotContainsString('setTimeout(() => closeModal', $js);
+        self::assertStringNotContainsString('setTimeout(closeModal', $js);
+
+        // buy path unchanged.
+        self::assertStringContainsString("!== 'buy'", $js);
+        self::assertStringContainsString('checkout_url', $js);
+        self::assertStringContainsString('window.location.href = checkoutUrl', $js);
+    }
+
     public function testStep1CalcFrameHasAsymmetricUniCreditRadius(): void
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/stylesheet/mt_uni_credit_product.css');

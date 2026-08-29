@@ -46,6 +46,7 @@
     let firstInstallmentTimer = null;
     let modalHomeParent = modal.parentElement;
     let modalHomeNext = modal.nextSibling;
+    let awaitingNativeCartAdd = false;
 
     applyRootLayoutFromData(root, state);
 
@@ -665,6 +666,7 @@
     }
 
     function closeModal() {
+      unbindNativeCartAddObserver();
       modal.hidden = true;
       modal.setAttribute('aria-hidden', 'true');
       setBackgroundInert(false);
@@ -686,13 +688,77 @@
       return (state.product_button_action || 'add_to_cart') !== 'buy';
     }
 
-    function triggerSecondaryAction() {
-      if (secondaryActionUsesNativeAddToCart()) {
-        const cartBtn = document.querySelector('#button-cart');
-        if (cartBtn) {
-          cartBtn.click();
+    function isCheckoutCartAddUrl(url) {
+      const normalized = String(url || '').replace(/&amp;/g, '&');
+      return normalized.indexOf('route=checkout/cart.add') !== -1
+        || /\/checkout\/cart\.add(?:\?|$)/.test(normalized);
+    }
+
+    function parseAjaxJson(xhr) {
+      if (!xhr) {
+        return null;
+      }
+      if (xhr.responseJSON && typeof xhr.responseJSON === 'object') {
+        return xhr.responseJSON;
+      }
+      try {
+        return JSON.parse(xhr.responseText || '');
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function unbindNativeCartAddObserver() {
+      const $ = window.jQuery;
+      if ($ && typeof $.fn !== 'undefined') {
+        $(document).off('ajaxSuccess.mtUniCreditCart');
+      }
+      awaitingNativeCartAdd = false;
+    }
+
+    /**
+     * Observe OpenCart 4.1 standard Product cart.add AJAX (product.twig).
+     * Close UniCredit modal only when json.success is present — not on validation errors.
+     */
+    function bindNativeCartAddSuccessCloser() {
+      const $ = window.jQuery;
+      if (!$ || typeof $.fn === 'undefined') {
+        return false;
+      }
+
+      unbindNativeCartAddObserver();
+      awaitingNativeCartAdd = true;
+
+      const handleCartAjax = function (_event, xhr, settings) {
+        if (!isCheckoutCartAddUrl(settings && settings.url)) {
           return;
         }
+        unbindNativeCartAddObserver();
+        const json = parseAjaxJson(xhr);
+        if (json && json.success) {
+          closeModal();
+        }
+        // json.error / missing success → keep modal open for OpenCart validation UX.
+      };
+
+      // OpenCart product.twig uses $.ajax success with json.success | json.error.
+      $(document).on('ajaxSuccess.mtUniCreditCart', handleCartAjax);
+      return true;
+    }
+
+    function triggerSecondaryAction() {
+      if (secondaryActionUsesNativeAddToCart()) {
+        if (awaitingNativeCartAdd) {
+          return;
+        }
+        const cartBtn = document.querySelector('#button-cart');
+        if (!cartBtn) {
+          return;
+        }
+        bindNativeCartAddSuccessCloser();
+        cartBtn.click();
+        // Native #form-product submit handler owns the cart request; we only observe completion.
+        return;
       }
       const checkoutUrl = state.checkout_url || root.getAttribute('data-checkout-url') || '';
       if (checkoutUrl) {
