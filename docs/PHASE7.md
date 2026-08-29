@@ -134,3 +134,16 @@ Reference audited: PS9 `unipayment` (authoritative), PS8 `unipayment`, Woo `mtun
 - `add_to_cart` → secondary „Добави в количката“ clicks native `#button-cart`.
 - `buy` → secondary „Купи“ redirects to checkout URL.
 - Does **not** create a third product-level financing control.
+
+## Dynamic recalculation (Jet OC4 parity)
+
+Product option/quantity refresh follows the proven `mt_jet_credit` OpenCart interaction pattern:
+
+| Concern  | Jet                                 | UniCredit                                               |
+| -------- | ----------------------------------- | ------------------------------------------------------- |
+| Quantity | `$('[name=quantity]').on('change')` | `#input-quantity` / `input[name=quantity]` change+input |
+| Options  | `[id^="input-option"]` change       | same selector + document backup                         |
+| Debounce | none (Jet)                          | 250ms + AbortController/sequence                        |
+| AJAX     | Jet-specific calculate              | `mt_uni_credit_product.calculate`                       |
+
+Debug ON logs: `option/quantity change detected` → `recalculation request started` → `response received` → `calculator DOM updated`.

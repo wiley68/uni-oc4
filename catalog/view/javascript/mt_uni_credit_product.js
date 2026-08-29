@@ -84,58 +84,74 @@
       }
     }
 
-    function productFormEl() {
-      return document.getElementById('form-product');
+    /**
+     * OpenCart 4.1 product controls live under #product > #form-product.
+     * Jet (mt_jet_credit) binds [name=quantity] + [id^=input-option] — proven on OC4.1.0.3.
+     */
+    function productRootEl() {
+      return document.getElementById('product') || document.getElementById('form-product');
     }
 
-    function isRecalcControl(element) {
-      if (!element || !(element instanceof Element)) {
+    function productFormEl() {
+      return document.getElementById('form-product') || document.getElementById('product');
+    }
+
+    function isQuantityControl(element) {
+      if (!element || !element.getAttribute) {
         return false;
       }
-      const form = productFormEl();
-      if (!form || !form.contains(element)) {
+      return element.id === 'input-quantity' || element.getAttribute('name') === 'quantity';
+    }
+
+    function isOptionControl(element) {
+      if (!element || !element.getAttribute) {
         return false;
       }
-      if (element.matches('#input-quantity, input[name="quantity"]')) {
+      const id = element.id || '';
+      const name = element.getAttribute('name') || '';
+      // Jet contract: ids start with input-option (select, radio, checkbox, wrappers).
+      if (id.indexOf('input-option') === 0) {
         return true;
       }
-      return element.matches('[name^="option["]');
+      // Name contract from OC4 product.twig: option[product_option_id] / option[id][]
+      return name.indexOf('option[') === 0;
     }
 
     function recalcTriggerReason(element) {
-      if (element.matches('#input-quantity, input[name="quantity"]')) {
-        return 'quantity change';
-      }
-      return 'option change';
+      return isQuantityControl(element) ? 'quantity change' : 'option change';
     }
 
     function productOptions() {
-      const form = productFormEl();
       const options = {};
-      if (!form) {
+      const root = productRootEl();
+      if (!root) {
         return options;
       }
-      form.querySelectorAll('[name^="option["]').forEach((element) => {
-        const match = element.name.match(/^option\[(\d+)\]/);
+      // Jet-parity field set under #product / #form-product.
+      const fields = root.querySelectorAll(
+        "input[type='text'][name], input[type='hidden'][name], input[type='radio'][name]:checked, input[type='checkbox'][name]:checked, input[type='date'][name], input[type='time'][name], input[type='datetime-local'][name], select[name], textarea[name]"
+      );
+      fields.forEach((element) => {
+        const name = element.getAttribute('name') || '';
+        const match = name.match(/^option\[(\d+)](\[\])?$/);
         if (!match) {
           return;
         }
         const id = match[1];
-        if (element.type === 'checkbox') {
-          if (!element.checked) {
+        if (element.type === 'checkbox' || match[2] === '[]') {
+          options[id] = options[id] || [];
+          if (element.type === 'checkbox' && !element.checked) {
             return;
           }
-          options[id] = options[id] || [];
-          options[id].push(element.value);
-          return;
-        }
-        if (element.type === 'radio') {
-          if (element.checked) {
-            options[id] = element.value;
+          if (String(element.value) !== '') {
+            options[id].push(element.value);
           }
           return;
         }
-        if (element.value !== '') {
+        if (element.type === 'radio' && !element.checked) {
+          return;
+        }
+        if (String(element.value) !== '') {
           options[id] = element.value;
         }
       });
@@ -143,12 +159,63 @@
     }
 
     function quantityValue() {
-      const form = productFormEl();
-      const qty = form
-        ? form.querySelector('#input-quantity, input[name="quantity"]')
-        : document.querySelector('#input-quantity, input[name="quantity"]');
+      const qty = document.querySelector('#input-quantity, input[name="quantity"]');
       const parsed = qty ? parseInt(qty.value, 10) : 1;
       return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    }
+
+    function bindProductRecalculationListeners() {
+      // Proven Jet pattern: direct listeners on quantity + input-option* controls.
+      const quantityNodes = document.querySelectorAll('#input-quantity, input[name="quantity"]');
+      quantityNodes.forEach((node, index) => {
+        if (index > 0) {
+          return;
+        }
+        node.addEventListener('change', () => {
+          debugLog('quantity change detected');
+          scheduleRefreshCalculator('quantity change');
+        });
+        node.addEventListener('input', () => {
+          debugLog('quantity change detected');
+          scheduleRefreshCalculator('quantity change');
+        });
+      });
+      debugLog('quantity listeners bound:', quantityNodes.length);
+
+      const optionNodes = document.querySelectorAll('[id^="input-option"]');
+      optionNodes.forEach((node) => {
+        node.addEventListener('change', (event) => {
+          const target = event.target;
+          if (target && isOptionControl(target)) {
+            debugLog('option change detected');
+            scheduleRefreshCalculator('option change');
+            return;
+          }
+          // Wrapper div (#input-option-N) receives bubbled radio/checkbox change.
+          if (node !== target && isOptionControl(node)) {
+            debugLog('option change detected');
+            scheduleRefreshCalculator('option change');
+          }
+        });
+      });
+      debugLog('option listeners bound:', optionNodes.length);
+
+      // Document-level backup (survives late DOM quirks; Jet-equivalent selectors).
+      document.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!target) {
+          return;
+        }
+        if (isQuantityControl(target)) {
+          debugLog('quantity change detected');
+          scheduleRefreshCalculator('quantity change');
+          return;
+        }
+        if (isOptionControl(target)) {
+          debugLog('option change detected');
+          scheduleRefreshCalculator('option change');
+        }
+      });
     }
 
     function syncBootstrap() {
@@ -481,19 +548,25 @@
       if (calculator) {
         calculator.setAttribute('aria-busy', 'true');
       }
+      const qty = quantityValue();
+      const options = productOptions();
+      debugLog('recalculation request started', reason || '', 'qty=', qty, 'options=', Object.keys(options).length);
       try {
         const json = await postJson(state.calculate_url, {
           csrf_token: state.csrf_token,
           product_id: state.product_id,
-          quantity: quantityValue(),
-          option: productOptions(),
+          quantity: qty,
+          option: options,
           sequence: currentSequence,
         });
         if (currentSequence !== sequence) {
+          debugLog('recalculation stale response ignored', currentSequence, sequence);
           return;
         }
+        debugLog('recalculation response received', json.success ? 'ok' : (json.error_code || 'fail'));
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
+          debugLog('calculator DOM updated');
           if (!modal.hidden && currentStep === 1) {
             populateSchemeSelect();
             await recalculateSelection();
@@ -778,21 +851,8 @@
 
     form?.addEventListener('submit', submitForm);
 
-    const productForm = productFormEl();
-    if (productForm) {
-      productForm.addEventListener('change', (event) => {
-        if (isRecalcControl(event.target)) {
-          scheduleRefreshCalculator(recalcTriggerReason(event.target));
-        }
-      });
-      productForm.addEventListener('input', (event) => {
-        if (isRecalcControl(event.target)) {
-          scheduleRefreshCalculator(recalcTriggerReason(event.target));
-        }
-      });
-    } else {
-      debugLog('init warning: #form-product missing; dynamic recalculation disabled');
-    }
+    bindProductRecalculationListeners();
+    debugLog('product recalculation listeners ready');
 
     renderCalculator(state.calculator);
   }

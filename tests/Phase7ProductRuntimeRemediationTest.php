@@ -10,6 +10,9 @@ use Opencart\System\Library\Extension\MtUniCredit\InstallmentLabelFormatter;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Runtime recalculation must follow the proven mt_jet_credit OpenCart Product interaction pattern.
+ */
 final class Phase7ProductRuntimeRemediationTest extends TestCase
 {
     public function testEurInstallmentLabelUsesEvroNotSymbol(): void
@@ -54,6 +57,7 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
 
         self::assertSame(1080.0, $lineBase->financingPrice);
         self::assertSame(1140.0, $lineOption->financingPrice);
+        self::assertNotSame($lineBase->financingPrice, $lineOption->financingPrice);
     }
 
     public function testQuantityMultipliesLineFinancingAmount(): void
@@ -72,19 +76,46 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         self::assertSame([502, 503], $normalized[12]);
     }
 
-    public function testJsUsesFormProductDelegatedRecalculation(): void
+    public function testJsFollowsJetOpenCartProductListenerContract(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        $jet = (string) file_get_contents(
+            dirname(__DIR__, 2) . '/mt_jet_credit/catalog/view/javascript/creditjet_products.js'
+        );
 
-        self::assertStringContainsString("document.getElementById('form-product')", $js);
-        self::assertStringContainsString('scheduleRefreshCalculator', $js);
-        self::assertStringContainsString('product recalculation triggered:', $js);
-        self::assertStringContainsString('product recalculation completed', $js);
-        self::assertStringContainsString('isRecalcControl', $js);
+        // Jet proven selectors (authoritative OC4 Product interaction).
+        self::assertStringContainsString('[id^="input-option"]', $jet);
+        self::assertStringContainsString('[name="quantity"]', $jet);
+
+        // UniCredit must use the same Product DOM contract.
+        self::assertStringContainsString('[id^="input-option"]', $js);
         self::assertStringContainsString('#input-quantity, input[name="quantity"]', $js);
-        self::assertStringContainsString('[name^="option["]', $js);
+        self::assertStringContainsString('bindProductRecalculationListeners', $js);
+        self::assertStringContainsString('scheduleRefreshCalculator', $js);
+        self::assertStringContainsString('option change detected', $js);
+        self::assertStringContainsString('quantity change detected', $js);
+        self::assertStringContainsString('recalculation request started', $js);
+        self::assertStringContainsString('recalculation response received', $js);
+        self::assertStringContainsString('calculator DOM updated', $js);
+        self::assertStringContainsString('recalculation stale response ignored', $js);
         self::assertStringContainsString('syncBootstrap', $js);
-        self::assertStringContainsString('submissionToken = \'\'', $js);
+        self::assertStringContainsString("submissionToken = ''", $js);
+        // Avoid brittle CSS attribute selector with unescaped "[" in name^=.
+        self::assertStringNotContainsString('[name^="option["]', $js);
+    }
+
+    public function testOc41ProductTwigMatchesJetListenerSelectors(): void
+    {
+        $productTwig = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/catalog/view/template/product/product.twig'
+        );
+
+        self::assertStringContainsString('id="form-product"', $productTwig);
+        self::assertStringContainsString('id="product"', $productTwig);
+        self::assertStringContainsString('id="input-quantity"', $productTwig);
+        self::assertStringContainsString('name="quantity"', $productTwig);
+        self::assertStringContainsString('id="input-option-{{ option.product_option_id }}"', $productTwig);
+        self::assertStringContainsString('name="option[{{ option.product_option_id }}]"', $productTwig);
     }
 
     public function testPresenterReturnsUpdatedInstallmentLabelAfterContextChange(): void
@@ -98,5 +129,32 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         self::assertNotNull($presented);
         self::assertStringContainsString('евро', $presented['offers']['standard']['installment_label']);
         self::assertStringNotContainsString('€', $presented['offers']['standard']['installment_label']);
+    }
+
+    public function testOffersDifferWhenQuantityChanges(): void
+    {
+        $shop = ProductFinancingTestHarness::shop();
+        $presenter = ProductFinancingTestHarness::presenter();
+        $one = $presenter->present(
+            $shop,
+            ProductFinancingTestHarness::factory()->create(ProductFinancingTestHarness::STORE_ID, 42, 1, []),
+            'BGN'
+        );
+        $two = $presenter->present(
+            $shop,
+            ProductFinancingTestHarness::factory()->create(ProductFinancingTestHarness::STORE_ID, 42, 2, []),
+            'BGN'
+        );
+
+        self::assertNotNull($one);
+        self::assertNotNull($two);
+        self::assertNotSame(
+            $one['offers']['standard']['monthly_installment'],
+            $two['offers']['standard']['monthly_installment']
+        );
+        self::assertNotSame(
+            $one['offers']['standard']['installment_label'],
+            $two['offers']['standard']['installment_label']
+        );
     }
 }
