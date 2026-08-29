@@ -34,12 +34,12 @@ final class OpenCartProductOrderDraftBuilder
         $subTotal = round($line->unitPriceExTax * $line->quantity, 4);
         $taxTotal = round($line->unitTax * $line->quantity, 4);
         $totals = [
-            ['extension' => '', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => $subTotal, 'sort_order' => 1],
+            ['extension' => 'opencart', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => $subTotal, 'sort_order' => 1],
         ];
         if ($taxTotal > 0) {
-            $totals[] = ['extension' => '', 'code' => 'tax', 'title' => 'Tax', 'value' => $taxTotal, 'sort_order' => 5];
+            $totals[] = ['extension' => 'opencart', 'code' => 'tax', 'title' => 'Tax', 'value' => $taxTotal, 'sort_order' => 5];
         }
-        $totals[] = ['extension' => '', 'code' => 'total', 'title' => 'Total', 'value' => $orderTotal, 'sort_order' => 9];
+        $totals[] = ['extension' => 'opencart', 'code' => 'total', 'title' => 'Total', 'value' => $orderTotal, 'sort_order' => 9];
 
         $draft = $this->factory->create(
             $storeId,

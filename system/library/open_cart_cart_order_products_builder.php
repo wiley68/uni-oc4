@@ -68,12 +68,12 @@ final class OpenCartCartOrderProductsBuilder
 
         $orderTotal = round($subTotal + $taxTotal, 2);
         $totals = [
-            ['extension' => '', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => round($subTotal, 4), 'sort_order' => 1],
+            ['extension' => 'opencart', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => round($subTotal, 4), 'sort_order' => 1],
         ];
         if ($taxTotal > 0) {
-            $totals[] = ['extension' => '', 'code' => 'tax', 'title' => 'Tax', 'value' => round($taxTotal, 4), 'sort_order' => 5];
+            $totals[] = ['extension' => 'opencart', 'code' => 'tax', 'title' => 'Tax', 'value' => round($taxTotal, 4), 'sort_order' => 5];
         }
-        $totals[] = ['extension' => '', 'code' => 'total', 'title' => 'Total', 'value' => $orderTotal, 'sort_order' => 9];
+        $totals[] = ['extension' => 'opencart', 'code' => 'total', 'title' => 'Total', 'value' => $orderTotal, 'sort_order' => 9];
 
         return [
             'products'          => $products,

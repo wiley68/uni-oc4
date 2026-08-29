@@ -7,8 +7,11 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * OpenCart-native status decision for newly materialized Product/Cart financing orders.
  *
- * Product/Cart orders move from default status 0 to a dedicated awaiting-financing status
- * via addHistory() so native checkout editOrder(status=0) semantics cannot interfere later.
+ * Product/Cart orders move from default status 0 to a visible interim status via addHistory()
+ * so Admin Sales → Orders (WHERE order_status_id > 0) includes them.
+ *
+ * Interim status must NOT mean bank/CP success. Prefer store Pending
+ * ({@see config_order_status_id}), never payment Processing.
  *
  * Checkout reuses the native session.order_id row. OpenCart 4.1.0.3 `editOrder()` always
  * voids first via config_void_status_id, so active checkout orders commonly sit at void
@@ -25,17 +28,22 @@ final class FinancingOrderStatusPolicy
     }
 
     /**
-     * Resolve Product/Cart post-materialization status.
-     * Prefer dedicated module setting; fall back to payment method order status
-     * so installs that only configured Payments → UniCredit still leave visible orders.
+     * Resolve Product/Cart post-materialization status (must be > 0 for Admin visibility).
+     *
+     * 1. Dedicated module setting when configured
+     * 2. Else store default Pending: config_order_status_id
+     *
+     * Do not fall back to payment_*_order_status_id (usually Processing).
      */
-    public static function resolveConfiguredAwaitingStatusId(int $moduleAwaitingStatusId, int $paymentOrderStatusId = 0): int
-    {
+    public static function resolveConfiguredAwaitingStatusId(
+        int $moduleAwaitingStatusId,
+        int $configOrderStatusId = 0
+    ): int {
         if ($moduleAwaitingStatusId > 0) {
             return $moduleAwaitingStatusId;
         }
 
-        return $paymentOrderStatusId > 0 ? $paymentOrderStatusId : 0;
+        return $configOrderStatusId > 0 ? $configOrderStatusId : 0;
     }
 
     public function awaitingFinancingStatusId(): int
@@ -56,7 +64,6 @@ final class FinancingOrderStatusPolicy
         if ($this->awaitingFinancingStatusId > 0 && $orderStatusId === $this->awaitingFinancingStatusId) {
             return true;
         }
-        // OC4.1 confirm.php → editOrder() voids the same order_id before rewriting fields.
         if ($this->voidStatusId > 0 && $orderStatusId === $this->voidStatusId) {
             return true;
         }

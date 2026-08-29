@@ -77,8 +77,8 @@ final class OrderMaterializationTestHarness
         $customer = self::customer();
         $billing = self::address();
         $totals = [
-            ['extension' => '', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => 1000.0, 'sort_order' => 1],
-            ['extension' => '', 'code' => 'total', 'title' => 'Total', 'value' => 1200.0, 'sort_order' => 9],
+            ['extension' => 'opencart', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => 1000.0, 'sort_order' => 1],
+            ['extension' => 'opencart', 'code' => 'total', 'title' => 'Total', 'value' => 1200.0, 'sort_order' => 9],
         ];
         $draftFactory = new ProductOrderDraftFactory();
         $draft = $draftFactory->create(
@@ -169,9 +169,9 @@ final class OrderMaterializationTestHarness
             ],
         ];
         $totals = [
-            ['extension' => '', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => 1000.0, 'sort_order' => 1],
-            ['extension' => '', 'code' => 'shipping', 'title' => 'Flat Shipping', 'value' => 5.0, 'sort_order' => 3],
-            ['extension' => '', 'code' => 'total', 'title' => 'Total', 'value' => 1200.0, 'sort_order' => 9],
+            ['extension' => 'opencart', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => 1000.0, 'sort_order' => 1],
+            ['extension' => 'opencart', 'code' => 'shipping', 'title' => 'Flat Shipping', 'value' => 5.0, 'sort_order' => 3],
+            ['extension' => 'opencart', 'code' => 'total', 'title' => 'Total', 'value' => 1200.0, 'sort_order' => 9],
         ];
         $draft = (new CartOrderDraftFactory())->create(
             PersistenceIntegrationHarness::TEST_STORE_ID,

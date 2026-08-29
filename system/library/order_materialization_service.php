@@ -57,7 +57,10 @@ final class OrderMaterializationService
 
         $boundOrderId = $attempt->orderId();
         if ($boundOrderId !== null) {
-            return $this->materializer->loadVerified($boundOrderId, $submission, true);
+            $created = $this->materializer->loadVerified($boundOrderId, $submission, true);
+            $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
+
+            return $created;
         }
 
         $this->advanceToOrderCreating($attempt);
@@ -77,15 +80,37 @@ final class OrderMaterializationService
             );
         }
 
-        if ($this->statusPolicy->shouldApplyAwaitingStatus($submission->entryPoint)) {
-            $statusId = $this->statusPolicy->awaitingFinancingStatusId();
-            if ($statusId > 0 && $created->orderStatusId !== $statusId) {
-                $this->orders->addHistory($created->orderId, $statusId, '', false);
-                $created->orderStatusId = $statusId;
-            }
-        }
+        $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
 
         return $created;
+    }
+
+    /**
+     * Move Product/Cart orders off status 0 so Admin Orders lists them.
+     * Idempotent: skips addHistory when already at the interim status.
+     * Also applied on recovered/bound retries after a failed prior status update.
+     */
+    private function ensureInterimVisibleStatus(CreatedOpenCartOrder $created, string $entryPoint): void
+    {
+        if (!$this->statusPolicy->shouldApplyAwaitingStatus($entryPoint)) {
+            return;
+        }
+
+        $statusId = $this->statusPolicy->awaitingFinancingStatusId();
+        if ($statusId <= 0) {
+            return;
+        }
+
+        $order = $this->orders->getOrder($created->orderId);
+        $current = (int) ($order['order_status_id'] ?? $created->orderStatusId);
+        if ($current === $statusId) {
+            $created->orderStatusId = $current;
+
+            return;
+        }
+
+        $this->orders->addHistory($created->orderId, $statusId, '', false);
+        $created->orderStatusId = $statusId;
     }
 
     private function resolveOrCreateOrder(

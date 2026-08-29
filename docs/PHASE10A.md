@@ -11,49 +11,40 @@ Product / Cart / Checkout
 → exactly one durable local OpenCart order
 → attempt bound (order_created)
 → order correlation row
+→ interim visible OC status (Pending)
 → local_order_prepared
 ```
 
 Checkout still **reuses** `session.order_id` via `CheckoutExistingOrderGateway` (never `addOrder()`).  
 Product/Cart **create** via `OpenCartOrderMaterializer::materializeNew` → `model_checkout_order->addOrder()`.
 
-## Root cause (why Admin looked empty)
+## Admin visibility
 
-Phase 6/7/8 already wired Product/Cart submit → `OrderMaterializationService::materializeAndBind` → `addOrder()`.
-
-Live evidence (status 0 rows with payment `mt_uni_credit.mt_uni_credit` and `order_created` attempts) proved orders were created.
-
-They stayed at **`order_status_id = 0`** because:
+OC 4.1 Admin `getOrders()` default filter:
 
 ```text
-module_mt_uni_credit_awaiting_financing_order_status_id
+WHERE order_status_id > '0'
 ```
 
-was unset, so `addHistory(awaiting)` was skipped. Admin Sales → Orders hides status 0.
+Status `0` is listed only under filter **Пропуснати поръчки** (`text_missing`).
 
-Checkout looked “working” because `payment/mt_uni_credit.confirm` calls `addHistory(payment_mt_uni_credit_order_status_id)` after success.
+## Root causes (why Product/Cart looked missing)
 
-## Phase 10A fix
+1. **Status 0** — `addHistory` never persisted (empty `oc_order_history`).
+2. **Empty `order_total.extension`** — drafts used `extension => ''`. Native `addHistory()` loads `extension/{extension}/total/{code}` when moving into a processing-list status; empty extension breaks that path before `editOrderStatusId` / history insert.
+3. Earlier fallback to `payment_mt_uni_credit_order_status_id` = Processing was wrong for Phase 10A semantics.
 
-1. `FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(module, payment)` — fallback to payment order status when module awaiting is 0.
-2. Product / Cart / Checkout models wire that resolver.
-3. Admin module setting + UI for awaiting financing status (0 = use Payment status).
+## Fix
 
-After submit, Product/Cart orders leave status 0 and become Admin-visible. No CP/SmartUCF.
+1. Totals use `extension => 'opencart'` (native OC totals modules).
+2. Interim status = module awaiting setting, else **`config_order_status_id` (Pending)** — never payment Processing.
+3. `ensureInterimVisibleStatus()` after bind **and** on bound-order retry (idempotent if already Pending).
 
 ## Payment identity
 
 ```text
 mt_uni_credit.mt_uni_credit
 ```
-
-## Guest
-
-`customer_id = 0` is first-class for Product/Cart.
-
-## Crash / duplicate
-
-Unchanged Phase 6 contracts: operation lock + correlation + attach-once. Replay from ISSUED/VALIDATING/ORDER_CREATING returns the same order.
 
 ## Next
 

@@ -152,7 +152,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Model
         $statusPolicy = new FinancingOrderStatusPolicy(
             FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(
                 (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING),
-                (int) $this->config->get('payment_mt_uni_credit_order_status_id')
+                (int) $this->config->get('config_order_status_id')
             ),
             (int) $this->config->get('config_void_status_id')
         );

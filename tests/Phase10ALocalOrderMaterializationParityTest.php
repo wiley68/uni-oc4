@@ -15,10 +15,10 @@ use PHPUnit\Framework\TestCase;
  */
 final class Phase10ALocalOrderMaterializationParityTest extends TestCase
 {
-    public function testAwaitingStatusFallsBackToPaymentOrderStatus(): void
+    public function testAwaitingStatusFallsBackToConfigOrderStatusPending(): void
     {
         self::assertSame(0, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(0, 0));
-        self::assertSame(2, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(0, 2));
+        self::assertSame(1, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(0, 1));
         self::assertSame(1, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(1, 2));
         self::assertSame(25, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(25, 0));
     }
@@ -32,7 +32,12 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
                 $src,
                 $file
             );
-            self::assertStringContainsString('payment_mt_uni_credit_order_status_id', $src, $file);
+            self::assertStringContainsString('config_order_status_id', $src, $file);
+            self::assertStringNotContainsString(
+                "get('payment_mt_uni_credit_order_status_id')",
+                $src,
+                $file
+            );
         }
     }
 
@@ -60,6 +65,27 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
         self::assertStringNotContainsString('->addOrder(', $controller);
         $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
         self::assertStringNotContainsString('->addOrder(', $service);
+    }
+
+    public function testMaterializationServiceAppliesInterimStatusOnBoundRetry(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
+        self::assertStringContainsString('ensureInterimVisibleStatus', $src);
+        self::assertStringContainsString('boundOrderId !== null', $src);
+        // Idempotent: skip when already at interim status.
+        self::assertStringContainsString('current === $statusId', $src);
+    }
+
+    public function testProductCartOrderTotalsUseOpencartExtension(): void
+    {
+        foreach ([
+            'open_cart_product_order_draft_builder.php',
+            'open_cart_cart_order_products_builder.php',
+        ] as $file) {
+            $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/' . $file);
+            self::assertStringContainsString("'extension' => 'opencart'", $src, $file);
+            self::assertStringNotContainsString("'extension' => ''", $src, $file);
+        }
     }
 
     public function testPhase10ADoesNotIntroduceCpOrSmartUcfLifecycle(): void

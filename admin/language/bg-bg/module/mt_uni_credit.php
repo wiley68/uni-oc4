@@ -26,8 +26,8 @@ $_['help_advertising_enabled'] = 'Можете да включите или из
 $_['help_debug_enabled']      = 'При включване се записват сървърни диагностични събития в OpenCart журнала (без изход в браузъра на клиента).';
 $_['help_product_button_action'] = 'Поведение на вторичния бутон в модулния popup на продуктовата страница.';
 $_['help_button_top_spacing'] = 'Свободно място над бутона в px (0–200).';
-$_['help_awaiting_financing_order_status'] = 'След успешно Product/Cart финансиране локалната поръчка се мести от статус 0 към този статус (видима в Admin). При „както Payment“ се ползва payment_mt_uni_credit_order_status_id.';
-$_['text_awaiting_use_payment'] = 'Както Payment UniCredit статус';
+$_['help_awaiting_financing_order_status'] = 'След успешно Product/Cart финансиране локалната поръчка се мести от статус 0 към този статус (видима в Admin). При „както магазина“ се ползва config_order_status_id (Pending). Не ползвайте Processing — това е за Checkout след плащане.';
+$_['text_awaiting_use_payment'] = 'Както магазинния Pending (config_order_status_id)';
 $_['help_journal_unavailable'] = 'Журналът с операции ще е наличен в следваща фаза (диагностика на банкови заявки).';
 
 $_['button_save']             = 'Запиши';
