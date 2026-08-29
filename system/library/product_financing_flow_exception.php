@@ -39,8 +39,8 @@ final class ProductFinancingFlowException extends \RuntimeException
     public function httpStatus(): int
     {
         return match ($this->errorCode) {
-            'validation', 'missing_required_option' => 422,
-            'stale_selection', 'unavailable_scheme', 'attempt_conflict', 'expired_attempt' => 409,
+            'validation', 'missing_required_option', 'cart_empty', 'invalid_customer', 'invalid_consent' => 422,
+            'stale_selection', 'unavailable_scheme', 'attempt_conflict', 'expired_attempt', 'cart_changed' => 409,
             'operation_processing' => 423,
             default => 500,
         };

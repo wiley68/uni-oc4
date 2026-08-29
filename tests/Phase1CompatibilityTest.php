@@ -37,11 +37,13 @@ final class Phase1CompatibilityTest extends TestCase
         );
     }
 
-    public function testEventRegistryIsScopedAndProductOnly(): void
+    public function testEventRegistryIsScopedForProductAndCart(): void
     {
         $codes = EventRegistry::eventCodes();
         self::assertContains('module_mt_uni_credit_before_product_controller', $codes);
         self::assertContains('module_mt_uni_credit_after_product_view', $codes);
+        self::assertContains('module_mt_uni_credit_before_cart_controller', $codes);
+        self::assertContains('module_mt_uni_credit_after_cart_view', $codes);
         self::assertTrue(EventRegistry::isScopedEventCode('module_mt_uni_credit_example'));
         self::assertFalse(EventRegistry::isScopedEventCode('other_module_event'));
         self::assertStringContainsString('.init', EventRegistry::openCartEventRows('4.1.0.3')[0]['action']);

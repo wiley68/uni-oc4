@@ -43,6 +43,24 @@ final class EventRegistry
                 'status'      => true,
                 'sort_order'  => 0,
             ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_before_cart_controller',
+                'description' => 'UniCredit cart page assets',
+                'trigger'     => 'catalog/controller/checkout/cart/before',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_cart_controller',
+                'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_cart_view',
+                'description' => 'UniCredit cart calculator placement',
+                'trigger'     => 'catalog/view/checkout/cart/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_cart_view',
+                'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
         ];
     }
 

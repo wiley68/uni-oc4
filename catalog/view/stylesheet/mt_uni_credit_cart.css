@@ -1,0 +1,15 @@
+/* Cart-specific layout tweaks; visual system lives in mt_uni_credit_product.css */
+
+.mt-uni-credit-cart-calculator {
+  margin: 1rem 0 1.25rem;
+  max-width: 100%;
+}
+
+#checkout-cart .mt-uni-credit-cart-calculator .mt-uni-credit-product-calculator__buttons {
+  justify-content: flex-start;
+}
+
+.mt-uni-credit-cart-calculator [data-mtuc-secondary][hidden],
+.mt-uni-credit-cart-calculator [data-mtuc-secondary][aria-hidden="true"] {
+  display: none !important;
+}

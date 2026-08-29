@@ -1,0 +1,33 @@
+<?php
+
+$_['text_button_financing']           = 'Buy on installments';
+$_['text_modal_title_scheme']         = 'Select a leasing scheme';
+$_['text_modal_title_customer']       = 'Enter personal details';
+$_['text_modal_success_title']        = 'Details accepted';
+$_['text_modal_success_message']      = 'The local order has been prepared. Financing will follow next.';
+$_['text_price']                      = 'Order total';
+$_['text_months']                     = 'Number of months';
+$_['text_months_short']               = 'Months';
+$_['text_first_installment']          = 'First installment /EUR/';
+$_['text_financed_amount']            = 'Financed amount';
+$_['text_monthly_installment']        = 'Monthly installment';
+$_['text_monthly_installment_short']  = 'Installment';
+$_['text_total_payable']              = 'Total payable';
+$_['text_glp']                        = 'APR';
+$_['text_gpr']                        = 'AIR';
+$_['text_cancel']                     = 'Cancel';
+$_['text_back']                       = 'Back';
+$_['text_apply']                      = 'Apply';
+$_['text_send']                       = 'Send';
+$_['text_consents']                   = 'Consents';
+$_['text_firstname']                  = 'First name';
+$_['text_lastname']                   = 'Last name';
+$_['text_address']                    = 'Address';
+$_['text_email']                      = 'E-Mail';
+$_['text_telephone']                  = 'Mobile phone';
+$_['text_required']                   = '*';
+$_['text_processing_title']           = 'Processing request';
+$_['text_processing_message']         = 'Please wait...';
+$_['text_local_order_prepared']       = 'The local order has been prepared. Financing will follow next.';
+$_['text_cart_changed']               = 'The cart has changed. Please refresh the calculator.';
+$_['text_cart_empty']                 = 'The cart is empty.';

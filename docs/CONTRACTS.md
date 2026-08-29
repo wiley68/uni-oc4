@@ -360,3 +360,20 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 | GPR split         | OfferFactory vs calculateScheme (0% promo: 0.01 vs 0.0)           |
 | Currency          | BGN/EUR via `CurrencyGate`; display rate 1.95583                  |
 | Parity            | `tests/fixtures/calculator_golden.json`, `Phase5GoldenParityTest` |
+
+## 16. Phase 8 Cart financing entry point
+
+Подробности: `docs/PHASE8.md`.
+
+| Елемент                | Стойност                                                            |
+| ---------------------- | ------------------------------------------------------------------- |
+| Entry point            | `cart` — peer на Product/Checkout                                   |
+| Amount                 | `$cart->getTotal()` (server-authoritative merchandise total)        |
+| Intersection           | `CartSchemeResolver` identity `type\|kopCode\|months`               |
+| Operation key          | `CartOperationIdentity::hash(store_id, currency, cart_fingerprint)` |
+| Endpoints              | `mt_uni_credit_cart.calculate` / `issueSubmission` / `submit`       |
+| Events                 | `checkout/cart` before (assets) + view after (placement)            |
+| Placement              | After `#shopping-cart` (survives `cart.list` AJAX)                  |
+| Lifecycle stop         | `local_order_prepared`                                              |
+| Live cart after submit | **unchanged** until later CP/bank phase                             |
+| Deferred               | CP create, Process 1/2, SmartUCF, Checkout payment (Phase 9+)       |

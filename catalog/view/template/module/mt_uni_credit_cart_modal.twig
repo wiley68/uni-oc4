@@ -1,0 +1,169 @@
+<div id="mt-uni-credit-cart-modal"
+     class="mt-uni-credit-product-calculator__modal"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     hidden>
+  <div class="mt-uni-credit-product-calculator__overlay" data-mtuc-dismiss aria-hidden="true"></div>
+  <div class="mt-uni-credit-product-calculator__modal-scroll">
+    <div class="mt-uni-credit-product-calculator__dialog" tabindex="-1"
+         aria-labelledby="mt-uni-credit-cart-modal-title">
+      {% if mt_uni_credit.modal.banner_url or mt_uni_credit.modal.banner_url_mobile %}
+        <div class="mt-uni-credit-product-calculator__banner">
+          {% if mt_uni_credit.modal.banner_link %}<a href="{{ mt_uni_credit.modal.banner_link }}" target="_blank" rel="noopener noreferrer">{% endif %}
+            <picture>
+              {% if mt_uni_credit.modal.banner_url_mobile %}
+                <source media="(max-width: 768px)" srcset="{{ mt_uni_credit.modal.banner_url_mobile }}">
+              {% endif %}
+              <img src="{{ mt_uni_credit.modal.banner_url ?: mt_uni_credit.modal.banner_url_mobile }}" alt="UniCredit">
+            </picture>
+          {% if mt_uni_credit.modal.banner_link %}</a>{% endif %}
+        </div>
+      {% endif %}
+
+      <div class="mt-uni-credit-product-calculator__popup-panel">
+        <div class="mt-uni-credit-product-calculator__step mt-uni-credit-product-calculator__step--active" data-mtuc-step="1">
+          <h2 id="mt-uni-credit-cart-modal-title" class="mt-uni-credit-product-calculator__popup-title">{{ text_modal_title_scheme }}</h2>
+          <div class="mt-uni-credit-product-calculator__popup-calc">
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">{{ text_price }}</div>
+              <div class="mt-uni-credit-product-calculator__popup-value" data-mtuc-display="price"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <label class="mt-uni-credit-product-calculator__popup-label" for="mtuc-cart-months">
+                <span class="mt-uni-credit-product-calculator__label-desktop">{{ text_months }}</span>
+                <span class="mt-uni-credit-product-calculator__label-mobile">{{ text_months_short }}</span>
+              </label>
+              <div class="mt-uni-credit-product-calculator__popup-value">
+                <select id="mtuc-cart-months" class="mt-uni-credit-product-calculator__popup-select" data-mtuc-schemes></select>
+              </div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row" data-mtuc-first-row{% if not mt_uni_credit.calculator.show_first_installment %} hidden{% endif %}>
+              <label class="mt-uni-credit-product-calculator__popup-label" for="mtuc-cart-first">{{ text_first_installment }}</label>
+              <div class="mt-uni-credit-product-calculator__popup-value">
+                <input id="mtuc-cart-first" class="mt-uni-credit-product-calculator__popup-input" data-mtuc-first type="text" inputmode="numeric" pattern="[0-9]*" value="0">
+              </div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">{{ text_financed_amount }}</div>
+              <div class="mt-uni-credit-product-calculator__popup-value" data-mtuc-display="financed_amount"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">
+                <span class="mt-uni-credit-product-calculator__label-desktop">{{ text_monthly_installment }}</span>
+                <span class="mt-uni-credit-product-calculator__label-mobile">{{ text_monthly_installment_short }}</span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__popup-value" data-mtuc-display="monthly_installment"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">{{ text_total_payable }}</div>
+              <div class="mt-uni-credit-product-calculator__popup-value" data-mtuc-display="total_payable"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">{{ text_glp }}</div>
+              <div class="mt-uni-credit-product-calculator__popup-value mt-uni-credit-product-calculator__popup-value--red" data-mtuc-display="glp"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row">
+              <div class="mt-uni-credit-product-calculator__popup-label">{{ text_gpr }}</div>
+              <div class="mt-uni-credit-product-calculator__popup-value mt-uni-credit-product-calculator__popup-value--red" data-mtuc-display="gpr"></div>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-row mt-uni-credit-product-calculator__popup-row--note" data-mtuc-popup-error role="alert"></div>
+          </div>
+          <div class="mt-uni-credit-product-calculator__popup-actions mt-uni-credit-product-calculator__popup-actions--step1">
+            <div class="mt-uni-credit-product-calculator__popup-actions-left mt-uni-credit-product-calculator__popup-actions-group">
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-dismiss><span><b>{{ text_cancel }}</b></span></button>
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-secondary hidden aria-hidden="true"><span><b>{{ mt_uni_credit.modal.secondary_label }}</b></span></button>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-actions-right">
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--primary" data-mtuc-apply disabled aria-disabled="true">
+                <span><b>{{ text_apply }}</b></span>
+                <i style="background-image:url('{{ mt_uni_credit.badge_url }}')" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-uni-credit-product-calculator__step" data-mtuc-step="2" hidden>
+          <h2 class="mt-uni-credit-product-calculator__popup-title">{{ text_modal_title_customer }}</h2>
+          <form id="mt-uni-credit-cart-form" novalidate>
+            {% if mt_uni_credit.modal.customer.address_id %}
+              <input type="hidden" name="address_id" value="{{ mt_uni_credit.modal.customer.address_id }}">
+            {% endif %}
+            <div class="mt-uni-credit-product-calculator__customer-form" data-mtuc-customer-form>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-firstname">{{ text_firstname }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-firstname" name="firstname" type="text" value="{{ mt_uni_credit.modal.customer.firstname }}" required aria-required="true" autocomplete="given-name">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="firstname" role="alert"></span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-lastname">{{ text_lastname }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-lastname" name="lastname" type="text" value="{{ mt_uni_credit.modal.customer.lastname }}" required aria-required="true" autocomplete="family-name">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="lastname" role="alert"></span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-address">{{ text_address }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-address" name="address" type="text" value="{{ mt_uni_credit.modal.customer.address }}" required aria-required="true" autocomplete="street-address">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="address" role="alert"></span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-phone">{{ text_telephone }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-phone" name="phone" type="tel" value="{{ mt_uni_credit.modal.customer.telephone }}" required aria-required="true" autocomplete="tel" inputmode="tel">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="phone" role="alert"></span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-email">{{ text_email }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-email" name="email" type="email" value="{{ mt_uni_credit.modal.customer.email }}" required aria-required="true" autocomplete="email">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="email" role="alert"></span>
+              </div>
+              <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-submit-error role="alert"></span>
+            </div>
+            {% if mt_uni_credit.modal.consents %}
+              <div class="mt-uni-credit-product-calculator__consents" data-mtuc-consents aria-label="{{ text_consents }}">
+                {% for consent in mt_uni_credit.modal.consents %}
+                  <div class="mt-uni-credit-product-calculator__consent{% if not consent.has_checkbox %} mt-uni-credit-product-calculator__consent--info{% endif %}">
+                    {% if consent.has_checkbox %}
+                      <input type="checkbox" class="mt-uni-credit-product-calculator__consent-checkbox" id="mtuc-cart-consent-{{ consent.id }}" name="consent[]" value="{{ consent.id }}" data-mtuc-consent-checkbox>
+                      <label class="mt-uni-credit-product-calculator__consent-label" for="mtuc-cart-consent-{{ consent.id }}">
+                        {% if consent.url %}<a href="{{ consent.url }}" target="_blank" rel="noopener noreferrer">{{ consent.name }}</a>{% else %}{{ consent.name }}{% endif %}
+                      </label>
+                    {% else %}
+                      <p class="mt-uni-credit-product-calculator__consent-text">
+                        {% if consent.url %}<a href="{{ consent.url }}" target="_blank" rel="noopener noreferrer">{{ consent.name }}</a>{% else %}{{ consent.name }}{% endif %}
+                      </p>
+                    {% endif %}
+                    <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="consent-{{ consent.id }}" role="alert"></span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div class="mt-uni-credit-product-calculator__popup-actions mt-uni-credit-product-calculator__popup-actions--step2">
+              <div class="mt-uni-credit-product-calculator__popup-actions-group">
+                <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-back><span><b>{{ text_back }}</b></span></button>
+                <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-dismiss><span><b>{{ text_cancel }}</b></span></button>
+              </div>
+              <button type="submit" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--primary is-disabled" data-mtuc-submit disabled aria-disabled="true" aria-busy="false">
+                <span><b>{{ text_send }}</b></span>
+                <i style="background-image:url('{{ mt_uni_credit.badge_url }}')" aria-hidden="true"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="mt-uni-credit-product-calculator__step" data-mtuc-step="3" hidden aria-live="polite">
+          <h2 class="mt-uni-credit-product-calculator__popup-title">{{ text_modal_success_title }}</h2>
+          <p class="mt-uni-credit-product-calculator__success-message" data-mtuc-success-message>{{ text_modal_success_message }}</p>
+          <div class="mt-uni-credit-product-calculator__popup-actions">
+            <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--primary" data-mtuc-dismiss><span><b>{{ text_cancel }}</b></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mt-uni-credit-product-calculator__processing" data-mtuc-processing hidden>
+    <div class="mt-uni-credit-product-calculator__processing-panel" role="status" aria-live="polite" aria-busy="true">
+      <span class="mt-uni-credit-product-calculator__processing-spinner" aria-hidden="true"></span>
+      <strong>{{ text_processing_title }}</strong>
+      <span>{{ text_processing_message }}</span>
+    </div>
+  </div>
+</div>

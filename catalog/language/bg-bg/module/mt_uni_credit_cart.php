@@ -1,0 +1,33 @@
+<?php
+
+$_['text_button_financing']           = 'Купи на изплащане';
+$_['text_modal_title_scheme']         = 'Избор на схема за лизинг';
+$_['text_modal_title_customer']       = 'Попълване на лични данни';
+$_['text_modal_success_title']        = 'Данните са приети';
+$_['text_modal_success_message']      = 'Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.';
+$_['text_price']                      = 'Стойност на поръчката';
+$_['text_months']                     = 'Брой месеци за погасяване';
+$_['text_months_short']               = 'Брой месеци';
+$_['text_first_installment']          = 'Първоначална вноска /евро/';
+$_['text_financed_amount']            = 'Обща сума на заема';
+$_['text_monthly_installment']        = 'Размер на погасителна вноска';
+$_['text_monthly_installment_short']  = 'Погасителна вноска';
+$_['text_total_payable']              = 'Обща дължима сума';
+$_['text_glp']                        = 'ГЛП';
+$_['text_gpr']                        = 'ГПР';
+$_['text_cancel']                     = 'Отказ';
+$_['text_back']                       = 'Назад';
+$_['text_apply']                      = 'Кандидатствай';
+$_['text_send']                       = 'Изпрати';
+$_['text_consents']                   = 'Съгласия';
+$_['text_firstname']                  = 'Име';
+$_['text_lastname']                   = 'Фамилия';
+$_['text_address']                    = 'Адрес';
+$_['text_email']                      = 'E-Mail';
+$_['text_telephone']                  = 'Мобилен телефон';
+$_['text_required']                   = '*';
+$_['text_processing_title']           = 'Обработване на заявката';
+$_['text_processing_message']         = 'Моля, изчакайте...';
+$_['text_local_order_prepared']       = 'Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.';
+$_['text_cart_changed']               = 'Съдържанието на количката е променено. Моля, презаредете калкулатора.';
+$_['text_cart_empty']                 = 'Количката е празна.';

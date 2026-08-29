@@ -58,7 +58,9 @@ final class Phase7ProductPopupPolishTest extends TestCase
         self::assertStringContainsString('Моля, изберете задължителните опции на продукта.', $model);
         self::assertStringNotContainsString('Missing required product option.', $model);
         self::assertStringNotContainsString('Invalid product option.', $model);
-        self::assertStringContainsString("'validation', 'missing_required_option' => 422", $exception);
+        self::assertStringContainsString("'validation', 'missing_required_option', 'cart_empty'", $exception);
+        self::assertStringContainsString("'missing_required_option'", $exception);
+        self::assertStringContainsString('=> 422', $exception);
         self::assertStringContainsString('error_required_options', $view);
         self::assertStringContainsString("'i18n'", $view);
 

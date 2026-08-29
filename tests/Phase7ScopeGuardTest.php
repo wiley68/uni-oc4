@@ -17,7 +17,6 @@ final class Phase7ScopeGuardTest extends TestCase
         'Process2',
         'financing_snapshot',
         'catalog/controller/payment',
-        'catalog/controller/module/mt_uni_credit_cart',
         'ControlPanelClient',
         'cp_submitting',
     ];
@@ -38,7 +37,7 @@ final class Phase7ScopeGuardTest extends TestCase
         }
     }
 
-    public function testNoCartCheckoutOrCpLeaksInCatalog(): void
+    public function testNoCpProcessOrPaymentLeaksInCatalog(): void
     {
         $root = dirname(__DIR__) . '/catalog';
         $iterator = new \RecursiveIteratorIterator(
@@ -59,11 +58,11 @@ final class Phase7ScopeGuardTest extends TestCase
         }
     }
 
-    public function testEventsRegisteredForProductOnly(): void
+    public function testProductEventsRemainRegistered(): void
     {
         $events = \Opencart\System\Library\Extension\MtUniCredit\EventRegistry::definitions();
-        self::assertCount(2, $events);
-        self::assertStringContainsString('product/product', $events[0]['trigger'] . $events[1]['trigger']);
-        self::assertStringNotContainsString('cart', json_encode($events, JSON_THROW_ON_ERROR));
+        $triggers = array_column($events, 'trigger');
+        self::assertContains('catalog/controller/product/product/before', $triggers);
+        self::assertContains('catalog/view/product/product/after', $triggers);
     }
 }
