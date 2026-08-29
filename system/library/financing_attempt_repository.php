@@ -29,8 +29,8 @@ final class FinancingAttemptRepository
         ?int $cartId = null,
         ?string $cartFingerprint = null
     ): array {
-        if (!in_array($entryPoint, [OperationEntryPoint::PRODUCT, OperationEntryPoint::CART], true)) {
-            throw new PersistenceValidationException('Submission tokens are issued only for product or cart entry points.');
+        if (!in_array($entryPoint, [OperationEntryPoint::PRODUCT, OperationEntryPoint::CART, OperationEntryPoint::CHECKOUT], true)) {
+            throw new PersistenceValidationException('Submission tokens are issued only for product, cart, or checkout entry points.');
         }
 
         $this->validateIssueInputs($storeId, $entryPoint, $operationKeyHash, $actorBindingHash, $selectionHash, $cartId, $cartFingerprint);

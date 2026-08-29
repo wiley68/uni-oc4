@@ -5,7 +5,7 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Deterministic, scoped event definitions for this extension.
  *
- * Phase 1 registers no Product/Cart/Checkout events. Feature phases add entries here.
+ * Feature phases register Product, Cart, and Checkout success events here.
  *
  * @phpstan-type EventDefinition array{
  *     code: string,
@@ -57,6 +57,15 @@ final class EventRegistry
                 'description' => 'UniCredit cart calculator placement',
                 'trigger'     => 'catalog/view/checkout/cart/after',
                 'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_cart_view',
+                'method'      => 'init',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_checkout_success',
+                'description' => 'UniCredit checkout success message',
+                'trigger'     => 'catalog/view/common/success/after',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_checkout_success',
                 'method'      => 'init',
                 'status'      => true,
                 'sort_order'  => 0,

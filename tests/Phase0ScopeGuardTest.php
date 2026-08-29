@@ -11,18 +11,11 @@ use PHPUnit\Framework\TestCase;
  */
 final class Phase0ScopeGuardTest extends TestCase
 {
-    public function testStorefrontFinancingPathsStillAbsent(): void
+    public function testStorefrontModuleControllerTreeExists(): void
     {
         $root = dirname(__DIR__);
-        foreach (
-            [
-                $root . '/catalog/controller/payment',
-                $root . '/catalog/view/template/payment',
-            ] as $path
-        ) {
-            self::assertDirectoryDoesNotExist($path, $path);
-        }
         self::assertDirectoryExists($root . '/catalog/controller/module');
+        // Nested bogus path must stay absent (cart is a file, not a directory).
         self::assertDirectoryDoesNotExist($root . '/catalog/controller/module/mt_uni_credit_cart');
     }
 

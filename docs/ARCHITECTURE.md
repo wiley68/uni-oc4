@@ -14,11 +14,30 @@ validated context → usable local OC order → durable attempt/snapshot → CP 
 
 ## Current freeze boundaries
 
-| Phase     | Boundary                                                           |
-| --------- | ------------------------------------------------------------------ |
-| 7 Product | `local_order_prepared` (frozen Product UI)                         |
-| 8 Cart    | `local_order_prepared` (this phase)                                |
-| Later     | CP create, Process 1/2, SmartUCF, bank callbacks, Checkout payment |
+| Phase              | Boundary                                              |
+| ------------------ | ----------------------------------------------------- |
+| 7 Product          | `local_order_prepared` (frozen Product UI)            |
+| 8 Cart             | `local_order_prepared` (frozen Cart UI)               |
+| 9 Checkout payment | `local_order_prepared` on existing `session.order_id` |
+| Later              | CP create, Process 1/2, SmartUCF, bank callbacks      |
+
+## Phase 9 Checkout payment path
+
+```text
+native checkout
+→ payment getMethods (CheckoutFinancingEligibility)
+→ payment save (mt_uni_credit.mt_uni_credit)
+→ confirm.index → session.order_id (addOrder once)
+→ payment/mt_uni_credit index (scheme UI)
+→ issueSubmission / confirm
+→ CheckoutFinancingSubmissionService
+→ CheckoutExistingOrderGateway (reuse only)
+→ local_order_prepared → checkout/success
+```
+
+Authoritative financing amount at confirm = **order.total**. Eligibility before order uses cart total. Shared Phase 5 intersection unchanged.
+
+Details: `docs/PHASE9.md`.
 
 ## Phase 8 Cart path
 

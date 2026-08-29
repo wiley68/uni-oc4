@@ -17,7 +17,6 @@ final class Phase5ScopeGuardTest extends TestCase
         'updateOrderStatus',
         'POST /orders',
         '/orders/status',
-        'catalog/controller/payment',
         'PopupSubmission',
         'CheckoutPayment',
     ];
@@ -59,8 +58,6 @@ final class Phase5ScopeGuardTest extends TestCase
     public function testNoPhase6PlusProductionMarkersOutsideCalculatorDomain(): void
     {
         $root = dirname(__DIR__);
-        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
-        self::assertDirectoryDoesNotExist($root . '/admin/controller/payment');
 
         foreach ([$root . '/admin', $root . '/system'] as $dir) {
             $iterator = new \RecursiveIteratorIterator(

@@ -51,6 +51,13 @@ final class Phase1StructureTest extends TestCase
         $root = dirname(__DIR__);
         self::assertDirectoryExists($root . '/catalog/controller/module');
         self::assertFileExists($root . '/catalog/controller/module/mt_uni_credit_product.php');
-        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
+    }
+
+    public function testCatalogPaymentTreeExistsForPhase9(): void
+    {
+        $root = dirname(__DIR__);
+        self::assertFileExists($root . '/catalog/controller/payment/mt_uni_credit.php');
+        self::assertFileExists($root . '/catalog/model/payment/mt_uni_credit.php');
+        self::assertFileExists($root . '/admin/controller/payment/mt_uni_credit.php');
     }
 }

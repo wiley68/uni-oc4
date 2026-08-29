@@ -16,7 +16,6 @@ final class Phase7ScopeGuardTest extends TestCase
         'Process1',
         'Process2',
         'financing_snapshot',
-        'catalog/controller/payment',
         'ControlPanelClient',
         'cp_submitting',
     ];

@@ -376,4 +376,22 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 | Placement              | After `#shopping-cart` (survives `cart.list` AJAX)                  |
 | Lifecycle stop         | `local_order_prepared`                                              |
 | Live cart after submit | **unchanged** until later CP/bank phase                             |
-| Deferred               | CP create, Process 1/2, SmartUCF, Checkout payment (Phase 9+)       |
+| Deferred               | CP create, Process 1/2, SmartUCF (Phase 10+)                        |
+
+## 17. Phase 9 Checkout payment method
+
+Подробности: `docs/PHASE9.md`.
+
+| Елемент          | Стойност                                                                                           |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| Payment identity | `mt_uni_credit.mt_uni_credit`                                                                      |
+| Routes           | `extension/mt_uni_credit/payment/mt_uni_credit` (+ `.calculate` / `.issueSubmission` / `.confirm`) |
+| Eligibility      | `CheckoutFinancingEligibility` (module+payment+currency+amount+intersection)                         |
+| Amount           | Eligibility: cart total; issue/confirm: **order.total**                                            |
+| Intersection     | Same Phase 5 `CartSchemeResolver` (`type\|kopCode\|months`)                                        |
+| Operation key    | `CheckoutOperationIdentity::hash(store_id, order_id)`                                              |
+| Selection hash   | `CheckoutSelectionHash` (includes order_id + order_total)                                          |
+| Gateway          | `CheckoutExistingOrderGateway` — never `addOrder()`                                                |
+| Lifecycle stop   | `local_order_prepared` → `checkout/success`                                                        |
+| Success event    | `catalog/view/common/success/after`                                                                |
+| Deferred         | CP / Process 1/2 / SmartUCF                                                                        |

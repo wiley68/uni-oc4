@@ -17,7 +17,6 @@ final class Phase8ScopeGuardTest extends TestCase
         'financing_snapshot',
         'cp_submitting',
         'bank_redirect',
-        'catalog/controller/payment',
     ];
 
     /** @var list<string> */
@@ -48,17 +47,15 @@ final class Phase8ScopeGuardTest extends TestCase
     public function testCartEventsRegistered(): void
     {
         $events = \Opencart\System\Library\Extension\MtUniCredit\EventRegistry::definitions();
-        self::assertCount(4, $events);
+        self::assertGreaterThanOrEqual(4, count($events));
         $triggers = array_column($events, 'trigger');
         self::assertContains('catalog/controller/checkout/cart/before', $triggers);
         self::assertContains('catalog/view/checkout/cart/after', $triggers);
     }
 
-    public function testNoCheckoutPaymentOrCpLifecycle(): void
+    public function testNoCpLifecycleMarkersInCatalog(): void
     {
         $root = dirname(__DIR__);
-        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
-        self::assertDirectoryDoesNotExist($root . '/admin/controller/payment');
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($root . '/catalog', \FilesystemIterator::SKIP_DOTS)

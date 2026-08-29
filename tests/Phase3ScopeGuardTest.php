@@ -12,7 +12,6 @@ final class Phase3ScopeGuardTest extends TestCase
     private const FORBIDDEN_MARKERS = [
         'SmartUcfSession',
         'hash_hmac',
-        'catalog/controller/payment',
         'catalog/controller/module',
         'createOrder',
         'updateOrderStatus',
@@ -30,8 +29,6 @@ final class Phase3ScopeGuardTest extends TestCase
     public function testNoPhase4PlusPaymentControllersOrClients(): void
     {
         $root = dirname(__DIR__);
-        self::assertDirectoryDoesNotExist($root . '/catalog/controller/payment');
-        self::assertDirectoryDoesNotExist($root . '/admin/controller/payment');
 
         foreach ([$root . '/admin', $root . '/system'] as $dir) {
             $iterator = new \RecursiveIteratorIterator(

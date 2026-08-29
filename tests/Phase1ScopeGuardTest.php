@@ -18,14 +18,12 @@ final class Phase1ScopeGuardTest extends TestCase
 
     /** @var list<string> */
     private const FORBIDDEN_PATH_SUFFIXES = [
-        '/catalog/controller/payment',
-        '/catalog/model/payment',
-        '/admin/controller/payment',
     ];
 
     public function testPhase2PlusPathsAreAbsent(): void
     {
         $root = dirname(__DIR__);
+        self::assertDirectoryExists($root . '/system/library');
         foreach (self::FORBIDDEN_PATH_SUFFIXES as $suffix) {
             self::assertDirectoryDoesNotExist($root . $suffix, $suffix);
         }
