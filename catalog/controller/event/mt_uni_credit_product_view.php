@@ -152,6 +152,27 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             (string) ($this->config->get(ModuleLocalSettings::PRODUCT_BUTTON_ACTION) ?? '')
         );
         $modal = $model->createModalPresenter()->present($shop, $model->customerPrefill(), $buttonAction);
+        $csrf = new \Opencart\System\Library\Extension\MtUniCredit\ProductStorefrontCsrf();
+        $csrfToken = $csrf->getOrCreate($this->session->data);
+        $language = (string) $this->config->get('config_language');
+        // url->link(..., true) keeps raw "&" for JavaScript fetch (not HTML &amp;).
+        $calculateUrl = $this->url->link(
+            'extension/mt_uni_credit/module/mt_uni_credit_product.calculate',
+            'language=' . $language,
+            true
+        );
+        $issueUrl = $this->url->link(
+            'extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission',
+            'language=' . $language,
+            true
+        );
+        $submitUrl = $this->url->link(
+            'extension/mt_uni_credit/module/mt_uni_credit_product.submit',
+            'language=' . $language,
+            true
+        );
+        $checkoutUrl = $this->url->link('checkout/checkout', 'language=' . $language, true);
+
         $data['mt_uni_credit'] = [
             'enabled'               => true,
             'product_id'            => $productId,
@@ -165,12 +186,29 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'logo_standard_url'     => $assetBase . 'uni_logo.svg',
             'logo_alternative_url'  => $assetBase . 'uni_logo_red.svg',
             'badge_url'             => $assetBase . 'uni_mini_logo.png',
-            'checkout_url'          => $this->url->link('checkout/checkout', 'language=' . $this->config->get('config_language')),
-            'calculate_url'         => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.calculate', 'language=' . $this->config->get('config_language')),
-            'issue_url'             => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission', 'language=' . $this->config->get('config_language')),
-            'submit_url'            => $this->url->link('extension/mt_uni_credit/module/mt_uni_credit_product.submit', 'language=' . $this->config->get('config_language')),
-            'csrf_token'            => $this->session->data['csrf_token'] ?? '',
+            'checkout_url'          => $checkoutUrl,
+            'calculate_url'         => $calculateUrl,
+            'issue_url'             => $issueUrl,
+            'submit_url'            => $submitUrl,
+            'csrf_token'            => $csrfToken,
         ];
+        $data['mt_uni_credit_bootstrap_json'] = json_encode([
+            'product_id'            => $productId,
+            'calculator'            => $presenter,
+            'modal'                 => $modal,
+            'product_button_action' => $buttonAction,
+            'checkout_url'          => $checkoutUrl,
+            'logo_standard_url'     => $assetBase . 'uni_logo.svg',
+            'logo_alternative_url'  => $assetBase . 'uni_logo_red.svg',
+            'badge_url'             => $assetBase . 'uni_mini_logo.png',
+            'calculate_url'         => $calculateUrl,
+            'issue_url'             => $issueUrl,
+            'submit_url'            => $submitUrl,
+            'csrf_token'            => $csrfToken,
+            'button_top_spacing'    => ModuleLocalSettings::normalizeButtonTopSpacing(
+                $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)
+            ),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $data['mt_uni_credit_modal_html'] = $this->load->view(
             'extension/mt_uni_credit/module/mt_uni_credit_product_modal',
             $data

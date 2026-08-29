@@ -9,6 +9,7 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOperationIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSelectionHash;
+use Opencart\System\Library\Extension\MtUniCredit\ProductStorefrontCsrf;
 use Opencart\System\Library\Extension\MtUniCredit\SubmissionTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\UnavailableSchemeException;
 
@@ -149,12 +150,18 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             http_response_code(405);
             throw new \RuntimeException('method_not_allowed');
         }
-        $expected = (string) ($this->session->data['csrf_token'] ?? '');
-        $provided = (string) ($this->request->post['csrf_token'] ?? '');
-        if ($expected === '' || !hash_equals($expected, $provided)) {
-            http_response_code(403);
-            throw new \RuntimeException('invalid_csrf');
+
+        $csrf = new ProductStorefrontCsrf();
+        $result = $csrf->validate(
+            $this->session->data,
+            (string) ($this->request->post['csrf_token'] ?? '')
+        );
+        if ($result === 'ok') {
+            return;
         }
+
+        http_response_code(403);
+        throw new \RuntimeException($result);
     }
 
     private function productModel(): ProductFinancingModel
@@ -265,9 +272,10 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             http_response_code(409);
             $json = $this->errorPayload('stale_selection', 'Избраните условия вече не са налични.');
         } catch (\RuntimeException $exception) {
-            if ($exception->getMessage() === 'invalid_csrf') {
-                $json = $this->errorPayload('validation', 'Невалидна сесия. Моля, презаредете страницата.');
-            } elseif ($exception->getMessage() === 'method_not_allowed') {
+            $code = $exception->getMessage();
+            if ($code === 'missing_csrf' || $code === 'invalid_csrf') {
+                $json = $this->errorPayload($code, 'Невалидна сесия. Моля, презаредете страницата.');
+            } elseif ($code === 'method_not_allowed') {
                 $json = $this->errorPayload('validation', 'Невалиден метод.');
             } else {
                 http_response_code(500);

@@ -43,19 +43,5 @@
   {{ mt_uni_credit_modal_html|raw }}
 </div>
 
-<script type="application/json" id="mt-uni-credit-bootstrap">{{ {
-  product_id: mt_uni_credit.product_id,
-  calculator: mt_uni_credit.calculator,
-  modal: mt_uni_credit.modal,
-  product_button_action: mt_uni_credit.product_button_action,
-  checkout_url: mt_uni_credit.checkout_url,
-  logo_standard_url: mt_uni_credit.logo_standard_url,
-  logo_alternative_url: mt_uni_credit.logo_alternative_url,
-  badge_url: mt_uni_credit.badge_url,
-  calculate_url: mt_uni_credit.calculate_url,
-  issue_url: mt_uni_credit.issue_url,
-  submit_url: mt_uni_credit.submit_url,
-  csrf_token: mt_uni_credit.csrf_token,
-  button_top_spacing: mt_uni_credit.button_top_spacing
-}|json_encode|raw }}</script>
+<script type="application/json" id="mt-uni-credit-bootstrap">{{ mt_uni_credit_bootstrap_json|raw }}</script>
 {% endif %}

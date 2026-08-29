@@ -29,7 +29,7 @@ Events are registered through `EventRegistry` on install/save (`syncEvents()`).
 | Issue token  | `extension/mt_uni_credit/module/mt_uni_credit_product.issueSubmission` | **Yes** (Phase 3)             |
 | Final submit | `extension/mt_uni_credit/module/mt_uni_credit_product.submit`          | Uses issued attempt → Phase 6 |
 
-All routes: `POST` + session CSRF (`csrf_token`), JSON responses, bounded validation, no stack traces.
+All routes: `POST` + module-owned storefront CSRF (`mt_uni_credit_csrf_token` via `ProductStorefrontCsrf`), JSON responses, bounded validation, no stack traces. Product AJAX URLs use `url->link(..., true)` so JavaScript receives raw `&`, not HTML `&amp;`.
 
 ## Authoritative ProductContext
 

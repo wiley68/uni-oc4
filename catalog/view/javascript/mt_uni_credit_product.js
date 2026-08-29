@@ -564,6 +564,9 @@
           return;
         }
         debugLog('recalculation response received', json.success ? 'ok' : (json.error_code || 'fail'));
+        if (!json.success && (json.error_code === 'missing_csrf' || json.error_code === 'invalid_csrf')) {
+          debugLog('csrf validation failed — reload product page');
+        }
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
           debugLog('calculator DOM updated');
