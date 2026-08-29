@@ -166,6 +166,24 @@ Missing/unreadable files fall back safely to the module version. Editing an asse
 
 Packaged under `catalog/view/fonts/roboto-condensed/` (WOFF2 400/700 Cyrillic+Latin, SIL OFL). Loaded via `mt_uni_credit_fonts.css` `@font-face` and scoped only to `#mt-uni-credit-product-root` / `#mt-uni-credit-product-modal` (and later Cart/Checkout UniCredit roots). No Google Fonts / CDN font hosts.
 
+## Product popup Step 1 visual contract (Woo/PS9 authority)
+
+Reference CSS: Woo `mtuc-popup.css`, PS9 `product-calculator.css`.
+
+| Element                           | Frozen value                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Calc frame radius                 | `14.5px 14.5px 80px 14.5px` (TL TR BR BL — large bottom-right)                                           |
+| Frame border / shadow             | `2px solid #d4d4d8`, `box-shadow: 1px 1px 1px 1px #f4f4f5`                                               |
+| Popup red                         | `#ed1c24` (`--mtuc-popup-red`)                                                                           |
+| Right-column values               | red, `font-size: 20px`, right-aligned                                                                    |
+| Scheme select / first installment | no box border; `border-bottom: 1px solid #b0b0b0`; red text; value-like (not Bootstrap form-control)     |
+| Promo / described scheme label    | `{months} месеца - {description}` (Woo `formatMonthLabel` / PS9 JS)                                      |
+| Standard without description      | `{months} месеца`                                                                                        |
+| Step 1 footer                     | left: Отказ + secondary (`product_button_action`); right: Кандидатствай                                  |
+| Buttons                           | layered UniCredit control (`#a1a1aa` face, 6px radius, 3px inner border, primary label red, badge 40×40) |
+
+Mobile ≤768px: frame radius becomes `14px` (no calc background image); Step 1 actions stack full-width (Woo parity).
+
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.

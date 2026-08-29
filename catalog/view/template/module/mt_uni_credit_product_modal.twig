@@ -69,13 +69,17 @@
             </div>
             <div class="mt-uni-credit-product-calculator__popup-row mt-uni-credit-product-calculator__popup-row--note" data-mtuc-popup-error role="alert"></div>
           </div>
-          <div class="mt-uni-credit-product-calculator__popup-actions">
-            <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-dismiss><span><b>{{ text_cancel }}</b></span></button>
-            <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-secondary><span><b>{{ mt_uni_credit.modal.secondary_label }}</b></span></button>
-            <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--primary" data-mtuc-apply disabled aria-disabled="true">
-              <span><b>{{ text_apply }}</b></span>
-              <i style="background-image:url('{{ mt_uni_credit.badge_url }}')" aria-hidden="true"></i>
-            </button>
+          <div class="mt-uni-credit-product-calculator__popup-actions mt-uni-credit-product-calculator__popup-actions--step1">
+            <div class="mt-uni-credit-product-calculator__popup-actions-left mt-uni-credit-product-calculator__popup-actions-group">
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-dismiss><span><b>{{ text_cancel }}</b></span></button>
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--secondary" data-mtuc-secondary><span><b>{{ mt_uni_credit.modal.secondary_label }}</b></span></button>
+            </div>
+            <div class="mt-uni-credit-product-calculator__popup-actions-right">
+              <button type="button" class="mt-uni-credit-product-calculator__popup-button mt-uni-credit-product-calculator__popup-button--primary" data-mtuc-apply disabled aria-disabled="true">
+                <span><b>{{ text_apply }}</b></span>
+                <i style="background-image:url('{{ mt_uni_credit.badge_url }}')" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
         </div>
 

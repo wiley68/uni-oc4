@@ -110,4 +110,100 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('setStep(3)', $js);
         self::assertStringContainsString('Локалната поръчка е подготвена', $js);
     }
+
+    public function testStep1CalcFrameHasAsymmetricUniCreditRadius(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/stylesheet/mt_uni_credit_product.css');
+        $modal = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
+
+        self::assertStringContainsString('mt-uni-credit-product-calculator__popup-calc', $modal);
+        self::assertStringContainsString('border-radius: 14.5px 14.5px 80px 14.5px', $css);
+        self::assertMatchesRegularExpression(
+            '/#mt-uni-credit-product-modal[^{]*\{[^}]*--mtuc-popup-red:\s*#ed1c24/s',
+            $css
+        );
+
+        // bottom-right 80 > other corners 14.5
+        self::assertGreaterThan(14.5, 80.0);
+    }
+
+    public function testStep1RightColumnValuesAndFirstInstallmentUsePopupRed(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/stylesheet/mt_uni_credit_product.css');
+        $modal = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
+
+        self::assertStringContainsString('.mt-uni-credit-product-calculator__popup-value {', $css);
+        self::assertStringContainsString('color: var(--mtuc-popup-red)', $css);
+        self::assertStringContainsString('data-mtuc-first', $modal);
+        self::assertStringContainsString(
+            '.mt-uni-credit-product-calculator__popup-input {',
+            $css
+        );
+        self::assertStringContainsString('border-bottom: 1px solid #b0b0b0', $css);
+        // No generic form-control chrome on calc input/select.
+        self::assertDoesNotMatchRegularExpression(
+            '/#mt-uni-credit-product-modal \.mt-uni-credit-product-calculator__popup-input \{[^}]*border:\s*1px solid/s',
+            $css
+        );
+    }
+
+    public function testPromoSchemeLabelsUseMonthsThenDescription(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+
+        self::assertStringContainsString('`${scheme.months} месеца`', $js);
+        self::assertStringContainsString('label += ` - ${scheme.description}`', $js);
+        self::assertStringNotContainsString('option.textContent = scheme.description', $js);
+    }
+
+    public function testStep1FooterHasExactlyThreeActionsWithLeftRightGroups(): void
+    {
+        $modal = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
+        $css = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/stylesheet/mt_uni_credit_product.css');
+
+        // Extract Step 1 block only.
+        self::assertMatchesRegularExpression(
+            '/data-mtuc-step="1"[\s\S]*?popup-actions--step1[\s\S]*?popup-actions-left[\s\S]*?data-mtuc-dismiss[\s\S]*?data-mtuc-secondary[\s\S]*?popup-actions-right[\s\S]*?data-mtuc-apply/',
+            $modal
+        );
+
+        $step1 = [];
+        if (preg_match('/data-mtuc-step="1"[\s\S]*?(?=<div class="mt-uni-credit-product-calculator__step" data-mtuc-step="2")/', $modal, $step1) === 1) {
+            $block = $step1[0];
+            self::assertSame(1, substr_count($block, 'data-mtuc-dismiss'));
+            self::assertSame(1, substr_count($block, 'data-mtuc-secondary'));
+            self::assertSame(1, substr_count($block, 'data-mtuc-apply'));
+            self::assertSame(0, substr_count($block, 'data-mtuc-submit'));
+            self::assertSame(0, substr_count($block, 'data-mtuc-back'));
+        } else {
+            self::fail('Step 1 block not found');
+        }
+
+        self::assertStringContainsString('popup-actions-left', $css);
+        self::assertStringContainsString('popup-actions-right', $css);
+        self::assertStringContainsString('margin-left: auto', $css);
+        // Not whole-footer flex-end for Step 1.
+        self::assertStringNotContainsString(
+            'popup-actions--step1 {\n  justify-content: flex-end',
+            $css
+        );
+    }
+
+    public function testLayeredPopupButtonContractMatchesReference(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/stylesheet/mt_uni_credit_product.css');
+
+        self::assertStringContainsString('--mtuc-btn-offset: 4px', $css);
+        self::assertStringContainsString('min-width: 140px', $css);
+        self::assertStringContainsString('box-shadow: 6px 6px 7px rgba(105, 105, 105, .75)', $css);
+        // Modal popup buttons use 6px layered radius — not offer-pill 9999px.
+        self::assertMatchesRegularExpression(
+            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*6px/s',
+            $css
+        );
+        self::assertDoesNotMatchRegularExpression(
+            '/#mt-uni-credit-product-modal button\.mt-uni-credit-product-calculator__popup-button \{[^}]*border-radius:\s*9999px/s',
+            $css
+        );
+    }
 }

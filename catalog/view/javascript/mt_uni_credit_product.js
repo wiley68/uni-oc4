@@ -334,10 +334,13 @@
       (offer.schemes || []).forEach((scheme) => {
         const option = document.createElement('option');
         option.value = scheme.key;
-        option.textContent = `${scheme.months} месеца`;
+        // Woo/PS contract: "{months} месеца" or "{months} месеца - {promo/description}".
+        let label = `${scheme.months} месеца`;
         if (scheme.description) {
-          option.textContent = scheme.description;
+          label += ` - ${scheme.description}`;
         }
+        // Trailing NBSPs: native <option> right-edge offset (Woo/PS parity).
+        option.textContent = `${label}\u00A0\u00A0\u00A0`;
         select.appendChild(option);
       });
       if (selectedSchemeKey) {
