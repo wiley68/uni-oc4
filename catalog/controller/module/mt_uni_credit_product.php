@@ -164,17 +164,23 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
         throw new \RuntimeException($result);
     }
 
-    private function productModel(): ProductFinancingModel
+    /**
+     * OpenCart wraps loaded models in Engine\Proxy — do not type-hint the concrete model class.
+     *
+     * @return ProductFinancingModel|\Opencart\System\Engine\Proxy
+     */
+    private function productModel(): object
     {
         $this->load->model('extension/mt_uni_credit/module/mt_uni_credit_product');
-        /** @var ProductFinancingModel $model */
-        $model = $this->model_extension_mt_uni_credit_module_mt_uni_credit_product;
 
-        return $model;
+        return $this->model_extension_mt_uni_credit_module_mt_uni_credit_product;
     }
 
-    /** @return array<string, mixed> */
-    private function readSelectionContext(ProductFinancingModel $model): array
+    /**
+     * @param ProductFinancingModel|\Opencart\System\Engine\Proxy $model
+     * @return array<string, mixed>
+     */
+    private function readSelectionContext(object $model): array
     {
         $productId = (int) ($this->request->post['product_id'] ?? 0);
         $quantity = max(1, min(9999, (int) ($this->request->post['quantity'] ?? 1)));
@@ -279,10 +285,12 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 $json = $this->errorPayload('validation', 'Невалиден метод.');
             } else {
                 http_response_code(500);
+                $this->logCalculateFailure($exception);
                 $json = $this->errorPayload('technical_failure', 'Заявката не може да бъде обработена.');
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             http_response_code(500);
+            $this->logCalculateFailure($exception);
             $json = $this->errorPayload('technical_failure', 'Заявката не може да бъде обработена.');
         }
 
@@ -298,5 +306,32 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             'error_code' => $code,
             'message'    => $message,
         ];
+    }
+
+    /**
+     * Safe diagnostic log for unexpected calculate/submit failures (no secrets/customer PII).
+     */
+    private function logCalculateFailure(\Throwable $exception): void
+    {
+        $file = basename(str_replace('\\', '/', $exception->getFile()));
+        $this->log->write(sprintf(
+            'mt_uni_credit.product_calculate: %s: %s in %s:%d',
+            $exception::class,
+            $exception->getMessage(),
+            $file,
+            $exception->getLine()
+        ));
+        foreach (array_slice($exception->getTrace(), 0, 8) as $index => $frame) {
+            $frameFile = isset($frame['file']) ? basename(str_replace('\\', '/', (string) $frame['file'])) : '-';
+            $frameLine = (int) ($frame['line'] ?? 0);
+            $frameFn = (string) (($frame['class'] ?? '') . ($frame['type'] ?? '') . ($frame['function'] ?? ''));
+            $this->log->write(sprintf(
+                'mt_uni_credit.product_calculate: #%d %s:%d %s',
+                $index,
+                $frameFile,
+                $frameLine,
+                $frameFn
+            ));
+        }
     }
 }

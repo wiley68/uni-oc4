@@ -76,6 +76,25 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         self::assertSame([502, 503], $normalized[12]);
     }
 
+    public function testOptionNormalizerAcceptsProduct40CheckboxPayload(): void
+    {
+        // Real Product 40 required checkbox: option[231][] = product_option_value_id
+        $normalized = ProductOptionNormalizer::normalize(['231' => ['34']]);
+        self::assertSame([34], $normalized[231]);
+    }
+
+    public function testCalculateControllerDoesNotTypeHintConcreteModelReturn(): void
+    {
+        // OpenCart wraps models in Engine\Proxy — concrete return types cause TypeError → HTTP 500.
+        $controller = (string) file_get_contents(
+            dirname(__DIR__) . '/catalog/controller/module/mt_uni_credit_product.php'
+        );
+
+        self::assertMatchesRegularExpression('/function productModel\(\):\s*object/', $controller);
+        self::assertStringNotContainsString('function productModel(): ProductFinancingModel', $controller);
+        self::assertStringContainsString('logCalculateFailure', $controller);
+    }
+
     public function testJsFollowsJetOpenCartProductListenerContract(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');

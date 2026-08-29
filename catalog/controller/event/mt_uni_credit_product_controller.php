@@ -2,6 +2,7 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+use Opencart\System\Library\Extension\MtUniCredit\ModuleAssetVersion;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 
 /**
@@ -22,11 +23,10 @@ class MtUniCreditProductController extends \Opencart\System\Engine\Controller
             return;
         }
 
-        $version = ModuleConstants::VERSION;
-        $this->document->addStyle('extension/mt_uni_credit/catalog/view/stylesheet/mt_uni_credit_product.css?ver=' . $version);
+        $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'));
         // Footer: product fragment is injected in body; header scripts run too early.
         $this->document->addScript(
-            'extension/mt_uni_credit/catalog/view/javascript/mt_uni_credit_product.js?ver=' . $version,
+            ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_product.js'),
             'footer'
         );
 

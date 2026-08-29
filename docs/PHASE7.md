@@ -147,3 +147,20 @@ Product option/quantity refresh follows the proven `mt_jet_credit` OpenCart inte
 | AJAX     | Jet-specific calculate              | `mt_uni_credit_product.calculate`                       |
 
 Debug ON logs: `option/quantity change detected` → `recalculation request started` → `response received` → `calculator DOM updated`.
+
+## Asset cache busting (JS/CSS)
+
+Module release version (`ModuleConstants::VERSION`, e.g. `2.0.x`) is **not** the asset cache key.
+
+`ModuleAssetVersion` versions each module-owned JS/CSS URL from that file’s `filemtime()`. Conceptual result:
+
+```text
+mt_uni_credit_product.js?ver=1787981234
+mt_uni_credit_product.css?ver=1787981201
+```
+
+Missing/unreadable files fall back safely to the module version. Editing an asset changes its URL without a release bump and without a manual Cloudflare purge for that asset. HTML/PHP cache policy remains separate.
+
+## Calculate HTTP 500 remediation (runtime)
+
+Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.
