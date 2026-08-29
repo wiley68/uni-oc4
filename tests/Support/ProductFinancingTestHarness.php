@@ -139,9 +139,9 @@ final class ProductFinancingTestHarness
             $attempts,
             $locks,
             $materializer,
-            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID)),
+            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, OrderMaterializationTestHarness::TEST_VOID_STATUS_ID)),
             $orders,
-            new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID)
+            new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, OrderMaterializationTestHarness::TEST_VOID_STATUS_ID)
         );
 
         $addressResolver = new OpenCartCatalogAddressResolver(

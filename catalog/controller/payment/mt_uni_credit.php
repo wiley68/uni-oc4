@@ -300,6 +300,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                     $model->verifiedOwnedAddressForOrder($order)
                 );
             } catch (ProductFinancingFlowException $exception) {
+                if ($exception->errorCode() === 'technical_failure') {
+                    $this->logFailure($exception->getPrevious() ?? $exception);
+                }
                 http_response_code($exception->httpStatus());
 
                 return [
@@ -539,17 +542,16 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
     private function logFailure(\Throwable $exception): void
     {
         $file = basename(str_replace('\\', '/', $exception->getFile()));
-        $trace = $exception->getTrace();
-        $caller = isset($trace[0]['file'])
-            ? (basename(str_replace('\\', '/', (string) $trace[0]['file'])) . ':' . (int) ($trace[0]['line'] ?? 0))
-            : 'n/a';
+        $orderId = (int) ($this->session->data['order_id'] ?? 0);
+        $storeId = (int) $this->config->get('config_store_id');
         $this->log->write(sprintf(
-            'mt_uni_credit.checkout: %s: %s in %s:%d via %s',
+            'mt_uni_credit checkout technical_failure class=%s message=%s file=%s line=%d entry_point=checkout order_id=%d store_id=%d',
             $exception::class,
             $exception->getMessage(),
             $file,
             $exception->getLine(),
-            $caller
+            $orderId,
+            $storeId
         ));
     }
 }

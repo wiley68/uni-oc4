@@ -29,6 +29,8 @@ final class OrderMaterializationTestHarness
 {
     public const TEST_AWAITING_STATUS_ID = 25;
 
+    public const TEST_VOID_STATUS_ID = 16;
+
     public static function customer(): FinancingCustomerData
     {
         return new FinancingCustomerData(0, 1, 'Ivan', 'Petrov', 'ivan@example.test', '0888000000');
@@ -217,7 +219,7 @@ final class OrderMaterializationTestHarness
         OrderCorrelationStoreInterface $correlations
     ): OrderMaterializationService {
         $materializer = self::buildMaterializer($orders, $correlations);
-        $statusPolicy = new FinancingOrderStatusPolicy(self::TEST_AWAITING_STATUS_ID);
+        $statusPolicy = new FinancingOrderStatusPolicy(self::TEST_AWAITING_STATUS_ID, self::TEST_VOID_STATUS_ID);
         $checkoutGateway = new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy);
 
         return new OrderMaterializationService(

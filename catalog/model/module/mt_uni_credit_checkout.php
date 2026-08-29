@@ -195,7 +195,8 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         $orders = new CheckoutCatalogOrderAdapter($this);
         $correlations = new OrderCorrelationRepository($db);
         $statusPolicy = new FinancingOrderStatusPolicy(
-            (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING)
+            (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING),
+            (int) $this->config->get('config_void_status_id')
         );
         $verifier = new OpenCartOrderVerifier();
         $materializer = new OpenCartOrderMaterializer(

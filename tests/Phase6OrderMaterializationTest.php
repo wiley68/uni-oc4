@@ -72,7 +72,8 @@ final class Phase6OrderMaterializationTest extends TestCase
             $this->orders,
             new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier(),
             new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
-                OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID
+                OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
+                OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
             )
         );
 
@@ -83,6 +84,70 @@ final class Phase6OrderMaterializationTest extends TestCase
 
         self::assertSame(0, $this->orders->addOrderCallCount());
         self::assertSame('REAL-CARRIER-123', $this->orders->getOrder($created->orderId)['tracking']);
+    }
+
+    public function testCheckoutReusesOc41VoidedOrderAfterEditOrder(): void
+    {
+        // OC 4.1 editOrder() voids via config_void_status_id; active session.order_id often sits at void.
+        $this->orders->seedExistingOrder(88002, [
+            'store_id'        => PersistenceIntegrationHarness::TEST_STORE_ID,
+            'total'           => 1200.0,
+            'currency_code'   => 'BGN',
+            'payment_method'  => PaymentIdentity::paymentMethod(),
+            'order_status_id' => OrderMaterializationTestHarness::TEST_VOID_STATUS_ID,
+            'tracking'        => 'KEEP',
+        ], [
+            ['order_product_id' => 1, 'order_id' => 88002, 'product_id' => 42, 'quantity' => 2, 'price' => 500.0, 'total' => 1000.0],
+        ]);
+
+        $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(88002);
+        $gateway = new \Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway(
+            $this->orders,
+            new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier(),
+            new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
+                OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
+                OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
+            )
+        );
+
+        $created = $gateway->materialize(
+            $submission,
+            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 2, 'store_id' => $submission->storeId])
+        );
+
+        self::assertSame(88002, $created->orderId);
+        self::assertSame(0, $this->orders->addOrderCallCount());
+        self::assertSame(OrderMaterializationTestHarness::TEST_VOID_STATUS_ID, $created->orderStatusId);
+    }
+
+    public function testCheckoutRejectsProcessingStatusNotReadyForReuse(): void
+    {
+        $this->orders->seedExistingOrder(88003, [
+            'store_id'        => PersistenceIntegrationHarness::TEST_STORE_ID,
+            'total'           => 1200.0,
+            'currency_code'   => 'BGN',
+            'payment_method'  => PaymentIdentity::paymentMethod(),
+            'order_status_id' => 2,
+        ], [
+            ['order_product_id' => 1, 'order_id' => 88003, 'product_id' => 42, 'quantity' => 2, 'price' => 500.0, 'total' => 1000.0],
+        ]);
+
+        $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(88003);
+        $gateway = new \Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway(
+            $this->orders,
+            new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderVerifier(),
+            new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
+                OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
+                OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
+            )
+        );
+
+        $this->expectException(\Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationException::class);
+        $this->expectExceptionMessage('Checkout order is not in a financing-ready status.');
+        $gateway->materialize(
+            $submission,
+            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 3, 'store_id' => $submission->storeId])
+        );
     }
 
     public function testCrashRecoveryDoesNotCreateSecondOrder(): void

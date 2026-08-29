@@ -31,13 +31,15 @@ native checkout
 → payment/mt_uni_credit index (scheme UI)
 → issueSubmission / confirm
 → CheckoutFinancingSubmissionService
-→ CheckoutExistingOrderGateway (reuse only)
+→ CheckoutExistingOrderGateway (reuse only; status 0, awaiting, or OC4.1 void after editOrder)
 → local_order_prepared → checkout/success
 ```
 
 Authoritative financing amount at confirm = **order.total**. Eligibility before order uses cart total. Shared Phase 5 intersection unchanged.
 
 Checkout customer: `CheckoutCustomerValidator` — primary telephone **optional** (`''` when native OC has none). Product/Cart keep required telephone via `ProductCustomerValidator`.
+
+**OC4.1 status hazard:** `ModelCheckoutOrder::editOrder()` always `addHistory(config_void_status_id)` first. Active `session.order_id` therefore often has void status while payment UI runs. `FinancingOrderStatusPolicy::isCheckoutReuseAllowedStatus()` accepts 0, awaiting-financing, and configured void — not processing/complete.
 
 Details: `docs/PHASE9.md`.
 

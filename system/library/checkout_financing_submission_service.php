@@ -248,7 +248,11 @@ final class CheckoutFinancingSubmissionService
 
         if (!$this->attempts->transitionFromStates(
             (int) $attemptRow['attempt_id'],
-            [FinancingAttemptState::ISSUED],
+            [
+                FinancingAttemptState::ISSUED,
+                FinancingAttemptState::VALIDATING,
+                FinancingAttemptState::ORDER_CREATING,
+            ],
             FinancingAttemptState::VALIDATING
         )) {
             $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']);

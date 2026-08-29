@@ -87,6 +87,20 @@ CheckoutOperationIdentity::hash(store_id, order_id)
 
 Selection hash: `CheckoutSelectionHash` (order_id + order_total + fingerprint + scheme + authoritative first installment + actor).
 
+## Existing order reuse
+
+`CheckoutExistingOrderGateway` never calls `addOrder()`. It validates `session.order_id` payment identity (`mt_uni_credit.mt_uni_credit`) and status via `FinancingOrderStatusPolicy`.
+
+Allowed checkout reuse statuses:
+
+- `0` (fresh addOrder)
+- awaiting-financing status (module setting, when configured)
+- `config_void_status_id` — OpenCart 4.1 `editOrder()` voids the same row before rewriting; active checkout orders commonly sit here
+
+Rejected examples: processing / complete (e.g. payment order status after success).
+
+Retry: confirm may resume attempts left in `validating` / `order_creating` after a prior `technical_failure` (no duplicate order).
+
 ## Customer / address source (Checkout)
 
 Confirm does **not** trust Product-style popup POST for customer fields.
