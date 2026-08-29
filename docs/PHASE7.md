@@ -210,6 +210,22 @@ Woo/PS reference: `:focus` / `:focus-visible` use `outline: none; box-shadow: no
 
 **Accessibility compromise:** keyboard focus remains possible (Tab / Escape / modal trap), but these two Step 1 controls intentionally have **no visible focus frame**, matching Woo/PS UniCredit popups. Customer Step 2 fields retain their own treatment.
 
+## Product popup Step 2 visual + readiness (Woo/PS authority)
+
+Reference: Woo `mtuc-popup.css` / `mtuc-product-popup.js`; PS9 `product-calculator.css` / `product-calculator.js`.
+
+| Element             | Frozen contract                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Customer inputs     | bottom border only (`1px solid #b0b0b0`), no full rectangle; `font-size: 20px`; text `#000`; padding `0 0 0 16px`                |
+| Labels              | `16px` / weight `400` / line-height `1.2` / `#000`; required `*` in popup red                                                    |
+| Focus               | `outline: none; box-shadow: none` (no Bootstrap blue ring)                                                                       |
+| Invalid             | `aria-invalid` → bottom border turns popup red; inline error text                                                                |
+| Consent checkbox    | native input, `18×18`, `accent-color: #ed1c24` (Woo/PS)                                                                          |
+| Consent text/link   | `14px` / `#000` / underline / hover red; legal href unchanged                                                                    |
+| `Изпрати` readiness | disabled until required fields valid **and** all rendered consent checkboxes checked (if any); prefill evaluated on Step 2 entry |
+
+Client readiness reuses Woo/PS patterns (`nonEmpty`, phone/email regex). Server `ProductCustomerValidator` / consent resolver remain authoritative on submit.
+
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.

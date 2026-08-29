@@ -460,6 +460,11 @@
       if (popupErrorEl()) {
         popupErrorEl().textContent = '';
       }
+      if (form) {
+        form.querySelectorAll('.mt-uni-credit-product-calculator__customer-input').forEach((input) => {
+          input.setAttribute('aria-invalid', 'false');
+        });
+      }
     }
 
     function showFieldErrors(errors) {
@@ -476,12 +481,135 @@
           phone: 'phone',
           address_1: 'address',
           address: 'address',
+          email: 'email',
           consents: 'consent',
         };
         const field = aliases[key] || key;
         const target = fieldError(field) || fieldError(key);
         if (target) {
           target.textContent = String(message);
+        }
+        const input = customerField(field);
+        if (input) {
+          input.setAttribute('aria-invalid', message ? 'true' : 'false');
+        }
+      });
+    }
+
+    const PHONE_VALID_PATTERN = /^[-0-9+() ]+$/;
+    const EMAIL_VALID_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function customerField(name) {
+      return form ? form.querySelector(`[name="${name}"]`) : null;
+    }
+
+    function isNonEmpty(value) {
+      return String(value || '').trim() !== '';
+    }
+
+    function isValidPhone(value) {
+      const phone = String(value || '').trim();
+      return phone !== '' && PHONE_VALID_PATTERN.test(phone) && /\d/.test(phone);
+    }
+
+    function isValidEmail(value) {
+      const email = String(value || '').trim();
+      return email !== '' && EMAIL_VALID_PATTERN.test(email);
+    }
+
+    function consentCheckboxes() {
+      return form ? form.querySelectorAll('[data-mtuc-consent-checkbox]') : [];
+    }
+
+    function areMandatoryConsentsChecked() {
+      const boxes = consentCheckboxes();
+      if (!boxes.length) {
+        return true;
+      }
+      for (let i = 0; i < boxes.length; i += 1) {
+        if (!boxes[i].checked) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    /** Lightweight readiness rules aligned with Woo/PS + server required fields. */
+    function getStep2FieldErrors() {
+      const errors = {};
+      if (!isNonEmpty(customerField('firstname')?.value)) {
+        errors.firstname = 'Полето е задължително.';
+      }
+      if (!isNonEmpty(customerField('lastname')?.value)) {
+        errors.lastname = 'Полето е задължително.';
+      }
+      if (!isNonEmpty(customerField('address')?.value)) {
+        errors.address = 'Полето е задължително.';
+      }
+      const phone = customerField('phone')?.value;
+      if (!isNonEmpty(phone)) {
+        errors.phone = 'Полето е задължително.';
+      } else if (!isValidPhone(phone)) {
+        errors.phone = 'Въведете валиден телефонен номер.';
+      }
+      const email = customerField('email')?.value;
+      if (!isNonEmpty(email)) {
+        errors.email = 'Полето е задължително.';
+      } else if (!isValidEmail(email)) {
+        errors.email = 'Въведете валиден e-mail адрес.';
+      }
+      return errors;
+    }
+
+    function isStep2FormValid() {
+      const errors = getStep2FieldErrors();
+      const fieldsOk = Object.keys(errors).length === 0;
+      return fieldsOk && areMandatoryConsentsChecked() && !!lastCalculation;
+    }
+
+    function updateSubmitState(showErrors) {
+      const errors = getStep2FieldErrors();
+      if (showErrors) {
+        showFieldErrors(errors);
+      }
+      const valid = isStep2FormValid();
+      const submit = submitBtn();
+      if (submit) {
+        submit.disabled = !valid;
+        submit.setAttribute('aria-disabled', valid ? 'false' : 'true');
+        submit.classList.toggle('is-disabled', !valid);
+      }
+      return valid;
+    }
+
+    function bindStep2ReadinessListeners() {
+      if (!form) {
+        return;
+      }
+      form.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!target || !target.getAttribute) {
+          return;
+        }
+        const name = target.getAttribute('name') || '';
+        if (['firstname', 'lastname', 'address', 'phone', 'email'].indexOf(name) !== -1) {
+          updateSubmitState(false);
+        }
+      });
+      form.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!target || !target.getAttribute) {
+          return;
+        }
+        if (target.matches('[data-mtuc-consent-checkbox]')
+          || ['firstname', 'lastname', 'address', 'phone', 'email'].indexOf(target.getAttribute('name') || '') !== -1) {
+          updateSubmitState(false);
+        }
+      });
+      form.addEventListener('mousedown', (event) => {
+        const consentLink = event.target.closest('.mt-uni-credit-product-calculator__consent-label a');
+        if (consentLink) {
+          event.stopPropagation();
         }
       });
     }
@@ -572,10 +700,8 @@
         apply.disabled = false;
         apply.setAttribute('aria-disabled', 'false');
       }
-      const submit = submitBtn();
-      if (submit && currentStep === 2) {
-        submit.disabled = false;
-        submit.setAttribute('aria-disabled', 'false');
+      if (currentStep === 2) {
+        updateSubmitState(false);
       }
     }
 
@@ -963,6 +1089,9 @@
       if (!scheme || !button || !form) {
         return;
       }
+      if (!updateSubmitState(true)) {
+        return;
+      }
       submitBusy = true;
       button.setAttribute('aria-busy', 'true');
       button.disabled = true;
@@ -993,16 +1122,14 @@
           if (submitError && json.message) {
             submitError.textContent = json.message;
           }
-          button.disabled = false;
-          button.setAttribute('aria-disabled', 'false');
+          updateSubmitState(false);
         }
       } catch (error) {
         const submitError = modal.querySelector('[data-mtuc-submit-error]');
         if (submitError) {
           submitError.textContent = 'Заявката не може да бъде обработена.';
         }
-        button.disabled = false;
-        button.setAttribute('aria-disabled', 'false');
+        updateSubmitState(false);
       } finally {
         button.setAttribute('aria-busy', 'false');
         submitBusy = false;
@@ -1051,11 +1178,7 @@
         event.preventDefault();
         if (!apply.disabled) {
           setStep(2);
-          const submit = submitBtn();
-          if (submit && lastCalculation) {
-            submit.disabled = false;
-            submit.setAttribute('aria-disabled', 'false');
-          }
+          updateSubmitState(false);
           form?.querySelector('input, select, textarea')?.focus();
         }
       }
@@ -1077,8 +1200,10 @@
     form?.addEventListener('submit', submitForm);
 
     bindProductRecalculationListeners();
+    bindStep2ReadinessListeners();
 
     renderCalculator(state.calculator);
+    updateSubmitState(false);
   }
 
   if (document.readyState === 'loading') {
