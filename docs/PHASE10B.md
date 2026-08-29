@@ -10,6 +10,8 @@ durable local OpenCart order
 → STOP (no SmartUCF / Process execution / bank redirect)
 ```
 
+Module release version remains frozen at `2.0.2` (`ModuleConstants::VERSION`) for the development cycle — see `docs/RELEASE.md` / `docs/CONTRACTS.md`.
+
 ## CP contract (current Control Panel)
 
 | Item                 | Value                                                                                    |

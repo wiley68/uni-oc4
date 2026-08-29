@@ -16,6 +16,20 @@
 
 Автоматичните фикстури са в `tests/fixtures/`. Тестовете **не** викат жив CP или SmartUCF.
 
+## Development version freeze
+
+```text
+The UniCredit OpenCart module version is frozen at 2.0.2 for the entire current development cycle.
+
+Do not increment it during implementation phases, bug fixes, audits, remediation, testing, or release preparation.
+
+The first completed release of this development line will be tagged v2.0.2.
+
+Only after tag/release v2.0.2 may subsequent development increment the module version.
+```
+
+Authoritative source: `ModuleConstants::VERSION`. See `docs/RELEASE.md`.
+
 ---
 
 ## 1. Control Panel API
