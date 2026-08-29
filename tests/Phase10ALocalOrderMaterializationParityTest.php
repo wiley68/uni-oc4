@@ -12,51 +12,56 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Phase 10A — Product/Cart durable local-order boundary (parity with Checkout).
+ * Status source (remediated): UniCredit payment-method order status only.
  */
 final class Phase10ALocalOrderMaterializationParityTest extends TestCase
 {
-    public function testAwaitingStatusFallsBackToConfigOrderStatusPending(): void
+    public function testProductCartStatusResolvesFromPaymentMethodSetting(): void
     {
-        self::assertSame(0, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(0, 0));
-        self::assertSame(1, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(0, 1));
-        self::assertSame(1, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(1, 2));
-        self::assertSame(25, FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(25, 0));
+        self::assertSame(0, FinancingOrderStatusPolicy::resolveProductCartOrderStatusId(0));
+        self::assertSame(1, FinancingOrderStatusPolicy::resolveProductCartOrderStatusId(1));
+        self::assertSame(25, FinancingOrderStatusPolicy::resolveProductCartOrderStatusId(25));
     }
 
-    public function testProductAndCartModelsWireAwaitingStatusResolver(): void
+    public function testProductAndCartModelsWirePaymentOrderStatus(): void
     {
-        foreach (['mt_uni_credit_product.php', 'mt_uni_credit_cart.php', 'mt_uni_credit_checkout.php'] as $file) {
+        foreach (['mt_uni_credit_product.php', 'mt_uni_credit_cart.php'] as $file) {
             $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/' . $file);
             self::assertStringContainsString(
-                'FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId',
+                'FinancingOrderStatusPolicy::resolveProductCartOrderStatusId',
                 $src,
                 $file
             );
-            self::assertStringContainsString('config_order_status_id', $src, $file);
+            self::assertStringContainsString('PAYMENT_ORDER_STATUS_SETTING', $src, $file);
+            self::assertStringNotContainsString('config_order_status_id', $src, $file);
             self::assertStringNotContainsString(
-                "get('payment_mt_uni_credit_order_status_id')",
+                'module_mt_uni_credit_awaiting_financing_order_status_id',
                 $src,
                 $file
             );
         }
+        $checkout = (string) file_get_contents(dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php');
+        self::assertStringNotContainsString('resolveProductCartOrderStatusId', $checkout);
+        self::assertStringNotContainsString('PAYMENT_ORDER_STATUS_SETTING', $checkout);
     }
 
-    public function testAdminExposesAwaitingFinancingOrderStatus(): void
+    public function testAdminNoLongerExposesDuplicateAwaitingFinancingOrderStatus(): void
     {
         $defaults = (string) file_get_contents(dirname(__DIR__) . '/admin/model/module/mt_uni_credit.php');
-        self::assertStringContainsString('AWAITING_FINANCING_ORDER_STATUS_SETTING', $defaults);
+        self::assertStringNotContainsString('AWAITING_FINANCING_ORDER_STATUS_SETTING', $defaults);
         $twig = (string) file_get_contents(dirname(__DIR__) . '/admin/view/template/module/mt_uni_credit.twig');
-        self::assertStringContainsString('module_mt_uni_credit_awaiting_financing_order_status_id', $twig);
+        self::assertStringNotContainsString('module_mt_uni_credit_awaiting_financing_order_status_id', $twig);
         $controller = (string) file_get_contents(dirname(__DIR__) . '/admin/controller/module/mt_uni_credit.php');
-        self::assertStringContainsString('AWAITING_FINANCING_ORDER_STATUS_SETTING', $controller);
+        self::assertStringNotContainsString('AWAITING_FINANCING_ORDER_STATUS_SETTING', $controller);
+        self::assertSame('payment_mt_uni_credit_order_status_id', ModuleConstants::PAYMENT_ORDER_STATUS_SETTING);
     }
 
-    public function testMaterializationAppliesAwaitingStatusForProductAndCartOnly(): void
+    public function testMaterializationAppliesStatusForProductAndCartOnly(): void
     {
         $policy = new FinancingOrderStatusPolicy(1, 16);
-        self::assertTrue($policy->shouldApplyAwaitingStatus(OperationEntryPoint::PRODUCT));
-        self::assertTrue($policy->shouldApplyAwaitingStatus(OperationEntryPoint::CART));
-        self::assertFalse($policy->shouldApplyAwaitingStatus(OperationEntryPoint::CHECKOUT));
+        self::assertTrue($policy->shouldApplyProductCartStatus(OperationEntryPoint::PRODUCT));
+        self::assertTrue($policy->shouldApplyProductCartStatus(OperationEntryPoint::CART));
+        self::assertFalse($policy->shouldApplyProductCartStatus(OperationEntryPoint::CHECKOUT));
     }
 
     public function testCheckoutConfirmDoesNotCallAddOrder(): void
@@ -72,7 +77,6 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
         $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
         self::assertStringContainsString('ensureInterimVisibleStatus', $src);
         self::assertStringContainsString('boundOrderId !== null', $src);
-        // Idempotent: skip when already at interim status.
         self::assertStringContainsString('current === $statusId', $src);
     }
 
@@ -93,8 +97,6 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
         $paths = [
             dirname(__DIR__) . '/system/library/financing_order_status_policy.php',
             dirname(__DIR__) . '/system/library/order_materialization_service.php',
-            dirname(__DIR__) . '/system/library/product_financing_submission_service.php',
-            dirname(__DIR__) . '/system/library/cart_financing_submission_service.php',
             dirname(__DIR__) . '/admin/controller/module/mt_uni_credit.php',
         ];
         $forbidden = ['SmartUcfSession', 'SmartUCF', 'Process1', 'Process2', 'bank_redirect', 'sucfOnlineSessionStart'];

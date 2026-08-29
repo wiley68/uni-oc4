@@ -31,7 +31,7 @@ Cart    → addOrder() → correlation → attempt order_created → local_order
 Checkout → reuse session.order_id → correlation → local_order_prepared
 ```
 
-Product/Cart post-materialization status: `FinancingOrderStatusPolicy` awaiting id (module setting, else payment order status). See `docs/PHASE10A.md` and `docs/RECOVERY.md`.
+Product/Cart post-materialization status: UniCredit payment method `payment_mt_uni_credit_order_status_id` („Състояние на поръчката“) via `FinancingOrderStatusPolicy` + `addHistory()`. Checkout keeps native confirm status. See `docs/PHASE10A.md` and `docs/RECOVERY.md`.
 
 ## Phase 10B CP boundary
 
@@ -62,7 +62,7 @@ Authoritative financing amount at confirm = **order.total**. Eligibility before 
 
 Checkout customer: `CheckoutCustomerValidator` — primary telephone **optional** (`''` when native OC has none). Product/Cart keep required telephone via `ProductCustomerValidator`.
 
-**OC4.1 status hazard:** `ModelCheckoutOrder::editOrder()` always `addHistory(config_void_status_id)` first. Active `session.order_id` therefore often has void status while payment UI runs. `FinancingOrderStatusPolicy::isCheckoutReuseAllowedStatus()` accepts 0, awaiting-financing, and configured void — not processing/complete.
+**OC4.1 status hazard:** `ModelCheckoutOrder::editOrder()` always `addHistory(config_void_status_id)` first. Active `session.order_id` therefore often has void status while payment UI runs. `FinancingOrderStatusPolicy::isCheckoutReuseAllowedStatus()` accepts 0 and configured void — not processing/complete. Checkout model wires productCart status as `0` so payment Processing is not reuse-eligible.
 
 Details: `docs/PHASE9.md`.
 

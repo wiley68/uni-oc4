@@ -72,13 +72,17 @@ Customer-facing copy remains generic (order exists; financing system send failed
 Module still allows `telephone=''`. Payload sends `phone=''`.
 **CP StoreOrderRequest currently requires non-empty phone** (422). This is a known CP-vs-shop contract tension; OC4 does not invent placeholders.
 
-## OpenCart status (unchanged)
+## OpenCart status
 
-| Entry    | OC status after Phase 10B           |
-| -------- | ----------------------------------- |
-| Product  | Pending (awaiting financing status) |
-| Cart     | Pending                             |
-| Checkout | Processing (native)                 |
+| Entry    | OC status after local materialization / Phase 10B                                    |
+| -------- | ------------------------------------------------------------------------------------ |
+| Product  | UniCredit payment `payment_mt_uni_credit_order_status_id` („Състояние на поръчката“) |
+| Cart     | Same payment-method setting                                                          |
+| Checkout | Native Checkout/payment confirm lifecycle                                            |
+
+CP success alone does not change OpenCart status. CP failure leaves Product/Cart at the configured payment status (order not deleted / not reverted to 0).
+
+There is **no** separate module setting `module_mt_uni_credit_awaiting_financing_order_status_id`.
 
 ## Out of scope
 

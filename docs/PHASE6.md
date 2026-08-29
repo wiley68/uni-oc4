@@ -71,11 +71,11 @@ Cart draft factory: `CartOrderDraftFactory`
 
 ## Status / history decision
 
-| Flow         | Decision                                                                                                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product/Cart | After materialization + attach, `addHistory(awaitingFinancingStatusId)` moves order off default status **0** so native checkout `editOrder(status=0)` cannot interfere later |
-| Checkout     | Reuses native status-**0** order from `confirm.php`; gateway accepts status `0` or configured awaiting status                                                                |
-| Setting key  | `module_mt_uni_credit_awaiting_financing_order_status_id` (admin wiring in later phase)                                                                                      |
+| Flow         | Decision                                                                                                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product/Cart | After materialization + attach, `addHistory(payment_mt_uni_credit_order_status_id)` moves order off default status **0**                                    |
+| Checkout     | Reuses native status-**0** / void order from `confirm.php`; gateway accepts status `0` or configured void — does not apply Product/Cart payment status here |
+| Setting key  | `payment_mt_uni_credit_order_status_id` (payment method „Състояние на поръчката“). Duplicate module awaiting key removed.                                   |
 
 No bank/final statuses, no customer notification in Phase 6.
 

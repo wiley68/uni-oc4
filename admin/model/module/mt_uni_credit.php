@@ -33,7 +33,6 @@ class MtUniCredit extends \Opencart\System\Engine\Model
             ModuleLocalSettings::DEBUG_ENABLED               => ModuleLocalSettings::DEFAULT_DEBUG_ENABLED,
             ModuleLocalSettings::PRODUCT_BUTTON_ACTION       => ModuleLocalSettings::DEFAULT_PRODUCT_BUTTON_ACTION,
             ModuleLocalSettings::BUTTON_TOP_SPACING          => ModuleLocalSettings::DEFAULT_BUTTON_TOP_SPACING,
-            ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING => 0,
         ];
     }
 
@@ -48,6 +47,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
             $this->model_setting_setting->editSetting($code, $this->getDefaultSettings());
         }
 
+        $this->deleteStaleAwaitingFinancingSetting();
         $this->installPersistenceSchema();
         $this->syncEvents();
     }
@@ -55,6 +55,22 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     public function uninstall(): void
     {
         $this->removeEvents();
+        $this->deleteStaleAwaitingFinancingSetting();
+    }
+
+    /**
+     * Drop retired duplicate Product/Cart status key (dev DBs may still have it).
+     */
+    private function deleteStaleAwaitingFinancingSetting(): void
+    {
+        if (!defined('DB_PREFIX')) {
+            return;
+        }
+
+        $this->db->query(
+            "DELETE FROM `" . DB_PREFIX . "setting`
+             WHERE `key` = 'module_mt_uni_credit_awaiting_financing_order_status_id'"
+        );
     }
 
     private function installPersistenceSchema(): void

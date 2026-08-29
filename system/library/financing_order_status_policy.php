@@ -7,48 +7,43 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * OpenCart-native status decision for newly materialized Product/Cart financing orders.
  *
- * Product/Cart orders move from default status 0 to a visible interim status via addHistory()
- * so Admin Sales → Orders (WHERE order_status_id > 0) includes them.
+ * Product/Cart orders move from default status 0 to the UniCredit payment method's
+ * configured order status ({@see ModuleConstants::PAYMENT_ORDER_STATUS_SETTING}) via
+ * addHistory() so Admin Sales → Orders (WHERE order_status_id > 0) includes them.
  *
- * Interim status must NOT mean bank/CP success. Prefer store Pending
- * ({@see config_order_status_id}), never payment Processing.
- *
- * Checkout reuses the native session.order_id row. OpenCart 4.1.0.3 `editOrder()` always
- * voids first via config_void_status_id, so active checkout orders commonly sit at void
- * until payment confirmation — that void status must remain financing-reuse-eligible.
+ * Checkout reuses the native session.order_id row and does not apply this status here.
+ * OpenCart 4.1.0.3 `editOrder()` always voids first via config_void_status_id, so active
+ * checkout orders commonly sit at void until payment confirmation — that void status must
+ * remain financing-reuse-eligible (along with status 0). The payment-method status is NOT
+ * treated as a Checkout reuse key (avoids expanding reuse to Processing mid-lifecycle).
  */
 final class FinancingOrderStatusPolicy
 {
-    public const AWAITING_FINANCING_SETTING = ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING;
-
     public function __construct(
-        private int $awaitingFinancingStatusId,
+        private int $productCartOrderStatusId,
         private int $voidStatusId = 0
     ) {
     }
 
     /**
-     * Resolve Product/Cart post-materialization status (must be > 0 for Admin visibility).
+     * Resolve Product/Cart post-materialization status from the payment method setting.
      *
-     * 1. Dedicated module setting when configured
-     * 2. Else store default Pending: config_order_status_id
-     *
-     * Do not fall back to payment_*_order_status_id (usually Processing).
+     * @param int $paymentOrderStatusId value of payment_mt_uni_credit_order_status_id
      */
-    public static function resolveConfiguredAwaitingStatusId(
-        int $moduleAwaitingStatusId,
-        int $configOrderStatusId = 0
-    ): int {
-        if ($moduleAwaitingStatusId > 0) {
-            return $moduleAwaitingStatusId;
-        }
-
-        return $configOrderStatusId > 0 ? $configOrderStatusId : 0;
+    public static function resolveProductCartOrderStatusId(int $paymentOrderStatusId): int
+    {
+        return $paymentOrderStatusId > 0 ? $paymentOrderStatusId : 0;
     }
 
+    public function productCartOrderStatusId(): int
+    {
+        return $this->productCartOrderStatusId;
+    }
+
+    /** @deprecated Use productCartOrderStatusId(); kept for call-site clarity during transition. */
     public function awaitingFinancingStatusId(): int
     {
-        return $this->awaitingFinancingStatusId;
+        return $this->productCartOrderStatusId;
     }
 
     public function voidStatusId(): int
@@ -61,7 +56,9 @@ final class FinancingOrderStatusPolicy
         if ($orderStatusId === 0) {
             return true;
         }
-        if ($this->awaitingFinancingStatusId > 0 && $orderStatusId === $this->awaitingFinancingStatusId) {
+        // Only an explicitly configured Product/Cart status that matches — typically unused
+        // for Checkout when productCartOrderStatusId is wired as 0.
+        if ($this->productCartOrderStatusId > 0 && $orderStatusId === $this->productCartOrderStatusId) {
             return true;
         }
         if ($this->voidStatusId > 0 && $orderStatusId === $this->voidStatusId) {
@@ -71,8 +68,14 @@ final class FinancingOrderStatusPolicy
         return false;
     }
 
-    public function shouldApplyAwaitingStatus(string $entryPoint): bool
+    public function shouldApplyProductCartStatus(string $entryPoint): bool
     {
         return in_array($entryPoint, [OperationEntryPoint::PRODUCT, OperationEntryPoint::CART], true);
+    }
+
+    /** @deprecated Use shouldApplyProductCartStatus() */
+    public function shouldApplyAwaitingStatus(string $entryPoint): bool
+    {
+        return $this->shouldApplyProductCartStatus($entryPoint);
     }
 }

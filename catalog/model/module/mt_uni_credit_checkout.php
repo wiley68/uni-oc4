@@ -194,11 +194,10 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         $locks = new OperationLockRepository($db);
         $orders = new CheckoutCatalogOrderAdapter($this);
         $correlations = new OrderCorrelationRepository($db);
+        // Checkout does not apply Product/Cart payment status here (native confirm does).
+        // productCartOrderStatusId=0 so payment Processing is not Checkout-reuse-eligible.
         $statusPolicy = new FinancingOrderStatusPolicy(
-            FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(
-                (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING),
-                (int) $this->config->get('config_order_status_id')
-            ),
+            0,
             (int) $this->config->get('config_void_status_id')
         );
         $verifier = new OpenCartOrderVerifier();

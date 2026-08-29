@@ -17,7 +17,6 @@ $_['entry_advertising_enabled'] = 'Show advertising';
 $_['entry_debug_enabled']     = 'Debug mode';
 $_['entry_product_button_action'] = 'Buy button';
 $_['entry_button_top_spacing'] = 'Space above the button';
-$_['entry_awaiting_financing_order_status'] = 'Status after Product/Cart local order';
 
 $_['help_unicid']             = 'Your unique shop identification code in the UniCredit system.';
 $_['help_secret']             = 'Your shop secret code in the UniCredit system.';
@@ -26,8 +25,6 @@ $_['help_advertising_enabled'] = 'Enable or disable advertising on the store hom
 $_['help_debug_enabled']      = 'When enabled, technical events are written to the OpenCart server log only (never to the customer browser console).';
 $_['help_product_button_action'] = 'Behavior of the secondary button in the product popup.';
 $_['help_button_top_spacing'] = 'Space above the button in px (0–200).';
-$_['help_awaiting_financing_order_status'] = 'After successful Product/Cart financing the local order moves from status 0 to this status (visible in Admin). “Same as store” uses config_order_status_id (Pending). Do not use Processing — that is for Checkout after payment.';
-$_['text_awaiting_use_payment'] = 'Same as store Pending (config_order_status_id)';
 $_['help_journal_unavailable'] = 'The operations journal will be available in a later phase (bank request diagnostics).';
 
 $_['button_save']             = 'Save';

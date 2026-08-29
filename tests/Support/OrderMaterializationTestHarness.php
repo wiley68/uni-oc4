@@ -216,10 +216,14 @@ final class OrderMaterializationTestHarness
         CheckoutOrderModelPort $orders,
         \Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository $attempts,
         \Opencart\System\Library\Extension\MtUniCredit\OperationLockRepository $locks,
-        OrderCorrelationStoreInterface $correlations
+        OrderCorrelationStoreInterface $correlations,
+        ?int $productCartStatusId = null
     ): OrderMaterializationService {
         $materializer = self::buildMaterializer($orders, $correlations);
-        $statusPolicy = new FinancingOrderStatusPolicy(self::TEST_AWAITING_STATUS_ID, self::TEST_VOID_STATUS_ID);
+        $statusPolicy = new FinancingOrderStatusPolicy(
+            $productCartStatusId ?? self::TEST_AWAITING_STATUS_ID,
+            self::TEST_VOID_STATUS_ID
+        );
         $checkoutGateway = new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy);
 
         return new OrderMaterializationService(

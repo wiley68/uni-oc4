@@ -11,7 +11,7 @@ Product / Cart / Checkout
 → exactly one durable local OpenCart order
 → attempt bound (order_created)
 → order correlation row
-→ interim visible OC status (Pending)
+→ Product/Cart: UniCredit payment-method order status (visible)
 → local_order_prepared
 ```
 
@@ -32,13 +32,13 @@ Status `0` is listed only under filter **Пропуснати поръчки** (
 
 1. **Status 0** — `addHistory` never persisted (empty `oc_order_history`).
 2. **Empty `order_total.extension`** — drafts used `extension => ''`. Native `addHistory()` loads `extension/{extension}/total/{code}` when moving into a processing-list status; empty extension breaks that path before `editOrderStatusId` / history insert.
-3. Earlier fallback to `payment_mt_uni_credit_order_status_id` = Processing was wrong for Phase 10A semantics.
 
 ## Fix
 
 1. Totals use `extension => 'opencart'` (native OC totals modules).
-2. Interim status = module awaiting setting, else **`config_order_status_id` (Pending)** — never payment Processing.
-3. `ensureInterimVisibleStatus()` after bind **and** on bound-order retry (idempotent if already Pending).
+2. Product/Cart interim status = UniCredit payment method **„Състояние на поръчката“** (`payment_mt_uni_credit_order_status_id`) via `addHistory()`. No separate module Product/Cart status selector.
+3. `ensureInterimVisibleStatus()` after bind **and** on bound-order retry (idempotent if already at configured status).
+4. Checkout keeps native confirm lifecycle status (not rewritten by the Product/Cart initializer).
 
 ## Payment identity
 

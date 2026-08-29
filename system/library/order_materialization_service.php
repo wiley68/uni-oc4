@@ -92,11 +92,11 @@ final class OrderMaterializationService
      */
     private function ensureInterimVisibleStatus(CreatedOpenCartOrder $created, string $entryPoint): void
     {
-        if (!$this->statusPolicy->shouldApplyAwaitingStatus($entryPoint)) {
+        if (!$this->statusPolicy->shouldApplyProductCartStatus($entryPoint)) {
             return;
         }
 
-        $statusId = $this->statusPolicy->awaitingFinancingStatusId();
+        $statusId = $this->statusPolicy->productCartOrderStatusId();
         if ($statusId <= 0) {
             return;
         }

@@ -17,7 +17,6 @@ $_['entry_advertising_enabled'] = 'Визуализиране на реклам�
 $_['entry_debug_enabled']     = 'Режим отстраняване на грешки';
 $_['entry_product_button_action'] = 'Бутон купи';
 $_['entry_button_top_spacing'] = 'Свободно място над бутона';
-$_['entry_awaiting_financing_order_status'] = 'Статус след Product/Cart локална поръчка';
 
 $_['help_unicid']             = 'Вашият уникален идентификационен код на магазина в системата на УниКредит.';
 $_['help_secret']             = 'Вашият секретен код на магазина в системата на УниКредит.';
@@ -26,8 +25,6 @@ $_['help_advertising_enabled'] = 'Можете да включите или из
 $_['help_debug_enabled']      = 'При включване се записват сървърни диагностични събития в OpenCart журнала (без изход в браузъра на клиента).';
 $_['help_product_button_action'] = 'Поведение на вторичния бутон в модулния popup на продуктовата страница.';
 $_['help_button_top_spacing'] = 'Свободно място над бутона в px (0–200).';
-$_['help_awaiting_financing_order_status'] = 'След успешно Product/Cart финансиране локалната поръчка се мести от статус 0 към този статус (видима в Admin). При „както магазина“ се ползва config_order_status_id (Pending). Не ползвайте Processing — това е за Checkout след плащане.';
-$_['text_awaiting_use_payment'] = 'Както магазинния Pending (config_order_status_id)';
 $_['help_journal_unavailable'] = 'Журналът с операции ще е наличен в следваща фаза (диагностика на банкови заявки).';
 
 $_['button_save']             = 'Запиши';

@@ -348,18 +348,19 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 
 Подробности: `docs/PHASE6.md`.
 
-| Елемент                 | Стойност                                                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Submission DTO          | `ValidatedFinancingSubmission`                                                                                                    |
-| Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway`                                                         |
-| Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`                                                                 |
-| Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                                                                                 |
-| Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)                                                          |
-| Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id` (fallback: `config_order_status_id` / Pending — not payment Processing) |
+| Елемент                 | Стойност                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| Submission DTO          | `ValidatedFinancingSubmission`                                                        |
+| Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway`             |
+| Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`                     |
+| Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                                     |
+| Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)              |
+| Product/Cart OC status  | `payment_mt_uni_credit_order_status_id` („Състояние на поръчката“) via `addHistory()` |
+| Awaiting status setting | **removed** — do not use `module_mt_uni_credit_awaiting_financing_order_status_id`    |
 
-Phase 10A: Product/Cart `addOrder()` + `addHistory(interim)`. Order totals must set `extension=opencart` so native `addHistory` can load total confirm handlers. Admin visibility requires `order_status_id > 0`. See `docs/PHASE10A.md`.
+Phase 10A: Product/Cart `addOrder()` + `addHistory(payment order status)`. Order totals must set `extension=opencart` so native `addHistory` can load total confirm handlers. Admin visibility requires `order_status_id > 0`. See `docs/PHASE10A.md`.
 
-Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Recovery = re-POST same payload (CP idempotent on shop+order_id). See `docs/PHASE10B.md`.
+Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Recovery = re-POST same payload (CP idempotent on shop+order_id). See `docs/PHASE10B.md`. Checkout status remains native (confirm `addHistory`); Product/Cart status source is the payment method setting only.
 
 ### Store scope (OpenCart)
 

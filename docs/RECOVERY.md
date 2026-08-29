@@ -18,10 +18,12 @@ Operation lock `(store_id, entry_point, operation_key_hash)` serializes material
 
 No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when status is 0, awaiting-financing, or OC4.1 void (`config_void_status_id`).
 
-## Status visibility (Phase 10A)
+## Status visibility (Phase 10A / remediated)
 
-Product/Cart apply `addHistory(awaitingFinancingStatusId)` after attach.  
-Resolver: dedicated module setting, else `config_order_status_id` (Pending).
+Product/Cart apply `addHistory(payment_mt_uni_credit_order_status_id)` after attach.  
+Source: UniCredit payment method „Състояние на поръчката“ only.  
+Fallback: if that setting is missing/invalid (`<= 0`), no status update is applied (order may remain at 0 until configured).  
+Checkout is not rewritten by this initializer.
 
 ## CP create crash window (Phase 10B)
 
