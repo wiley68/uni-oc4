@@ -47,6 +47,11 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
         $this->orders[$orderId] = [
             'order_id'         => $orderId,
             'store_id'         => (int) ($orderData['store_id'] ?? 0),
+            'customer_id'      => (int) ($orderData['customer_id'] ?? 0),
+            'firstname'        => (string) ($orderData['firstname'] ?? ''),
+            'lastname'         => (string) ($orderData['lastname'] ?? ''),
+            'email'            => (string) ($orderData['email'] ?? ''),
+            'telephone'        => (string) ($orderData['telephone'] ?? ''),
             'total'            => (float) ($orderData['total'] ?? 0.0),
             'currency_code'    => (string) ($orderData['currency_code'] ?? ''),
             'payment_method'   => $paymentMethod,

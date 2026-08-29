@@ -134,7 +134,10 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         $orders = new CatalogCheckoutOrderAdapter($this);
         $correlations = new OrderCorrelationRepository($db);
         $statusPolicy = new FinancingOrderStatusPolicy(
-            (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING),
+            FinancingOrderStatusPolicy::resolveConfiguredAwaitingStatusId(
+                (int) $this->config->get(ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING),
+                (int) $this->config->get('payment_mt_uni_credit_order_status_id')
+            ),
             (int) $this->config->get('config_void_status_id')
         );
         $verifier = new OpenCartOrderVerifier();

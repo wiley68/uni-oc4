@@ -24,6 +24,20 @@ final class FinancingOrderStatusPolicy
     ) {
     }
 
+    /**
+     * Resolve Product/Cart post-materialization status.
+     * Prefer dedicated module setting; fall back to payment method order status
+     * so installs that only configured Payments → UniCredit still leave visible orders.
+     */
+    public static function resolveConfiguredAwaitingStatusId(int $moduleAwaitingStatusId, int $paymentOrderStatusId = 0): int
+    {
+        if ($moduleAwaitingStatusId > 0) {
+            return $moduleAwaitingStatusId;
+        }
+
+        return $paymentOrderStatusId > 0 ? $paymentOrderStatusId : 0;
+    }
+
     public function awaitingFinancingStatusId(): int
     {
         return $this->awaitingFinancingStatusId;

@@ -348,14 +348,16 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 
 Подробности: `docs/PHASE6.md`.
 
-| Елемент                 | Стойност                                                                  |
-| ----------------------- | ------------------------------------------------------------------------- |
-| Submission DTO          | `ValidatedFinancingSubmission`                                            |
-| Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway` |
-| Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`         |
-| Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                         |
-| Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)  |
-| Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id`                 |
+| Елемент                 | Стойност                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Submission DTO          | `ValidatedFinancingSubmission`                                                                                |
+| Gateways                | `ProductOrderGateway`, `CartOrderGateway`, `CheckoutExistingOrderGateway`                                     |
+| Materializer            | `OpenCartOrderMaterializer` → `CheckoutOrderModelPort.addOrder()`                                             |
+| Payment identity        | `mt_uni_credit.mt_uni_credit` (`PaymentIdentity`)                                                             |
+| Crash recovery          | `mt_uni_credit_order_correlation` (`store_id`, `attempt_id`, `order_id`)                                      |
+| Awaiting status setting | `module_mt_uni_credit_awaiting_financing_order_status_id` (fallback: `payment_mt_uni_credit_order_status_id`) |
+
+Phase 10A: Product/Cart already call `addOrder()`; awaiting status must be > 0 for Admin visibility. See `docs/PHASE10A.md`.
 
 ### Store scope (OpenCart)
 

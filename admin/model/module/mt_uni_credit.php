@@ -33,6 +33,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
             ModuleLocalSettings::DEBUG_ENABLED               => ModuleLocalSettings::DEFAULT_DEBUG_ENABLED,
             ModuleLocalSettings::PRODUCT_BUTTON_ACTION       => ModuleLocalSettings::DEFAULT_PRODUCT_BUTTON_ACTION,
             ModuleLocalSettings::BUTTON_TOP_SPACING          => ModuleLocalSettings::DEFAULT_BUTTON_TOP_SPACING,
+            ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING => 0,
         ];
     }
 

@@ -59,8 +59,16 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 $data[$key] = ModuleLocalSettings::normalizeButtonTopSpacing($stored ?? $default);
                 continue;
             }
+            if ($key === ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING) {
+                $data[$key] = (int) ($stored ?? $default);
+                continue;
+            }
             $data[$key] = (int) ($stored ?? $default);
         }
+
+        $this->load->model('localisation/order_status');
+        $data['order_statuses'] = $this->model_localisation_order_status->getOrderStatuses();
+        $data['payment_order_status_id'] = (int) $this->config->get('payment_mt_uni_credit_order_status_id');
 
         $health = $this->model_extension_mt_uni_credit_module_mt_uni_credit->getCpHealthSummary();
         $data['has_secret'] = (bool) ($health['secret_configured'] ?? false);
@@ -83,14 +91,17 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['entry_debug_enabled'] = $this->language->get('entry_debug_enabled');
         $data['entry_product_button_action'] = $this->language->get('entry_product_button_action');
         $data['entry_button_top_spacing'] = $this->language->get('entry_button_top_spacing');
+        $data['entry_awaiting_financing_order_status'] = $this->language->get('entry_awaiting_financing_order_status');
         $data['help_unicid'] = $this->language->get('help_unicid');
         $data['help_secret'] = $this->language->get('help_secret');
         $data['help_advertising_enabled'] = $this->language->get('help_advertising_enabled');
         $data['help_debug_enabled'] = $this->language->get('help_debug_enabled');
         $data['help_product_button_action'] = $this->language->get('help_product_button_action');
         $data['help_button_top_spacing'] = $this->language->get('help_button_top_spacing');
+        $data['help_awaiting_financing_order_status'] = $this->language->get('help_awaiting_financing_order_status');
         $data['help_journal_unavailable'] = $this->language->get('help_journal_unavailable');
         $data['text_secret_keep_current'] = $this->language->get('text_secret_keep_current');
+        $data['text_awaiting_use_payment'] = $this->language->get('text_awaiting_use_payment');
         $data['button_save'] = $this->language->get('button_save');
         $data['button_back'] = $this->language->get('button_back');
         $data['button_refresh_bank_data'] = $this->language->get('button_refresh_bank_data');
@@ -143,6 +154,10 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 }
                 if ($key === ModuleLocalSettings::BUTTON_TOP_SPACING) {
                     $payload[$key] = ModuleLocalSettings::normalizeButtonTopSpacing($this->request->post[$key]);
+                    continue;
+                }
+                if ($key === ModuleConstants::AWAITING_FINANCING_ORDER_STATUS_SETTING) {
+                    $payload[$key] = max(0, (int) $this->request->post[$key]);
                     continue;
                 }
                 $payload[$key] = ModuleLocalSettings::normalizeFlag($this->request->post[$key]);

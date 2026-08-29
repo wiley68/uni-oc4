@@ -16,10 +16,21 @@ validated context → usable local OC order → durable attempt/snapshot → CP 
 
 | Phase              | Boundary                                              |
 | ------------------ | ----------------------------------------------------- |
-| 7 Product          | `local_order_prepared` (frozen Product UI)            |
-| 8 Cart             | `local_order_prepared` (frozen Cart UI)               |
+| 7 Product          | UI + submit to local order path                       |
+| 8 Cart             | UI + submit to local order path                       |
 | 9 Checkout payment | `local_order_prepared` on existing `session.order_id` |
-| Later              | CP create, Process 1/2, SmartUCF, bank callbacks      |
+| 10A Local parity   | Product/Cart visible local orders (`addHistory`)      |
+| Later (10B+)       | CP create, Process 1/2, SmartUCF, bank callbacks      |
+
+## Unified local boundary (Phase 10A)
+
+```text
+Product → addOrder() → correlation → attempt order_created → local_order_prepared
+Cart    → addOrder() → correlation → attempt order_created → local_order_prepared
+Checkout → reuse session.order_id → correlation → local_order_prepared
+```
+
+Product/Cart post-materialization status: `FinancingOrderStatusPolicy` awaiting id (module setting, else payment order status). See `docs/PHASE10A.md` and `docs/RECOVERY.md`.
 
 ## Phase 9 Checkout payment path
 
