@@ -237,3 +237,30 @@ Client readiness reuses Woo/PS patterns (`nonEmpty`, phone/email regex). Server 
 ## Calculate HTTP 500 remediation (runtime)
 
 Root cause: `productModel(): ProductFinancingModel` rejected OpenCart’s `Engine\Proxy` wrapper (`TypeError`). Fix: return `object` (docblock documents Proxy). Unexpected failures are logged as `mt_uni_credit.product_calculate` without secrets.
+
+## Phase 7 Product — freeze checklist status
+
+Baseline SHA: `d7eefb96b7a9e1320ec9ec350f2a936627fa1cd4`
+
+| Section                        | Code/test status                              | Notes                                                                            |
+| ------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| A–F Product UX / runtime       | **PASS** (source + Phase 7 PHPUnit contracts) | Live OC 4.1.0.3 operator matrix still required for production claim              |
+| G Process 2 EGN / second phone | **DEFERRED**                                  | Not rendered; not required for Process 1; implement with Process lifecycle later |
+| H Local-order boundary         | **PASS**                                      | `local_order_prepared`; no CP / SmartUCF / Cart UI                               |
+| I Security / CSRF / URLs       | **PASS**                                      | Module CSRF; `url->link(..., true)`                                              |
+| J Accessibility                | **PASS**                                      | dialog / trap / Escape / inert cleanup                                           |
+| K Static assets / privacy      | **PASS**                                      | Local Roboto; filemtime; no `console.*`                                          |
+| L Regression                   | **PASS**                                      | PHP 8.2 lint clean; PHP 8.4 PHPUnit **339 / 7865 OK**                            |
+
+Phase 8 Cart/Checkout/CP create: **not present** (`Phase7ScopeGuardTest`; no `docs/PHASE8.md`).
+
+### Freeze record (code-ready)
+
+```text
+PHASE 7 PRODUCT: CODE FREEZE READY
+Frozen SHA: d7eefb96b7a9e1320ec9ec350f2a936627fa1cd4
+Process 2 EGN/second-phone UI: deferred to Process lifecycle phase
+Next allowed work: Phase 8 Cart (only after operator A–F sign-off → FINAL PASS)
+```
+
+`FINAL PASS` requires explicit operator confirmation that sections A–F are green on Product 40 / staging.
