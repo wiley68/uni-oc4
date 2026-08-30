@@ -77,7 +77,7 @@ final class Phase8CartEventRegistrationRuntimeContractTest extends TestCase
             self::assertContains($code, $missing);
         }
         self::assertContains(
-            ModuleConstants::MODULE_SETTING_CODE . '_after_checkout_success',
+            ModuleConstants::MODULE_SETTING_CODE . '_before_checkout_success_view',
             $missing
         );
         self::assertSame([], EventRegistrationGap::missingCodes(EventRegistry::eventCodes()));

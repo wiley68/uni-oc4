@@ -144,7 +144,8 @@ final class Phase11BPresentationParityTest extends TestCase
             \Opencart\System\Library\Extension\MtUniCredit\EventRegistry::definitions(),
             'trigger'
         );
-        self::assertContains('catalog/view/common/success/after', $triggers);
+        self::assertContains('catalog/view/common/success/before', $triggers);
+        self::assertNotContains('catalog/view/common/success/after', $triggers);
         self::assertContains('catalog/controller/checkout/success/before', $triggers);
         self::assertContains('catalog/view/mail/order_add/after', $triggers);
         self::assertContains('catalog/view/mail/order_alert/after', $triggers);
@@ -222,5 +223,101 @@ HTML;
         self::assertTrue($presenter->includesEgn(FinancingPresentationAudience::ADMIN_PANEL));
         self::assertTrue($presenter->includesEgn(FinancingPresentationAudience::ADMIN_EMAIL));
         self::assertFalse($presenter->includesEgn(FinancingPresentationAudience::CUSTOMER));
+    }
+
+    public function testThankYouPlacementIsInsideBodyNotBeforeHeader(): void
+    {
+        $header = '<html><body>{{HEADER_MARKER}}';
+        $message = '<p>Thanks</p>';
+        $leasing = '<div class="mt-uni-credit-checkout-success"><div class="mt-uni-credit-leasing-block">УниКредит лизинг</div></div>';
+        $continue = '<div class="text-end"><a href="/home" class="btn btn-primary">Continue</a></div>';
+        $footer = '{{FOOTER_MARKER}}</body></html>';
+        // Simulate view/before enrichment of text_message then twig render order.
+        $textMessage = $message . $leasing;
+        $page = $header
+            . '<div id="common-success" class="container"><div id="content" class="col">'
+            . '<h1>Success</h1>' . $textMessage . $continue
+            . '</div></div>'
+            . $footer;
+        $headerPos = strpos($page, '{{HEADER_MARKER}}');
+        $leasingPos = strpos($page, 'mt-uni-credit-leasing-block');
+        $footerPos = strpos($page, '{{FOOTER_MARKER}}');
+        self::assertNotFalse($headerPos);
+        self::assertNotFalse($leasingPos);
+        self::assertNotFalse($footerPos);
+        self::assertLessThan($leasingPos, $headerPos);
+        self::assertLessThan($footerPos, $leasingPos);
+        self::assertFalse(str_starts_with(ltrim($page), '<div class="mt-uni-credit'));
+    }
+
+    public function testAdminOrderInfoPlacementIsInsideContentNotInHeader(): void
+    {
+        $block = '<div class="card mb-3 mt-uni-credit-admin-order-leasing">LEASING</div>';
+        $output = '<!DOCTYPE html><body><div id="container"><header id="header" class="navbar">'
+            . '<div class="container-fluid">ADMIN_HEADER</div></header>'
+            . '<div id="column-left"></div>'
+            . '<div id="content">'
+            . '<div class="page-header"><div class="container-fluid"><h1>Order</h1></div></div>'
+            . '<div class="container-fluid"><div class="card mb-3">ORDER_FORM</div></div>'
+            . '</div></div></body>';
+        $replaced = preg_replace(
+            '/(<div id="content">\s*<div class="page-header">\s*<div class="container-fluid">[\s\S]*?<\/div>\s*<\/div>\s*)(<div class="container-fluid">)/',
+            '$1' . $block . '$2',
+            $output,
+            1,
+            $count
+        );
+        self::assertSame(1, $count);
+        self::assertIsString($replaced);
+        $headerPos = strpos($replaced, 'ADMIN_HEADER');
+        $leasingPos = strpos($replaced, 'mt-uni-credit-admin-order-leasing');
+        $contentPos = strpos($replaced, 'id="content"');
+        self::assertNotFalse($headerPos);
+        self::assertNotFalse($leasingPos);
+        self::assertNotFalse($contentPos);
+        self::assertLessThan($leasingPos, $headerPos);
+        self::assertLessThan($leasingPos, $contentPos);
+        // Must not land inside the navbar container-fluid.
+        self::assertDoesNotMatchRegularExpression(
+            '/id="header"[\s\S]*mt-uni-credit-admin-order-leasing[\s\S]*<\/header>/',
+            $replaced
+        );
+    }
+
+    public function testEmptyBankStatusDoesNotInventProcessLabel(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(10, null, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $rows = $presenter->rows($snapshot, '', FinancingPresentationAudience::CUSTOMER, null);
+        $map = array_column($rows, 'value', 'label');
+        self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_BANK_STATUS, $map);
+        self::assertSame('10', $map[FinancingLeasingPresenter::LABEL_CP_SHOP_ORDER_ID]);
+    }
+
+    public function testMaterializationPersistsPresentationBeforeAddHistory(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
+        self::assertMatchesRegularExpression(
+            '/persistPresentationBeforeMail[\s\S]*ensureInterimVisibleStatus/s',
+            $src
+        );
+        self::assertStringContainsString('Snapshot must exist before addHistory', $src);
+    }
+
+    public function testNativeMailAppendPreservesHtmlAndOmitsEgn(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $rows = $presenter->rows(
+            $snapshot,
+            BankStatus::LABEL_SENT_PROCESS2,
+            FinancingPresentationAudience::CUSTOMER,
+            new ProcessTwoSensitiveData('1990011599', '0888123456')
+        );
+        $mailBody = '<html><body><p>Order 55</p></body></html>';
+        $mailBody .= '<br/>' . $presenter->renderHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг', $mailBody);
+        self::assertStringNotContainsString('1990011599', $mailBody);
+        self::assertStringNotContainsString('ЕГН', $mailBody);
     }
 }

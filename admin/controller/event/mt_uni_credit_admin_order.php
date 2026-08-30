@@ -121,14 +121,24 @@ class MtUniCreditAdminOrder extends \Opencart\System\Engine\Controller
             $block = '<div class="card mb-3 mt-uni-credit-admin-order-leasing"><div class="card-header">'
                 . '<i class="fa-solid fa-university"></i> УниКредит — кредитна заявка</div>'
                 . '<div class="card-body">' . $html . '</div></div>';
-            // Insert after first card / near top of #content container-fluid.
-            if (preg_match('/(<div class="container-fluid">)/', $output)) {
+            // Admin header also has .container-fluid — never match that.
+            // Insert after #content > .page-header (nested container-fluid), before the form.
+            $replaced = preg_replace(
+                '/(<div id="content">\s*<div class="page-header">\s*<div class="container-fluid">[\s\S]*?<\/div>\s*<\/div>\s*)(<div class="container-fluid">)/',
+                '$1' . $block . '$2',
+                $output,
+                1,
+                $count
+            );
+            if (is_string($replaced) && $count > 0) {
+                $output = $replaced;
+            } elseif (preg_match('/<div id="content">/', $output)) {
                 $output = preg_replace(
-                    '/(<div class="container-fluid">)/',
+                    '/(<div id="content">)/',
                     '$1' . $block,
                     $output,
                     1
-                );
+                ) ?? ($output . $block);
             } else {
                 $output .= $block;
             }

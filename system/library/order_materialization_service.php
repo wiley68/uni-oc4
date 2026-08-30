@@ -58,6 +58,8 @@ final class OrderMaterializationService
         $boundOrderId = $attempt->orderId();
         if ($boundOrderId !== null) {
             $created = $this->materializer->loadVerified($boundOrderId, $submission, true);
+            // Snapshot must exist before addHistory → native order emails.
+            $this->persistPresentationBeforeMail($submission, $attempt, $created->orderId);
             $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
 
             return $created;
@@ -80,9 +82,35 @@ final class OrderMaterializationService
             );
         }
 
+        // Snapshot must exist before addHistory → native order emails (view/mail/*).
+        $this->persistPresentationBeforeMail($submission, $attempt, $created->orderId);
         $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
 
         return $created;
+    }
+
+    /**
+     * Persist frozen leasing presentation before interim addHistory so
+     * catalog/view/mail/order_add|order_alert can resolve the snapshot.
+     */
+    private function persistPresentationBeforeMail(
+        ValidatedFinancingSubmission $submission,
+        FinancingAttemptContext $attempt,
+        int $orderId
+    ): void {
+        $row = $this->attempts->findById($attempt->attemptId()) ?? [];
+        $process2 = ((string) ($row['process2_sensitive_enc'] ?? '') !== '')
+            || (
+                ($row['process2_state'] ?? '') !== ''
+                && (string) ($row['process2_state'] ?? '') !== 'not_started'
+            );
+        FinancingPresentationSupport::persistFromSubmission(
+            $this->attempts->database(),
+            $attempt->attemptId(),
+            $submission,
+            $orderId,
+            $process2 ? ['uni_proces' => 1] : ['uni_proces' => 0]
+        );
     }
 
     /**

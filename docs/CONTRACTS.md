@@ -448,5 +448,5 @@ Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POS
 | Selection hash   | `CheckoutSelectionHash` (includes order_id + order_total)                                          |
 | Gateway          | `CheckoutExistingOrderGateway` — never `addOrder()`                                                |
 | Lifecycle stop   | `cp_order_prepared` / attempt `cp_created` (Phase 10B)                                             |
-| Success event    | `catalog/view/common/success/after`                                                                |
+| Success event    | `catalog/view/common/success/before` (enrich `text_message` inside body)                           |
 | Deferred         | SmartUCF / Process execution (Phase 11+)                                                           |

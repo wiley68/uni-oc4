@@ -38,12 +38,11 @@ final class FinancingLeasingPresenter
     ): array {
         $rows = [];
         $status = trim($bankStatusLabel);
-        if ($status === '') {
-            $status = $snapshot->process2
-                ? BankStatus::LABEL_SENT_PROCESS2
-                : BankStatus::LABEL_SENT_PROCESS1;
+        // Do not invent bank_sent_* labels when durable status is absent
+        // (native order email fires at interim addHistory, before CP handoff).
+        if ($status !== '') {
+            $rows[] = ['label' => self::LABEL_BANK_STATUS, 'value' => $status];
         }
-        $rows[] = ['label' => self::LABEL_BANK_STATUS, 'value' => $status];
 
         if ($snapshot->controlPanelOrderId !== null && $snapshot->controlPanelOrderId > 0) {
             $rows[] = [

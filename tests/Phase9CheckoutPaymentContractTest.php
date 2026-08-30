@@ -222,9 +222,9 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
     public function testCheckoutSuccessEventRegistered(): void
     {
         $triggers = array_column(EventRegistry::definitions(), 'trigger');
-        self::assertContains('catalog/view/common/success/after', $triggers);
+        self::assertContains('catalog/view/common/success/before', $triggers);
         $codes = EventRegistry::eventCodes();
-        self::assertContains(ModuleConstants::MODULE_SETTING_CODE . '_after_checkout_success', $codes);
+        self::assertContains(ModuleConstants::MODULE_SETTING_CODE . '_before_checkout_success_view', $codes);
     }
 
     public function testCheckoutJsHasNoConsoleAndSurvivesRerender(): void

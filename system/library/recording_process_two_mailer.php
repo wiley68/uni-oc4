@@ -35,8 +35,12 @@ final class RecordingProcessTwoMailer implements ProcessTwoMailPort
         $allOk = true;
         if ($adminEmails !== []) {
             $adminHtml = $this->presenter->renderHtml($this->presenter->adminRows($orderContext, $sensitive));
-            foreach ($adminEmails as $to) {
-                $this->sent[] = ['audience' => 'admin', 'to' => $to, 'subject' => $subject, 'body_html' => $adminHtml];
+            if (!str_contains($adminHtml, FinancingLeasingPresenter::TITLE)) {
+                $allOk = false;
+            } else {
+                foreach ($adminEmails as $to) {
+                    $this->sent[] = ['audience' => 'admin', 'to' => $to, 'subject' => $subject, 'body_html' => $adminHtml];
+                }
             }
         }
 
@@ -44,6 +48,8 @@ final class RecordingProcessTwoMailer implements ProcessTwoMailPort
             $customerHtml = $this->presenter->renderHtml($this->presenter->customerRows($orderContext));
             if (stripos($customerHtml, 'ЕГН') !== false && preg_match('/\b\d{10}\b/', $customerHtml)) {
                 // Safety: never allow EGN digits in customer body.
+                $allOk = false;
+            } elseif (!str_contains($customerHtml, FinancingLeasingPresenter::TITLE)) {
                 $allOk = false;
             } else {
                 $this->sent[] = [

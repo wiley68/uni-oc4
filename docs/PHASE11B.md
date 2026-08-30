@@ -61,6 +61,16 @@ Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amo
 
 Field order: Статус към банката → КП поръчка (ID) → КП shop order_id → Срок → КОП → amounts → ГЛП/ГПР → (audience-sensitive) → Съобщение (customer Process 2).
 
+### Runtime placement (remediation)
+
+| Surface            | Mechanism                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Thank You          | `catalog/view/common/success/before` → append leasing HTML to `text_message` (inside `#content`, after header)                       |
+| Admin Order detail | `admin/view/sale/order_info/after` → insert after `#content` `.page-header` (not admin navbar `.container-fluid`)                    |
+| Native emails      | `catalog/view/mail/order_add\|order_alert/after` append; snapshot persisted **before** `addHistory` in `OrderMaterializationService` |
+
+Empty durable bank status does **not** invent `bank_sent_process*` labels (native mail fires at interim status).
+
 ## Hard guards
 
 - Zero `sucfOnlineSessionStart` calls under Process 2

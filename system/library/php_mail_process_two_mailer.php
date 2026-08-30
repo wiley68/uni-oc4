@@ -38,9 +38,14 @@ final class PhpMailProcessTwoMailer implements ProcessTwoMailPort
         $ok = true;
         if ($adminEmails !== []) {
             $adminHtml = $this->presenter->renderHtml($this->presenter->adminRows($orderContext, $sensitive));
-            foreach ($adminEmails as $to) {
-                if (!@mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $adminHtml, $headers)) {
-                    $ok = false;
+            if (!str_contains($adminHtml, FinancingLeasingPresenter::TITLE)) {
+                error_log('mt_uni_credit: Process 2 admin mail missing leasing block');
+                $ok = false;
+            } else {
+                foreach ($adminEmails as $to) {
+                    if (!@mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $adminHtml, $headers)) {
+                        $ok = false;
+                    }
                 }
             }
         }
@@ -52,6 +57,9 @@ final class PhpMailProcessTwoMailer implements ProcessTwoMailPort
             // Hard privacy guard: never send EGN digits to customer.
             if (preg_match('/\b\d{10}\b/', $customerHtml) && str_contains($customerHtml, 'ЕГН')) {
                 error_log('mt_uni_credit: blocked customer Process 2 mail containing EGN');
+                $ok = false;
+            } elseif (!str_contains($customerHtml, FinancingLeasingPresenter::TITLE)) {
+                error_log('mt_uni_credit: Process 2 customer mail missing leasing block');
                 $ok = false;
             } elseif (!@mail($customerEmail, '=?UTF-8?B?' . base64_encode($subject) . '?=', $customerHtml, $headers)) {
                 $ok = false;
