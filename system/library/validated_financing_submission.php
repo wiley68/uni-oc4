@@ -41,6 +41,8 @@ final class ValidatedFinancingSubmission
 
     public string $submissionSource;
 
+    public ?ProcessTwoSensitiveData $process2Sensitive = null;
+
     public function __construct(
         string $entryPoint,
         int $storeId,

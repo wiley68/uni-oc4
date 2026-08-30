@@ -83,7 +83,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
         $result = $this->submitProduct($service);
         self::assertTrue($result->success);
-        self::assertSame('cp_order_prepared', $result->step);
+        self::assertSame('process2_prepared', $result->step);
         self::assertSame(501, $result->controlPanelOrderId);
         self::assertSame(1, $transport->countOrderCreates());
 
@@ -370,6 +370,9 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
 
         $phase10Shop = ProductFinancingTestHarness::shop();
         $phase10Shop['uni_proces'] = 1;
+        $posted = ProductFinancingTestHarness::validPostedCustomer();
+        $posted['egn'] = '1990011599';
+        $posted['phone2'] = '0888123456';
 
         return $service->submit(
             $phase10Shop,
@@ -390,7 +393,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            $posted,
             'test-unicid',
             '2026-08-28 12:00:00',
             1,

@@ -115,6 +115,18 @@
                 <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-email" name="email" type="email" value="{{ mt_uni_credit.modal.customer.email }}" required aria-required="true" autocomplete="email">
                 <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="email" role="alert"></span>
               </div>
+              {% if mt_uni_credit.modal.process2 %}
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-egn">{{ text_egn }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-egn" name="egn" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" value="" required aria-required="true" autocomplete="off">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="egn" role="alert"></span>
+              </div>
+              <div class="mt-uni-credit-product-calculator__customer-field">
+                <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-cart-phone2">{{ text_phone2 }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+                <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-cart-phone2" name="phone2" type="tel" value="" required aria-required="true" autocomplete="tel" inputmode="tel">
+                <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="phone2" role="alert"></span>
+              </div>
+              {% endif %}
               <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-submit-error role="alert"></span>
             </div>
             {% if mt_uni_credit.modal.consents %}

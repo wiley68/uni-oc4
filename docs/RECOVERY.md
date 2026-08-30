@@ -55,6 +55,18 @@ Timeout / unknown: state `cp_outcome_unknown`, then same re-POST recovery. Never
 
 CP has no GET-by-local-order lookup; recovery is create-idempotency only. See `docs/PHASE10B.md`.
 
+## Process 2 handoff (Phase 11B)
+
+```text
+cp_created + process2_prepared
+→ retry same attempt
+→ reconcile bank_sent_process2 (no second SmartUCF, no second CP create)
+→ skip leasing mail when process2_mail_sent=1
+→ return stable process2_prepared + thank-you redirect
+```
+
+Validation failure (EGN/phone2) before handoff leaves CP at `cp_sent` and does not write `bank_sent_process2`.
+
 ## SmartUCF unknown outcome (Phase 11A)
 
 `submitting` is an atomic claim. A valid returned session is persisted as `created`; replay returns the stored trusted redirect without a second bank call. Timeout, duplicate-order evidence, invalid response after send, or stale `submitting` becomes `outcome_unknown`. Customers are told not to resubmit, and `bank_send_failed_smartucf` is not written for an ambiguous outcome. Only a definitive failure writes that status locally and to CP.

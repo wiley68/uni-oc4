@@ -86,14 +86,21 @@ final class ProductFinancingSubmissionService
             && $existingCpId > 0
             && (string) ($attemptRow['state'] ?? '') === FinancingAttemptState::CP_CREATED
         ) {
-            return new ProductFinancingResult(
-                true,
-                'cp_order_prepared',
+            $resume = ResumeSubmissionFactory::create(
+                OperationEntryPoint::PRODUCT,
+                $storeId,
+                $submissionToken,
+                (string) ($attemptRow['operation_key_hash'] ?? ''),
+                $boundOrderId
+            );
+
+            return FinancingControlPanelCompletion::resumeExistingCp(
+                $this->cpLifecycle,
+                (int) $attemptRow['attempt_id'],
+                $resume,
                 $boundOrderId,
-                ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
-                true,
-                FinancingAttemptState::CP_CREATED,
-                $existingCpId
+                $existingCpId,
+                $shop
             );
         }
 
@@ -177,10 +184,14 @@ final class ProductFinancingSubmissionService
         }
 
         $this->consents->validate($shop, $posted['consent'] ?? []);
+        $process2Data = ProcessTwoSubmissionSupport::validateIfRequired($shop, $posted, false);
 
         if (!$this->attempts->transitionFromStates(
             (int) $attemptRow['attempt_id'],
-            [FinancingAttemptState::ISSUED],
+            [
+                FinancingAttemptState::ISSUED,
+                FinancingAttemptState::VALIDATING,
+            ],
             FinancingAttemptState::VALIDATING
         )) {
             $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']);
@@ -189,14 +200,21 @@ final class ProductFinancingSubmissionService
                 && (int) $fresh['control_panel_order_id'] > 0
                 && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_CREATED
             ) {
-                return new ProductFinancingResult(
-                    true,
-                    'cp_order_prepared',
+                $resume = ResumeSubmissionFactory::create(
+                    OperationEntryPoint::PRODUCT,
+                    $storeId,
+                    $submissionToken,
+                    (string) ($fresh['operation_key_hash'] ?? ''),
+                    (int) $fresh['order_id']
+                );
+
+                return FinancingControlPanelCompletion::resumeExistingCp(
+                    $this->cpLifecycle,
+                    (int) $fresh['attempt_id'],
+                    $resume,
                     (int) $fresh['order_id'],
-                    ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
-                    true,
-                    FinancingAttemptState::CP_CREATED,
-                    (int) $fresh['control_panel_order_id']
+                    (int) $fresh['control_panel_order_id'],
+                    $shop
                 );
             }
             if ($fresh === null || !isset($fresh['order_id']) || (int) $fresh['order_id'] <= 0) {
@@ -244,6 +262,15 @@ final class ProductFinancingSubmissionService
             $shopSnapshotFetchedAt,
             'product_modal'
         );
+
+        if ($process2Data !== null) {
+            ProcessTwoSubmissionSupport::persist(
+                $submission,
+                (int) $attemptRow['attempt_id'],
+                $this->attempts->database(),
+                $process2Data
+            );
+        }
 
         $attemptContext = new FinancingAttemptContext($this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow);
         try {

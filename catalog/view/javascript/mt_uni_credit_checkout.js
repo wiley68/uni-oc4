@@ -144,6 +144,92 @@
       return Array.from(boxes).every((box) => box.checked);
     }
 
+    function fieldError(name) {
+      return root.querySelector(`[data-mtuc-field-error="${name}"]`);
+    }
+
+    function clearProcess2FieldErrors() {
+      ['egn', 'phone2'].forEach((name) => {
+        const el = fieldError(name);
+        if (el) {
+          el.textContent = '';
+        }
+        const input = root.querySelector(`[name="${name}"]`);
+        if (input) {
+          input.setAttribute('aria-invalid', 'false');
+        }
+      });
+    }
+
+    function showFieldErrors(errors) {
+      if (!errors || typeof errors !== 'object') {
+        return;
+      }
+      Object.entries(errors).forEach(([key, message]) => {
+        const target = fieldError(key);
+        if (target) {
+          target.textContent = String(message);
+        }
+        const input = root.querySelector(`[name="${key}"]`);
+        if (input) {
+          input.setAttribute('aria-invalid', message ? 'true' : 'false');
+        }
+      });
+    }
+
+    function sanitizePhone2Value(value) {
+      return String(value || '')
+        .split('')
+        .filter((char) => /[-0-9+() ]/.test(char))
+        .join('');
+    }
+
+    function isValidPhone2(value) {
+      const phone = String(value || '').trim();
+      return phone !== '' && /^[-0-9+() ]+$/.test(phone) && /\d/.test(phone);
+    }
+
+    /** EGN: 10 digits; first 8 form a valid YYYYMMDD calendar date (PHP checkdate parity). */
+    function isValidEgn(digits) {
+      if (!/^\d{10}$/.test(digits)) {
+        return false;
+      }
+      const year = parseInt(digits.slice(0, 4), 10);
+      const month = parseInt(digits.slice(4, 6), 10);
+      const day = parseInt(digits.slice(6, 8), 10);
+      const date = new Date(year, month - 1, day);
+      return date.getFullYear() === year
+        && date.getMonth() === month - 1
+        && date.getDate() === day;
+    }
+
+    function getProcess2FieldErrors() {
+      const errors = {};
+      const egnField = root.querySelector('[name="egn"]');
+      if (egnField) {
+        const egn = String(egnField.value || '').replace(/\D/g, '');
+        if (egn === '') {
+          errors.egn = 'Полето „ЕГН“ е задължително.';
+        } else if (!isValidEgn(egn)) {
+          errors.egn = 'Въведете валидно ЕГН (10 цифри, първите 8 — дата YYYYMMDD).';
+        }
+      }
+      const phone2Field = root.querySelector('[name="phone2"]');
+      if (phone2Field) {
+        const phone2 = String(phone2Field.value || '').trim();
+        if (phone2 === '') {
+          errors.phone2 = 'Полето „Втори телефон“ е задължително.';
+        } else if (!isValidPhone2(phone2)) {
+          errors.phone2 = 'Въведете валиден втори телефонен номер.';
+        }
+      }
+      return errors;
+    }
+
+    function process2FieldsValid() {
+      return Object.keys(getProcess2FieldErrors()).length === 0;
+    }
+
     function clearCalculationDisplays() {
       root.querySelectorAll('[data-mtuc-display]').forEach((el) => {
         el.textContent = '';
@@ -190,7 +276,10 @@
       if (!button) {
         return false;
       }
-      const valid = hasAuthoritativeCalculation() && areMandatoryConsentsChecked() && !confirmBusy;
+      const valid = hasAuthoritativeCalculation()
+        && areMandatoryConsentsChecked()
+        && process2FieldsValid()
+        && !confirmBusy;
       button.disabled = !valid;
       button.setAttribute('aria-disabled', valid ? 'false' : 'true');
       return valid;
@@ -385,6 +474,18 @@
         return;
       }
 
+      const process2Errors = getProcess2FieldErrors();
+      if (Object.keys(process2Errors).length) {
+        clearProcess2FieldErrors();
+        showFieldErrors(process2Errors);
+        if (submitErrorEl()) {
+          submitErrorEl().textContent = 'Моля, коригирайте данните.';
+        }
+        updateConfirmState();
+        return;
+      }
+      clearProcess2FieldErrors();
+
       confirmBusy = true;
       redirectTerminal = false;
       button.setAttribute('aria-busy', 'true');
@@ -421,6 +522,11 @@
           if (success) {
             success.hidden = false;
           }
+          if (json.step === 'process2_prepared' && json.redirect_url) {
+            redirectTerminal = true;
+            window.location.assign(json.redirect_url);
+            return;
+          }
           if (json.redirect_url) {
             if (window.MtUniCreditRedirect
               && window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)) {
@@ -443,6 +549,9 @@
           }
           if (submitErrorEl()) {
             submitErrorEl().textContent = json.message || 'Заявката не може да бъде обработена.';
+          }
+          if (json.errors) {
+            showFieldErrors(json.errors);
           }
           updateConfirmState();
         }
@@ -485,6 +594,26 @@
     root.querySelectorAll('[data-mtuc-consent-checkbox]').forEach((box) => {
       box.addEventListener('change', () => updateConfirmState());
     });
+
+    const process2Form = root.querySelector('[data-mtuc-customer-form]');
+    if (process2Form) {
+      process2Form.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!target || !target.getAttribute) {
+          return;
+        }
+        const name = target.getAttribute('name') || '';
+        if (name === 'phone2') {
+          const sanitized = sanitizePhone2Value(target.value);
+          if (target.value !== sanitized) {
+            target.value = sanitized;
+          }
+        }
+        if (name === 'egn' || name === 'phone2') {
+          updateConfirmState();
+        }
+      });
+    }
 
     selectedSchemeKey = resolvePreferredSchemeKey();
     populateSchemeSelect();

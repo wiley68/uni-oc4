@@ -74,7 +74,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -88,7 +88,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
         );
 
         self::assertTrue($result->success);
-        self::assertSame('cp_order_prepared', $result->step);
+        self::assertSame('process2_prepared', $result->step);
         self::assertNotNull($result->orderId);
         self::assertSame(1, $orders->addOrderCallCount());
 
@@ -146,7 +146,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,

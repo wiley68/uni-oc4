@@ -28,6 +28,8 @@ Exact URLs and payloads: `docs/INBOUND-API.md`.
 
 Frozen `cp_payload` on the attempt row is required for idempotent recovery. Do not add a second permanent customer payload table for CP retry.
 
+Process 2 EGN/phone2 live only in `process2_sensitive_enc` (encrypted). Never log them. Customer leasing email must not contain EGN. Retention redacts sensitive ciphertext after 180 days.
+
 Diagnostic debug retrieval redacts EGN, contact fields, tokens, and key material before returning to CP.
 
 ## SmartUCF Process 1 mTLS

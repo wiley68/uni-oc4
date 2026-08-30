@@ -61,6 +61,8 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'text_address',
             'text_email',
             'text_telephone',
+            'text_egn',
+            'text_phone2',
             'text_required',
             'text_processing_title',
             'text_processing_message',

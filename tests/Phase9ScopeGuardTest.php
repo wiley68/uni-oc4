@@ -31,6 +31,9 @@ final class Phase9ScopeGuardTest extends TestCase
         ];
         foreach ($paths as $path) {
             if (is_file($path)) {
+                if (self::isPhase11Allowed($path)) {
+                    continue;
+                }
                 $this->assertNoMarkers($path, (string) file_get_contents($path));
                 continue;
             }
@@ -70,6 +73,7 @@ final class Phase9ScopeGuardTest extends TestCase
     private static function isPhase11Allowed(string $path): bool
     {
         return str_ends_with($path, '/catalog/controller/payment/mt_uni_credit.php')
-            || str_ends_with($path, '/catalog/view/javascript/mt_uni_credit_checkout.js');
+            || str_ends_with($path, '/catalog/view/javascript/mt_uni_credit_checkout.js')
+            || str_ends_with($path, '/system/library/checkout_financing_submission_service.php');
     }
 }

@@ -40,7 +40,12 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('name="address"', $modal);
         self::assertStringContainsString('name="phone"', $modal);
         self::assertStringContainsString('name="email"', $modal);
-        self::assertStringNotContainsString('name="egn"', $modal);
+        // Process 2 EGN/phone2 only behind modal.process2 (Process 1 renders without them).
+        self::assertStringContainsString('{% if mt_uni_credit.modal.process2 %}', $modal);
+        self::assertMatchesRegularExpression(
+            '/\{\%\s*if\s+mt_uni_credit\.modal\.process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
+            $modal
+        );
         self::assertStringContainsString('data-mtuc-apply', $modal);
         self::assertStringContainsString('data-mtuc-secondary', $modal);
         self::assertStringContainsString('data-mtuc-submit', $modal);
@@ -51,11 +56,14 @@ final class Phase7ProductUxContractTest extends TestCase
         $presenter = new ProductModalPresenter(new ConsentResolver());
         $buy = $presenter->present([], [], 'buy');
         $cart = $presenter->present([], [], 'add_to_cart');
+        $process2 = $presenter->present(['uni_proces' => 1], [], 'buy');
 
         self::assertSame('buy', $buy['button_action']);
         self::assertSame('Купи', $buy['secondary_label']);
+        self::assertFalse($buy['process2']);
         self::assertSame('add_to_cart', $cart['button_action']);
         self::assertSame('Добави в количката', $cart['secondary_label']);
+        self::assertTrue($process2['process2']);
     }
 
     public function testPopupFormNormalizerMapsReferenceFieldNames(): void

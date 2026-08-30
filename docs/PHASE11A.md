@@ -22,4 +22,4 @@ Lifecycle state is stored on `mt_uni_credit_financing_attempt`: `not_started`, `
 
 Only a definitive remote SmartUCF rejection writes `bank_send_failed_smartucf` locally and to CP. Pre-send failures write no bank status. Timeout, duplicate-order evidence, or an ambiguous transport result becomes `outcome_unknown` and also writes no failure status.
 
-Process 2 is intentionally outside Phase 11A. `uni_proces=1` skips SmartUCF and preserves the Phase 10B CP-created result without writing `bank_sent_process2`.
+Process 2 is outside Phase 11A. `uni_proces=1` skips SmartUCF in Phase 11A; Phase 11B owns `bank_sent_process2` handoff (see `docs/PHASE11B.md`).

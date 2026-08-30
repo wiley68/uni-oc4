@@ -354,9 +354,12 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertStringNotContainsString('name="firstname"', $twig);
         self::assertStringNotContainsString('name="telephone"', $twig);
         self::assertStringNotContainsString('name="address"', $twig);
-        self::assertStringNotContainsString('type="tel"', $twig);
-        self::assertStringNotContainsString('name="egn"', $twig);
-        self::assertStringNotContainsString('name="phone2"', $twig);
+        // Process 2 may render type="tel" for phone2 only; Process 1 identity fields stay absent.
+        self::assertStringContainsString('{% if process2 %}', $twig);
+        self::assertMatchesRegularExpression(
+            '/\{\%\s*if\s+process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
+            $twig
+        );
         self::assertStringNotContainsString('data-mtuc-offers', $twig);
         self::assertStringNotContainsString('data-mtuc-customer-summary', $twig);
     }

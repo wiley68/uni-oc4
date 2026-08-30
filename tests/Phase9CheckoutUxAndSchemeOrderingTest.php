@@ -31,8 +31,12 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
         self::assertStringNotContainsString('data-mtuc-customer-display', $twig);
         self::assertStringNotContainsString('name="firstname"', $twig);
         self::assertStringNotContainsString('name="telephone"', $twig);
-        self::assertStringNotContainsString('name="egn"', $twig);
-        self::assertStringNotContainsString('name="phone2"', $twig);
+        // Process 2: only egn + phone2 behind process2 flag (no Process 1 customer fields).
+        self::assertStringContainsString('{% if process2 %}', $twig);
+        self::assertMatchesRegularExpression(
+            '/\{\%\s*if\s+process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
+            $twig
+        );
         self::assertStringContainsString('data-mtuc-schemes', $twig);
         self::assertStringContainsString('data-mtuc-submit', $twig);
         self::assertStringContainsString('{% if consents %}', $twig);

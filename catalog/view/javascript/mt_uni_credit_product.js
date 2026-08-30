@@ -566,6 +566,20 @@
       return email !== '' && EMAIL_VALID_PATTERN.test(email);
     }
 
+    /** EGN: 10 digits; first 8 form a valid YYYYMMDD calendar date (PHP checkdate parity). */
+    function isValidEgn(digits) {
+      if (!/^\d{10}$/.test(digits)) {
+        return false;
+      }
+      const year = parseInt(digits.slice(0, 4), 10);
+      const month = parseInt(digits.slice(4, 6), 10);
+      const day = parseInt(digits.slice(6, 8), 10);
+      const date = new Date(year, month - 1, day);
+      return date.getFullYear() === year
+        && date.getMonth() === month - 1
+        && date.getDate() === day;
+    }
+
     function consentCheckboxes() {
       const scope = activeProductFinancingForm() || step2Root() || modal;
       if (!scope) {
@@ -671,8 +685,8 @@
         const egn = String(egnField.value || '').replace(/\D/g, '');
         if (egn === '') {
           errors.egn = 'Полето е задължително.';
-        } else if (!/^\d{10}$/.test(egn)) {
-          errors.egn = 'Въведете валидно ЕГН (10 цифри).';
+        } else if (!isValidEgn(egn)) {
+          errors.egn = 'ЕГН трябва да съдържа 10 цифри. Първите 8 трябва да са валидна дата във формат ГГГГММДД.';
         }
       }
       const phone2Field = customerField('phone2');
@@ -1367,6 +1381,11 @@
 
         const json = await postJson(state.submit_url, payload, { abort: false });
         if (json.success) {
+          if (json.step === 'process2_prepared' && json.redirect_url) {
+            redirectTerminal = true;
+            window.location.assign(json.redirect_url);
+            return;
+          }
           if (json.redirect_url
             && window.MtUniCreditRedirect
             && window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)) {

@@ -371,6 +371,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     public function saveModuleSettings(array $payload, ?string $plainSecret, bool $secretFieldSubmitted): void
     {
         $storeId = (int) ($this->config->get('config_store_id') ?? 0);
+        $this->installPersistenceSchema();
         $services = $this->createCpServices();
         $previousUnicid = $services['credentials']->getUnicid($storeId);
         unset($payload[ModuleCredentialsRepository::SECRET_SETTING]);

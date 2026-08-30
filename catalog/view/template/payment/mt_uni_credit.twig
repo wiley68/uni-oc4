@@ -57,8 +57,23 @@
       <div class="mt-uni-credit-product-calculator__popup-row mt-uni-credit-product-calculator__popup-row--note" data-mtuc-popup-error role="alert"></div>
     </div>
 
-    {# Process 1: no customer inputs; native Checkout identity is server-side only. #}
+    {# Process 1: no customer inputs; native Checkout identity is server-side only.
+       Process 2: only egn + phone2 (extra fields before consents). #}
     <form id="mt-uni-credit-checkout-form" novalidate>
+      {% if process2 %}
+        <div class="mt-uni-credit-product-calculator__customer-form" data-mtuc-customer-form>
+          <div class="mt-uni-credit-product-calculator__customer-field">
+            <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-checkout-egn">{{ text_egn }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+            <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-checkout-egn" name="egn" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" value="" required aria-required="true" autocomplete="off">
+            <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="egn" role="alert"></span>
+          </div>
+          <div class="mt-uni-credit-product-calculator__customer-field">
+            <label class="mt-uni-credit-product-calculator__customer-label" for="mtuc-checkout-phone2">{{ text_phone2 }} <span class="mt-uni-credit-product-calculator__required" aria-hidden="true">{{ text_required }}</span></label>
+            <input class="mt-uni-credit-product-calculator__customer-input" id="mtuc-checkout-phone2" name="phone2" type="tel" value="" required aria-required="true" autocomplete="tel" inputmode="tel">
+            <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="phone2" role="alert"></span>
+          </div>
+        </div>
+      {% endif %}
       {% if consents %}
         <div class="mt-uni-credit-product-calculator__consents" data-mtuc-consents aria-label="{{ text_consents }}">
           {% for consent in consents %}

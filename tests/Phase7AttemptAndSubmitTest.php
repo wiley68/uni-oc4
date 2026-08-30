@@ -114,7 +114,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -127,11 +127,11 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             LockOwnerTokenGenerator::generate()
         );
         self::assertTrue($result->success);
-        self::assertSame('cp_order_prepared', $result->step);
+        self::assertSame('process2_prepared', $result->step);
         self::assertFalse(str_contains(strtolower($result->message), 'bank'));
 
         $replay = $service->submit(
-            ProductFinancingTestHarness::shop(),
+            array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => 1]),
             ProductFinancingTestHarness::STORE_ID,
             (string) $attempt['submission_token'],
             $actor,
@@ -149,7 +149,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -207,7 +207,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -261,7 +261,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -321,7 +321,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['scheme_key'],
             $scheme['first_installment'],
-            ProductFinancingTestHarness::validPostedCustomer(),
+            array_replace(ProductFinancingTestHarness::validPostedCustomer(), ['egn' => '1990011599', 'phone2' => '0888123456']),
             'test-unicid',
             '2026-08-28 12:00:00',
             1,
@@ -334,7 +334,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $owner
         );
         self::assertTrue($result->success);
-        self::assertSame('cp_order_prepared', $result->step);
+        self::assertSame('process2_prepared', $result->step);
         self::assertGreaterThan(0, $result->orderId);
 
         $correlations = new \Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationRepository(

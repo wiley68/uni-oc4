@@ -24,6 +24,15 @@ final class BankStatus
     }
 
     /** @return array{status_id: string, status_label: string} */
+    public static function process2Sent(): array
+    {
+        return [
+            'status_id' => self::SENT_PROCESS2,
+            'status_label' => self::LABEL_SENT_PROCESS2,
+        ];
+    }
+
+    /** @return array{status_id: string, status_label: string} */
     public static function smartUcfFailure(): array
     {
         return [

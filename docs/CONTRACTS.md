@@ -1,6 +1,10 @@
 # Phase 11A Process 1
 
-After CP order creation, the module synchronizes the certificate and private key from CP when `uni_sertificat` is enabled, then calls the trusted SmartUCF `sucfOnlineSessionStart` endpoint. The passphrase remains local-only. A valid session persists `smartucf_state=created`, updates CP and local status to `bank_sent_process1`, and returns `redirect_url` with `bank_submitted=true`. Only definitive remote rejection writes `bank_send_failed_smartucf`; certificate/pre-send and ambiguous outcomes write no bank failure status. `uni_proces=1` skips this lifecycle for now.
+After CP order creation, the module synchronizes the certificate and private key from CP when `uni_sertificat` is enabled, then calls the trusted SmartUCF `sucfOnlineSessionStart` endpoint. The passphrase remains local-only. A valid session persists `smartucf_state=created`, updates CP and local status to `bank_sent_process1`, and returns `redirect_url` with `bank_submitted=true`. Only definitive remote rejection writes `bank_send_failed_smartucf`; certificate/pre-send and ambiguous outcomes write no bank failure status. `uni_proces=1` uses Phase 11B Process 2 instead (no SmartUCF).
+
+# Phase 11B Process 2
+
+When `uni_proces === 1`, after CP create the module validates EGN + phone2, stores them encrypted on the financing attempt, patches CP/local status to `bank_sent_process2` / `Изпратен Банка - Процес 2` using the **shop** order id, sends leasing mail (EGN admin-only), and continues to the local thank-you page. CP never receives EGN/phone2. See `docs/PHASE11B.md`.
 
 # UniCredit OpenCart 4.x — замразени договори (Phase 0)
 

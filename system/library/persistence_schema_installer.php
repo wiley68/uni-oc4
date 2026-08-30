@@ -47,6 +47,9 @@ final class PersistenceSchemaInstaller
             'smartucf_retryable' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'smartucf_claimed_at' => 'DATETIME NULL',
             'smartucf_completed_at' => 'DATETIME NULL',
+            'process2_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
+            'process2_sensitive_enc' => 'TEXT NULL',
+            'process2_mail_sent' => 'TINYINT(1) NOT NULL DEFAULT 0',
         ];
         foreach ($columns as $column => $definition) {
             try {
@@ -139,6 +142,9 @@ final class PersistenceSchemaInstaller
                 `smartucf_retryable` TINYINT(1) NOT NULL DEFAULT 0,
                 `smartucf_claimed_at` DATETIME NULL,
                 `smartucf_completed_at` DATETIME NULL,
+                `process2_state` VARCHAR(32) NOT NULL DEFAULT 'not_started',
+                `process2_sensitive_enc` TEXT NULL,
+                `process2_mail_sent` TINYINT(1) NOT NULL DEFAULT 0,
                 `last_error_class` VARCHAR(64) NULL,
                 `expires_at` DATETIME NULL,
                 `created_at` DATETIME NOT NULL,

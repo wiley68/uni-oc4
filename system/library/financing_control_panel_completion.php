@@ -16,12 +16,14 @@ final class FinancingControlPanelCompletion
         int $localOrderId,
         array $shop,
         string $lockOwnerToken,
-        ?PostControlPanelLifecycleService $postControlPanel = null
+        ?PostControlPanelLifecycleService $postControlPanel = null,
+        ?string $successRedirectUrl = null,
+        ?ProcessTwoMailPort $process2Mailer = null
     ): ProductFinancingResult {
         $row = $attempt->row();
         $existingCp = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
         if ($existingCp > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
-            return self::postControlPanel($lifecycle, $postControlPanel)->handle(
+            return self::postControlPanel($lifecycle, $postControlPanel, $successRedirectUrl, $process2Mailer, $shop)->handle(
                 $attempt->attemptId(),
                 $submission,
                 $localOrderId,
@@ -31,15 +33,9 @@ final class FinancingControlPanelCompletion
             );
         }
 
-        // Ensure attempt is at least order_created before CP (bound retries may already be past).
-        $state = (string) ($row['state'] ?? '');
-        if (in_array($state, [FinancingAttemptState::ORDER_CREATING, FinancingAttemptState::VALIDATING, FinancingAttemptState::ISSUED], true)) {
-            // no-op — materialization should have advanced; CP service also accepts order_created+
-        }
-
         $result = $lifecycle->submitOrRecover($attempt, $submission, $localOrderId, $shop, $lockOwnerToken);
         if ($result->success && $result->cpOrderId !== null) {
-            return self::postControlPanel($lifecycle, $postControlPanel)->handle(
+            return self::postControlPanel($lifecycle, $postControlPanel, $successRedirectUrl, $process2Mailer, $shop)->handle(
                 $attempt->attemptId(),
                 $submission,
                 $localOrderId,
@@ -59,9 +55,40 @@ final class FinancingControlPanelCompletion
         );
     }
 
+    /**
+     * Resume post-CP lifecycle when attempt is already cp_created (Process 1 or 2).
+     *
+     * @param array<string, mixed> $shop
+     */
+    public static function resumeExistingCp(
+        ControlPanelOrderLifecycleService $lifecycle,
+        int $attemptId,
+        ValidatedFinancingSubmission $submission,
+        int $localOrderId,
+        int $cpOrderId,
+        array $shop,
+        ?string $successRedirectUrl = null,
+        ?ProcessTwoMailPort $process2Mailer = null
+    ): ProductFinancingResult {
+        return self::postControlPanel($lifecycle, null, $successRedirectUrl, $process2Mailer, $shop)->handle(
+            $attemptId,
+            $submission,
+            $localOrderId,
+            $cpOrderId,
+            $shop,
+            true
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $shop
+     */
     private static function postControlPanel(
         ControlPanelOrderLifecycleService $lifecycle,
-        ?PostControlPanelLifecycleService $service
+        ?PostControlPanelLifecycleService $service,
+        ?string $successRedirectUrl = null,
+        ?ProcessTwoMailPort $process2Mailer = null,
+        array $shop = []
     ): PostControlPanelLifecycleService {
         if ($service !== null) {
             return $service;
@@ -74,7 +101,17 @@ final class FinancingControlPanelCompletion
             new OrderBankStatusRepository($db),
             $lifecycle->client()
         );
+        $process2 = null;
+        if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
+            $process2 = new ProcessTwoLifecycleCoordinator(
+                new ProcessTwoLifecycleRepository($db),
+                new OrderBankStatusRepository($db),
+                $lifecycle->client(),
+                new ProcessTwoSensitiveCipher(),
+                $process2Mailer ?? new PhpMailProcessTwoMailer()
+            );
+        }
 
-        return new PostControlPanelLifecycleService($coordinator);
+        return new PostControlPanelLifecycleService($coordinator, $process2, $successRedirectUrl);
     }
 }

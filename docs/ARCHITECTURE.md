@@ -22,6 +22,7 @@ validated context → usable local OC order → durable attempt/snapshot → CP 
 | 10A Local parity   | Product/Cart visible local orders (`addHistory`)      |
 | 10B CP lifecycle   | CP create/recover → `cp_created`                      |
 | 11A Process 1      | direct SmartUCF session → bank redirect               |
+| 11B Process 2      | EGN/phone2 + bank_sent_process2 + leasing mail        |
 
 ## Unified local boundary (Phase 10A)
 
@@ -55,7 +56,17 @@ cp_created → read/replay SmartUCF state
 
 Certificate synchronization is intentionally before the remote-submit claim. A sync failure is retryable pre-send, does not call SmartUCF, and does not publish a bank failure status. Only a definitive remote SmartUCF rejection writes `bank_send_failed_smartucf`. The certificate and private key are CP-synchronized; the private-key passphrase remains local-only.
 
-Process 2 is skipped and does not write a Process 2 bank status in this phase. See `docs/PHASE11A.md`.
+## Phase 11B Process 2 boundary
+
+```text
+cp_created → ProcessTwoLifecycleCoordinator
+→ encrypted EGN/phone2 on attempt
+→ CP/local bank_sent_process2 (shop order_id)
+→ admin/customer leasing mail (EGN admin-only)
+→ checkout/success (no SmartUCF)
+```
+
+Selector: `uni_proces === 1`. See `docs/PHASE11B.md`.
 
 ## Phase 9 Checkout payment path
 

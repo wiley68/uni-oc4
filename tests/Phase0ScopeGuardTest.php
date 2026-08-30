@@ -44,7 +44,7 @@ final class Phase0ScopeGuardTest extends TestCase
             }
 
             if (self::isPhase4CpProductionFile($path) || self::isBridgeAInboundProductionFile($path)
-                || self::isPhase11SmartUcfProductionFile($path)) {
+                || self::isPhase11SmartUcfProductionFile($path) || self::isPhase11BProcessTwoProductionFile($path)) {
                 continue;
             }
 
@@ -90,5 +90,13 @@ final class Phase0ScopeGuardTest extends TestCase
             || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
             || str_ends_with($path, '/system/library/shop_configuration_flags.php')
             || str_ends_with($path, '/system/library/financing_control_panel_completion.php');
+    }
+
+    private static function isPhase11BProcessTwoProductionFile(string $path): bool
+    {
+        return str_contains($path, '/system/library/process_two_')
+            || str_ends_with($path, '/system/library/recording_process_two_mailer.php')
+            || str_ends_with($path, '/system/library/php_mail_process_two_mailer.php')
+            || str_ends_with($path, '/system/library/resume_submission_factory.php');
     }
 }

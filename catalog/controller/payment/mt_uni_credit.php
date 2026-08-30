@@ -109,6 +109,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'text_glp',
             'text_gpr',
             'text_consents',
+            'text_egn',
+            'text_phone2',
+            'text_required',
             'text_processing_title',
             'text_processing_message',
             'text_local_order_prepared',
@@ -125,6 +128,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['show_first_installment'] = !empty($presenter['show_first_installment']);
         $data['badge_url'] = $assetBase . 'uni_mini_logo.png';
         $secondaryProcess = ShopConfigurationFlags::isSecondaryProcess($shop);
+        $data['process2'] = $secondaryProcess;
         $data['checkout_helper'] = $this->language->get(
             $secondaryProcess ? 'text_checkout_helper_process2' : 'text_checkout_helper_process1'
         );

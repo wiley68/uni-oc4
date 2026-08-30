@@ -30,6 +30,7 @@ final class ProductModalPresenter
             'currency_mode'     => (int) ($shop['uni_eur'] ?? 0),
             'button_action'     => $action,
             'secondary_label'   => $action === 'buy' ? 'Купи' : 'Добави в количката',
+            'process2'          => ShopConfigurationFlags::isSecondaryProcess($shop),
             'customer'          => array_replace([
                 'firstname'  => '',
                 'lastname'   => '',

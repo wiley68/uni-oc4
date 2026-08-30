@@ -97,6 +97,10 @@ final class Phase5ScopeGuardTest extends TestCase
     private static function isPhase11Allowed(string $path): bool
     {
         return str_contains($path, '/system/library/smart_ucf_')
+            || str_contains($path, '/system/library/process_two_')
+            || str_ends_with($path, '/system/library/recording_process_two_mailer.php')
+            || str_ends_with($path, '/system/library/php_mail_process_two_mailer.php')
+            || str_ends_with($path, '/system/library/resume_submission_factory.php')
             || str_ends_with($path, '/system/library/bank_status.php')
             || str_ends_with($path, '/system/library/control_panel_order_status_port.php')
             || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
