@@ -85,13 +85,16 @@ final class CheckoutOrderCartParity
      * @param list<array<string, mixed>> $orderProducts
      * @param callable(int, int): list<array<string, mixed>> $getOptions
      * @param list<array<string, mixed>> $cartProducts
+     * @param float                      $checkoutGrandTotal Live confirm-equivalent total
+     *        (sub_total + shipping + tax + other totals). Never pass cart->getTotal() —
+     *        that omits shipping and falsely blanks UniCredit payment render.
      */
     public static function matchesCurrentCart(
         array $order,
         array $orderProducts,
         callable $getOptions,
         array $cartProducts,
-        float $cartTotal,
+        float $checkoutGrandTotal,
         string $sessionCurrency
     ): bool {
         $orderId = (int) ($order['order_id'] ?? 0);
@@ -106,8 +109,8 @@ final class CheckoutOrderCartParity
         }
 
         $orderTotal = round((float) ($order['total'] ?? 0.0), 2);
-        $cartTotal = round($cartTotal, 2);
-        if (abs($orderTotal - $cartTotal) > 0.001) {
+        $checkoutGrandTotal = round($checkoutGrandTotal, 2);
+        if (abs($orderTotal - $checkoutGrandTotal) > 0.001) {
             return false;
         }
 

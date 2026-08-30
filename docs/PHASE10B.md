@@ -97,7 +97,7 @@ There is **no** separate module setting `module_mt_uni_credit_awaiting_financing
 
 Invariant: `session.order_id` may be reused only when it still represents the current cart and is lifecycle-valid for confirm reuse. A Voided order for an older cart must not supply price/products/CP payload for a changed cart.
 
-See `docs/RECOVERY.md` (Checkout / stale session.order_id). Guards: `CheckoutSessionOrderGuard`, `CheckoutOrderCartParity`, events on cart add/edit/remove + confirm before.
+See `docs/RECOVERY.md` (Checkout / stale session.order_id). Guards: `CheckoutSessionOrderGuard`, `CheckoutOrderCartParity`, `CheckoutLiveGrandTotal` (confirm-equivalent total, not `cart->getTotal()`), events on cart add/edit/remove + confirm before.
 
 ## Out of scope
 

@@ -248,7 +248,42 @@ final class Phase10BStaleCheckoutSessionOrderTest extends TestCase
             dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php'
         );
         self::assertStringContainsString('CheckoutSessionOrderGuard::reconcileSessionOrder', $src);
+        self::assertStringContainsString('liveCheckoutGrandTotal()', $src);
         self::assertSame('2.0.2', ModuleConstants::VERSION);
+    }
+
+    public function testMerchandiseTotalIsNotOrderParityBase(): void
+    {
+        $order = [
+            'order_id'      => 597,
+            'total'         => 1004.996,
+            'currency_code' => 'EUR',
+        ];
+        $orderProducts = [
+            ['order_product_id' => 1, 'product_id' => 40, 'quantity' => 1],
+        ];
+        $cartProducts = [
+            ['product_id' => 40, 'quantity' => 1, 'option' => []],
+        ];
+        $getOptions = static fn(): array => [];
+
+        // Logged flat-shipping false positive when comparing cart->getTotal() (999.996).
+        self::assertTrue(CheckoutSessionOrderGuard::shouldInvalidateForCurrentCart(
+            $order,
+            $orderProducts,
+            $getOptions,
+            $cartProducts,
+            999.996,
+            'EUR'
+        ));
+        self::assertFalse(CheckoutSessionOrderGuard::shouldInvalidateForCurrentCart(
+            $order,
+            $orderProducts,
+            $getOptions,
+            $cartProducts,
+            1004.996,
+            'EUR'
+        ));
     }
 
     public function testNativeConfirmOnlyEditsStatusZero(): void

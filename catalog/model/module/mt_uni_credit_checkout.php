@@ -303,9 +303,10 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         }
 
         // Defense in depth: refuse Voided/stale order when live cart has moved on.
+        // Grand total must match confirm (includes shipping) — not cart->getTotal().
         $orderProducts = $this->model_checkout_order->getProducts($orderId) ?: [];
         $cartProducts = $this->cart->getProducts();
-        $cartTotal = (float) $this->cart->getTotal();
+        $checkoutGrandTotal = $this->liveCheckoutGrandTotal();
         $currency = (string) ($this->session->data['currency'] ?? $this->config->get('config_currency'));
         $getOptions = function (int $oid, int $orderProductId): array {
             return $this->model_checkout_order->getOptions($oid, $orderProductId) ?: [];
@@ -316,13 +317,27 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             $orderProducts,
             $getOptions,
             $cartProducts,
-            $cartTotal,
+            $checkoutGrandTotal,
             $currency
         )) {
             return null;
         }
 
         return $order;
+    }
+
+    /**
+     * Same grand-total base native confirm writes to order.total (shipping included).
+     */
+    public function liveCheckoutGrandTotal(): float
+    {
+        $this->load->model('checkout/cart');
+        $taxes = $this->cart->getTaxes();
+
+        return \Opencart\System\Library\Extension\MtUniCredit\CheckoutLiveGrandTotal::compute(
+            $this->model_checkout_cart->getTotals,
+            $taxes
+        );
     }
 
     /** @param array<string, mixed> $order */

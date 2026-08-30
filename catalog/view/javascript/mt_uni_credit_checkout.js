@@ -483,10 +483,16 @@
   }
 
   function observeCheckoutPayment() {
-    const target = document.getElementById('checkout-payment') || document.body;
+    // #checkout-payment is replaced wholesale by confirm AJAX; observe a stable ancestor.
+    const docEl = document.documentElement;
+    if (docEl.dataset.mtucCheckoutObserved === '1') {
+      return;
+    }
+    const target = document.getElementById('checkout-confirm') || document.body;
     if (!target || typeof MutationObserver === 'undefined') {
       return;
     }
+    docEl.dataset.mtucCheckoutObserved = '1';
     const observer = new MutationObserver(() => {
       const root = document.getElementById(ROOT_ID);
       if (root && root.dataset.mtucBound !== '1') {

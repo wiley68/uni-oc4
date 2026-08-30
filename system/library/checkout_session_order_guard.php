@@ -32,19 +32,20 @@ final class CheckoutSessionOrderGuard
      * @param list<array<string, mixed>> $orderProducts
      * @param callable(int, int): list<array<string, mixed>> $getOptions
      * @param list<array<string, mixed>> $cartProducts
+     * @param float $checkoutGrandTotal Confirm-equivalent live total (see CheckoutLiveGrandTotal)
      */
     public static function shouldInvalidateForCurrentCart(
         ?array $order,
         array $orderProducts,
         callable $getOptions,
         array $cartProducts,
-        float $cartTotal,
+        float $checkoutGrandTotal,
         string $sessionCurrency
     ): bool {
         if ($order === null || $order === []) {
             return true;
         }
-        if ($cartProducts === [] || $cartTotal <= 0.0) {
+        if ($cartProducts === [] || $checkoutGrandTotal <= 0.0) {
             return true;
         }
 
@@ -53,7 +54,7 @@ final class CheckoutSessionOrderGuard
             $orderProducts,
             $getOptions,
             $cartProducts,
-            $cartTotal,
+            $checkoutGrandTotal,
             $sessionCurrency
         );
     }
@@ -66,6 +67,7 @@ final class CheckoutSessionOrderGuard
      * @param list<array<string, mixed>> $orderProducts
      * @param callable(int, int): list<array<string, mixed>> $getOptions
      * @param list<array<string, mixed>> $cartProducts
+     * @param float $checkoutGrandTotal Confirm-equivalent live total (see CheckoutLiveGrandTotal)
      */
     public static function reconcileSessionOrder(
         array &$sessionData,
@@ -73,7 +75,7 @@ final class CheckoutSessionOrderGuard
         array $orderProducts,
         callable $getOptions,
         array $cartProducts,
-        float $cartTotal,
+        float $checkoutGrandTotal,
         string $sessionCurrency
     ): bool {
         if (!isset($sessionData['order_id'])) {
@@ -85,7 +87,7 @@ final class CheckoutSessionOrderGuard
             $orderProducts,
             $getOptions,
             $cartProducts,
-            $cartTotal,
+            $checkoutGrandTotal,
             $sessionCurrency
         )) {
             return false;

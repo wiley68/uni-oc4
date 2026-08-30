@@ -203,7 +203,7 @@ Golden вектори: `tests/fixtures/calculator_golden.json`.
 7. `addHistory()` обновява `order_status_id` и INSERT в `order_history`.
 8. `checkout/success` чисти cart + session (`order_id`, payment/shipping, comment, agree, coupon, reward). **Не** пипа поръчката в DB.
 9. Cart add/edit/remove чистят `payment_method` / related, но **не** `session.order_id`. След Voided draft + промяна на количката confirm **не** създава нова поръчка (status ≠ 0) — stale `order_id` остава.
-10. UniCredit remediation (extension events, без core patch): при cart mutation се чисти `order_id`; преди confirm / в `resolveSessionOrder()` се сравняват продукти+опции+qty, валута и total; mismatch → `unset(order_id)` за native `addOrder()`. Matching Voided draft може да остане за idempotent retry на същата кошница.
+10. UniCredit remediation (extension events, без core patch): при cart mutation се чисти `order_id`; преди confirm / в `resolveSessionOrder()` се сравняват продукти+опции+qty, валута и **checkout grand total** (`getTotals`, включва shipping — не `cart->getTotal()`); mismatch → `unset(order_id)` за native `addOrder()`. Matching Voided draft може да остане за idempotent retry на същата кошница.
 
 Jet checkout разчита native confirm да е създал `session.order_id` преди `payment/jet::index()`.
 

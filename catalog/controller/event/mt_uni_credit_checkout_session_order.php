@@ -2,6 +2,7 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+use Opencart\System\Library\Extension\MtUniCredit\CheckoutLiveGrandTotal;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutSessionOrderGuard;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
@@ -57,10 +58,14 @@ class MtUniCreditCheckoutSessionOrder extends \Opencart\System\Engine\Controller
         }
 
         $this->load->model('checkout/order');
+        $this->load->model('checkout/cart');
         $order = $this->model_checkout_order->getOrder($orderId) ?: null;
         $orderProducts = $order ? ($this->model_checkout_order->getProducts($orderId) ?: []) : [];
         $cartProducts = $this->cart->getProducts();
-        $cartTotal = (float) $this->cart->getTotal();
+        $checkoutGrandTotal = CheckoutLiveGrandTotal::compute(
+            $this->model_checkout_cart->getTotals,
+            $this->cart->getTaxes()
+        );
         $currency = (string) ($this->session->data['currency'] ?? $this->config->get('config_currency'));
 
         $getOptions = function (int $oid, int $orderProductId): array {
@@ -73,14 +78,14 @@ class MtUniCreditCheckoutSessionOrder extends \Opencart\System\Engine\Controller
             $orderProducts,
             $getOptions,
             $cartProducts,
-            $cartTotal,
+            $checkoutGrandTotal,
             $currency
         );
 
         if ($cleared && (bool) $this->config->get(ModuleLocalSettings::DEBUG_ENABLED)) {
             $this->log->write(
                 '[mt_uni_credit] cleared stale session.order_id before confirm order_id=' . $orderId
-                . ' cart_total=' . $cartTotal
+                . ' checkout_total=' . $checkoutGrandTotal
             );
         }
     }

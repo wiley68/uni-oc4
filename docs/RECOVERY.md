@@ -16,7 +16,7 @@ Operation lock `(store_id, entry_point, operation_key_hash)` serializes material
 
 ## Checkout
 
-No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when status is 0, awaiting-financing, or OC4.1 void (`config_void_status_id`) **and** the stored order still matches the live cart (products/options/qty, currency, total).
+No `addOrder()` from UniCredit payment. Recovery = reuse `session.order_id` when status is 0, awaiting-financing, or OC4.1 void (`config_void_status_id`) **and** the stored order still matches the live cart (products/options/qty, currency, **checkout grand total** via `checkout/cart::getTotals` — not `cart->getTotal()`, which omits shipping).
 
 ### Stale `session.order_id` (Guest / logged)
 
