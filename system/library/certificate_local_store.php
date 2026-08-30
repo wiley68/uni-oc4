@@ -44,13 +44,15 @@ final class CertificateLocalStore
     public function ensureProtectionFiles(): void
     {
         $directory = $this->keysDirectory();
-        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
+        if (!is_dir($directory) && !@mkdir($directory, 02770, true) && !is_dir($directory)) {
             throw new CertificateSyncException(
                 'The certificate keys directory could not be created.',
                 CertificateSyncException::REASON_LOCAL_FS
             );
         }
-        @chmod($directory, 0750);
+        // Keep group-writable + setgid so PHP-FPM (www-data group) can maintain the store
+        // when the directory is owned by the deploy user in group www-data.
+        $this->tryChmod($directory, 02770);
 
         $htaccess = $directory . '/.htaccess';
         if (!is_file($htaccess)) {
@@ -73,6 +75,65 @@ final class CertificateLocalStore
                 'The certificate directory index protection could not be created.',
                 CertificateSyncException::REASON_LOCAL_FS
             );
+        }
+    }
+
+    /**
+     * Verify the PHP runtime can create lock/stage files before contacting CP for PEM download.
+     */
+    public function assertWritableStore(): void
+    {
+        $this->ensureProtectionFiles();
+        $directory = $this->keysDirectory();
+        if (!is_writable($directory)) {
+            throw new CertificateSyncException(
+                'The certificate keys directory is not writable by the PHP runtime.',
+                CertificateSyncException::REASON_LOCAL_FS
+            );
+        }
+
+        $probe = $directory . '/.write_probe_' . bin2hex(random_bytes(4));
+        if (@file_put_contents($probe, '1') === false) {
+            throw new CertificateSyncException(
+                'The certificate keys directory rejected a write probe.',
+                CertificateSyncException::REASON_LOCAL_FS
+            );
+        }
+        @unlink($probe);
+
+        $incoming = $directory . '/.incoming';
+        if (!is_dir($incoming) && !@mkdir($incoming, 02770, true) && !is_dir($incoming)) {
+            throw new CertificateSyncException(
+                'The certificate staging directory could not be created.',
+                CertificateSyncException::REASON_LOCAL_FS
+            );
+        }
+        $this->tryChmod($incoming, 02770);
+        $stageProbe = $incoming . '/.stage_probe_' . bin2hex(random_bytes(4));
+        if (@file_put_contents($stageProbe, '1') === false) {
+            throw new CertificateSyncException(
+                'The certificate staging directory is not writable.',
+                CertificateSyncException::REASON_LOCAL_FS
+            );
+        }
+        @unlink($stageProbe);
+
+        $lockPath = $directory . '/' . self::LOCK_FILENAME;
+        $handle = @fopen($lockPath, 'c+');
+        if ($handle === false) {
+            throw new CertificateSyncException(
+                'The certificate sync lock could not be created.',
+                CertificateSyncException::REASON_LOCAL_FS
+            );
+        }
+        fclose($handle);
+    }
+
+    private function tryChmod(string $path, int $mode): void
+    {
+        if (!@chmod($path, $mode)) {
+            // Non-fatal when the runtime already owns usable permissions; never emit PHP warnings.
+            error_log('[mt_uni_credit] certificate store chmod failed mode=' . decoct($mode) . ' path_category=keys');
         }
     }
 
@@ -125,7 +186,7 @@ final class CertificateLocalStore
         }
 
         $incoming = $this->keysDirectory() . '/.incoming';
-        if (!is_dir($incoming) && !@mkdir($incoming, 0750, true) && !is_dir($incoming)) {
+        if (!is_dir($incoming) && !@mkdir($incoming, 02770, true) && !is_dir($incoming)) {
             throw new CertificateSyncException(
                 'The certificate staging directory could not be created.',
                 CertificateSyncException::REASON_LOCAL_FS
@@ -159,8 +220,8 @@ final class CertificateLocalStore
             if (!@rename($stageCert, $this->certificatePath()) || !@rename($stageKey, $this->privateKeyPath())) {
                 throw new CertificateSyncException('The staged certificate pair could not be promoted.', CertificateSyncException::REASON_LOCAL_FS);
             }
-            @chmod($this->certificatePath(), 0640);
-            @chmod($this->privateKeyPath(), 0600);
+            $this->tryChmod($this->certificatePath(), 0640);
+            $this->tryChmod($this->privateKeyPath(), 0600);
 
             $pair = $this->readPairBytes();
             if (
@@ -322,7 +383,7 @@ final class CertificateLocalStore
         if (@file_put_contents($path, $json, LOCK_EX) === false) {
             throw new CertificateSyncException('The certificate sync state could not be written.', CertificateSyncException::REASON_LOCAL_FS);
         }
-        @chmod($path, 0640);
+        $this->tryChmod($path, 0640);
     }
 
     private function restoreFile(string $backup, string $destination, bool $existed): void

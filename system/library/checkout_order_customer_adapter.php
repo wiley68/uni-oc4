@@ -259,7 +259,7 @@ final class CheckoutOrderCustomerAdapter
 
     /**
      * @param array<string, mixed> $order
-     * @return array{name: string, code: string}
+     * @return array{name: string, code: string, cost: float|string|int, tax_class_id: int|string, text: string}
      */
     public function shippingMethodFromOrder(array $order): array
     {
@@ -269,13 +269,10 @@ final class CheckoutOrderCustomerAdapter
             $shippingMethod = is_array($decoded) ? $decoded : [];
         }
         if (!is_array($shippingMethod)) {
-            return ['name' => '', 'code' => ''];
+            return ShippingMethodSnapshot::empty();
         }
 
-        return [
-            'name' => (string) ($shippingMethod['name'] ?? ''),
-            'code' => (string) ($shippingMethod['code'] ?? ''),
-        ];
+        return ShippingMethodSnapshot::normalize($shippingMethod);
     }
 
     /**

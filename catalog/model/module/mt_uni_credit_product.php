@@ -510,7 +510,9 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         );
     }
 
-    /** @return array{name:string,code:string}|null */
+    /**
+     * @return array{name:string,code:string,cost:float|string|int,tax_class_id:int|string,text:string}|null
+     */
     public function resolveDefaultShippingMethod(
         FinancingAddressData $address,
         \Opencart\System\Library\Extension\MtUniCredit\OpenCartProductLine $line
@@ -536,12 +538,16 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
         ];
         $methods = $this->model_checkout_shipping_method->getMethods($shippingAddress);
         foreach ($methods as $method) {
-            if (!empty($method['quote'])) {
+            if (!empty($method['quote']) && is_array($method['quote'])) {
                 foreach ($method['quote'] as $quote) {
-                    return [
-                        'name' => (string) ($quote['title'] ?? $method['title'] ?? 'Shipping'),
-                        'code' => (string) ($quote['code'] ?? $method['code'] ?? 'flat.flat'),
-                    ];
+                    if (!is_array($quote)) {
+                        continue;
+                    }
+
+                    return \Opencart\System\Library\Extension\MtUniCredit\ShippingMethodSnapshot::fromQuote(
+                        $quote,
+                        is_array($method) ? $method : []
+                    );
                 }
             }
         }

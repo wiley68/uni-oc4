@@ -173,6 +173,7 @@ final class ProductFinancingSubmissionService
                     'Не може да се определи начин на доставка. Моля, коригирайте адреса.'
                 );
             }
+            $shippingMethod = ShippingMethodSnapshot::normalize($shippingMethod);
         }
 
         $this->consents->validate($shop, $posted['consent'] ?? []);

@@ -56,7 +56,9 @@ final class OpenCartOrderDataBuilder
             'shipping_zone_id'        => $shipping->zoneId,
             'shipping_address_format' => $shipping->addressFormat,
             'shipping_custom_field'   => $shipping->customField,
-            'shipping_method'         => $draft->shippingMethod ?? ['name' => '', 'code' => ''],
+            'shipping_method'         => ShippingMethodSnapshot::normalize(
+                is_array($draft->shippingMethod) ? $draft->shippingMethod : ShippingMethodSnapshot::empty()
+            ),
             'comment'                 => $draft->comment,
             'total'                   => $draft->orderTotal,
             'affiliate_id'            => 0,

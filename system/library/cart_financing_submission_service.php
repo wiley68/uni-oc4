@@ -184,12 +184,33 @@ final class CartFinancingSubmissionService
                 $customerId
             )
             : null;
-        $shippingMethod = ['name' => '', 'code' => ''];
+        $shippingMethod = ShippingMethodSnapshot::empty();
         if ($shippingRequired) {
-            $shippingMethod = [
-                'name' => 'UniCredit Delivery',
-                'code' => 'mt_uni_credit.flat',
-            ];
+            $shippingTarget = $shippingAddress ?? $billingAddress;
+            $probeLine = new OpenCartProductLine(
+                0,
+                0,
+                [],
+                'cart',
+                '',
+                1,
+                0,
+                0,
+                true,
+                0.0,
+                0.0,
+                0.0,
+                [],
+                []
+            );
+            $resolvedShipping = $this->addressCatalog->resolveShippingMethod($shippingTarget, $probeLine);
+            if ($resolvedShipping === null) {
+                throw new ProductFinancingFlowException(
+                    'shipping_unavailable',
+                    'Няма наличен метод за доставка за посочения адрес.'
+                );
+            }
+            $shippingMethod = ShippingMethodSnapshot::normalize($resolvedShipping);
         }
 
         $this->consents->validate($shop, $posted['consent'] ?? []);

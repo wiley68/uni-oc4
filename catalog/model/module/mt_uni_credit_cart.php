@@ -336,10 +336,55 @@ class MtUniCreditCart extends \Opencart\System\Engine\Model
                     (int) ($postedAddress['zone_id'] ?? 0)
                 );
             },
-            function (): ?array {
-                return null;
+            function (FinancingAddressData $shippingAddress, \Opencart\System\Library\Extension\MtUniCredit\OpenCartProductLine $line) use ($model): ?array {
+                return $model->resolveDefaultShippingMethod($shippingAddress, $line);
             }
         );
+    }
+
+    /**
+     * @return array{name:string,code:string,cost:float|string|int,tax_class_id:int|string,text:string}|null
+     */
+    public function resolveDefaultShippingMethod(
+        FinancingAddressData $address,
+        \Opencart\System\Library\Extension\MtUniCredit\OpenCartProductLine $line
+    ): ?array {
+        if (!$line->shippingRequired) {
+            return null;
+        }
+        $this->load->model('checkout/shipping_method');
+        $shippingAddress = [
+            'firstname'      => $address->firstname,
+            'lastname'       => $address->lastname,
+            'company'        => $address->company,
+            'address_1'      => $address->address1,
+            'address_2'      => $address->address2,
+            'city'           => $address->city,
+            'postcode'       => $address->postcode,
+            'country_id'     => $address->countryId,
+            'zone_id'        => $address->zoneId,
+            'country'        => $address->country,
+            'zone'           => $address->zone,
+            'address_format' => $address->addressFormat,
+            'custom_field'   => $address->customField,
+        ];
+        $methods = $this->model_checkout_shipping_method->getMethods($shippingAddress);
+        foreach ($methods as $method) {
+            if (!empty($method['quote']) && is_array($method['quote'])) {
+                foreach ($method['quote'] as $quote) {
+                    if (!is_array($quote)) {
+                        continue;
+                    }
+
+                    return \Opencart\System\Library\Extension\MtUniCredit\ShippingMethodSnapshot::fromQuote(
+                        $quote,
+                        is_array($method) ? $method : []
+                    );
+                }
+            }
+        }
+
+        return null;
     }
 
     private function createDbConnection(): OpenCartDbConnection

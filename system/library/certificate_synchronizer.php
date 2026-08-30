@@ -20,7 +20,7 @@ final class CertificateSynchronizer
 
     public function ensureCurrent(): CertificateConsumerLease
     {
-        $this->store->ensureProtectionFiles();
+        $this->store->assertWritableStore();
 
         try {
             $metadata = $this->client->getSslCertificateMetadata();
