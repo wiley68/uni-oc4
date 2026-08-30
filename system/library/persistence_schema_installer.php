@@ -50,6 +50,7 @@ final class PersistenceSchemaInstaller
             'process2_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
             'process2_sensitive_enc' => 'TEXT NULL',
             'process2_mail_sent' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'leasing_presentation_json' => 'MEDIUMTEXT NULL',
         ];
         foreach ($columns as $column => $definition) {
             try {
@@ -145,6 +146,7 @@ final class PersistenceSchemaInstaller
                 `process2_state` VARCHAR(32) NOT NULL DEFAULT 'not_started',
                 `process2_sensitive_enc` TEXT NULL,
                 `process2_mail_sent` TINYINT(1) NOT NULL DEFAULT 0,
+                `leasing_presentation_json` MEDIUMTEXT NULL,
                 `last_error_class` VARCHAR(64) NULL,
                 `expires_at` DATETIME NULL,
                 `created_at` DATETIME NOT NULL,

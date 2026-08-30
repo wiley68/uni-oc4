@@ -36,6 +36,7 @@ final class ProcessTwoLifecycleRepository
         }
         $result = $this->db->query(
             "SELECT `attempt_id`, `process2_state`, `process2_sensitive_enc`, `process2_mail_sent`,
+                    `leasing_presentation_json`,
                     `store_id`, `order_id`, `control_panel_order_id`, `state`
              FROM `{$this->tableName()}`
              WHERE `attempt_id` = " . (int) $attemptId . ' LIMIT 1'

@@ -59,7 +59,11 @@ final class Phase7EventCallbackContractTest extends TestCase
         $root = dirname(__DIR__);
         foreach (EventRegistry::definitions() as $definition) {
             $expected = OpenCartEventCallbackContract::expectedArity($definition['trigger']);
-            $class = $this->controllerClassFromRoute($definition['controller']);
+            $file = $root . '/' . $this->controllerBaseDir($definition['trigger']) . '/'
+                . $this->relativeControllerPath($definition['controller']) . '.php';
+            self::assertFileExists($file, $definition['code']);
+            require_once $file;
+            $class = $this->controllerClassFromRoute($definition['controller'], $definition['trigger']);
             self::assertTrue(class_exists($class), $class);
             $method = new \ReflectionMethod($class, $definition['method']);
             self::assertLessThanOrEqual(
@@ -72,7 +76,6 @@ final class Phase7EventCallbackContractTest extends TestCase
                 $method->getNumberOfParameters(),
                 $definition['code'] . ' parameter count must match OpenCart event arity for ' . $definition['trigger']
             );
-            self::assertFileExists($root . '/catalog/controller/' . $this->relativeControllerPath($definition['controller']) . '.php');
         }
     }
 
@@ -111,7 +114,10 @@ final class Phase7EventCallbackContractTest extends TestCase
             $family = OpenCartEventCallbackContract::familyFromTrigger($definition['trigger']);
             self::assertNotNull($family, $definition['trigger']);
             $sample = OpenCartEventCallbackContract::sampleArgsForFamily($family);
-            $class = $this->controllerClassFromRoute($definition['controller']);
+            $file = dirname(__DIR__) . '/' . $this->controllerBaseDir($definition['trigger']) . '/'
+                . $this->relativeControllerPath($definition['controller']) . '.php';
+            require_once $file;
+            $class = $this->controllerClassFromRoute($definition['controller'], $definition['trigger']);
             $method = new \ReflectionMethod($class, $definition['method']);
             self::assertSame(count($sample), $method->getNumberOfParameters(), $definition['code']);
 
@@ -149,22 +155,29 @@ final class Phase7EventCallbackContractTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/function init\s*\([^)]*,[^)]*,/', $source);
     }
 
-    private function controllerClassFromRoute(string $route): string
+    private function controllerClassFromRoute(string $route, string $trigger = ''): string
     {
         // extension/mt_uni_credit/event/mt_uni_credit_product_controller
         // → Opencart\Catalog\Controller\Extension\MtUniCredit\Event\MtUniCreditProductController
+        // admin triggers → Opencart\Admin\Controller\...
         $parts = explode('/', $route);
         self::assertSame('extension', $parts[0]);
         $extension = str_replace('_', '', ucwords($parts[1], '_'));
         $type = ucfirst($parts[2]);
         $name = str_replace('_', '', ucwords($parts[3], '_'));
+        $area = str_starts_with($trigger, 'admin/') ? 'Admin' : 'Catalog';
 
-        return 'Opencart\\Catalog\\Controller\\Extension\\' . $extension . '\\' . $type . '\\' . $name;
+        return 'Opencart\\' . $area . '\\Controller\\Extension\\' . $extension . '\\' . $type . '\\' . $name;
+    }
+
+    private function controllerBaseDir(string $trigger): string
+    {
+        return str_starts_with($trigger, 'admin/') ? 'admin/controller' : 'catalog/controller';
     }
 
     private function relativeControllerPath(string $route): string
     {
-        // extension/mt_uni_credit/event/foo → event/foo (under catalog/controller)
+        // extension/mt_uni_credit/event/foo → event/foo (under catalog|admin/controller)
         $parts = explode('/', $route);
         array_shift($parts); // extension
         array_shift($parts); // mt_uni_credit

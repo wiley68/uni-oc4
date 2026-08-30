@@ -46,6 +46,21 @@ process2_state: not_started → process2_preparing → process2_prepared | proce
 
 Replay of `process2_prepared` reconciles bank status and does not duplicate mail when `process2_mail_sent=1`.
 
+## Presentation parity (finalization)
+
+Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amounts from attempt `leasing_presentation_json`, live bank status overlay):
+
+| Surface                            | Audience          | EGN / phone2       |
+| ---------------------------------- | ----------------- | ------------------ |
+| Thank You                          | customer          | never              |
+| Native OC order email / alert      | customer          | never              |
+| Process 2 additional customer mail | customer          | never              |
+| Process 2 additional admin mail    | admin_email       | EGN + phone2 (PS9) |
+| Admin Order detail                 | admin_panel       | EGN + phone2 (PS9) |
+| Admin Orders list                  | status label only | —                  |
+
+Field order: Статус към банката → КП поръчка (ID) → КП shop order_id → Срок → КОП → amounts → ГЛП/ГПР → (audience-sensitive) → Съобщение (customer Process 2).
+
 ## Hard guards
 
 - Zero `sucfOnlineSessionStart` calls under Process 2

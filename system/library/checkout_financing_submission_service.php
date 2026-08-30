@@ -361,6 +361,14 @@ final class CheckoutFinancingSubmissionService
             );
         }
 
+        FinancingPresentationSupport::persistFromSubmission(
+            $this->attempts->database(),
+            (int) $attemptRow['attempt_id'],
+            $submission,
+            $created->orderId,
+            $shop
+        );
+
         $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow;
 
         try {

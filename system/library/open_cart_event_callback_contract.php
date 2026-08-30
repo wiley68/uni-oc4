@@ -73,6 +73,9 @@ final class OpenCartEventCallbackContract
         if (str_starts_with($trigger, 'catalog/')) {
             return substr($trigger, strlen('catalog/'));
         }
+        if (str_starts_with($trigger, 'admin/')) {
+            return substr($trigger, strlen('admin/'));
+        }
 
         return $trigger;
     }

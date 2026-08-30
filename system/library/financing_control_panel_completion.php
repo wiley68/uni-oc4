@@ -35,6 +35,12 @@ final class FinancingControlPanelCompletion
 
         $result = $lifecycle->submitOrRecover($attempt, $submission, $localOrderId, $shop, $lockOwnerToken);
         if ($result->success && $result->cpOrderId !== null) {
+            FinancingPresentationSupport::attachControlPanelOrderId(
+                $lifecycle->database(),
+                $attempt->attemptId(),
+                $result->cpOrderId
+            );
+
             return self::postControlPanel($lifecycle, $postControlPanel, $successRedirectUrl, $process2Mailer, $shop)->handle(
                 $attempt->attemptId(),
                 $submission,

@@ -144,17 +144,16 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
 
             $payload = $result->toArray();
             $payload['cart_unchanged'] = $model->countActiveCartProducts() === $cartCountBefore;
-            if ($result->success
-                && $result->step === 'process2_prepared'
-                && $result->orderId !== null
-                && empty($payload['redirect_url'])
-            ) {
+            if ($result->success && $result->step === 'process2_prepared' && $result->orderId !== null) {
                 $this->session->data['order_id'] = $result->orderId;
-                $payload['redirect_url'] = $this->url->link(
-                    'checkout/success',
-                    'language=' . $this->config->get('config_language'),
-                    true
-                );
+                $this->session->data['mt_uni_credit_success_order_id'] = $result->orderId;
+                if (empty($payload['redirect_url'])) {
+                    $payload['redirect_url'] = $this->url->link(
+                        'checkout/success',
+                        'language=' . $this->config->get('config_language'),
+                        true
+                    );
+                }
             }
 
             return $payload;

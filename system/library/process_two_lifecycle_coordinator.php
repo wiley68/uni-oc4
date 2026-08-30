@@ -122,6 +122,7 @@ final class ProcessTwoLifecycleCoordinator
             }
         }
         try {
+            $orderContext = $this->enrichMailContext($attemptId, $row, $orderContext);
             $ok = $this->mailer->sendProcess2Notifications($shop, $orderContext, $sensitive);
             if ($ok) {
                 $this->lifecycle->markMailSent($attemptId);
@@ -133,6 +134,33 @@ final class ProcessTwoLifecycleCoordinator
                 . ' class=' . $exception::class
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $orderContext
+     * @return array<string, mixed>
+     */
+    private function enrichMailContext(int $attemptId, array $row, array $orderContext): array
+    {
+        $status = BankStatus::process2Sent();
+        $orderContext['bank_status_label'] = $status['status_label'];
+        $orderContext['control_panel_order_id'] = isset($row['control_panel_order_id'])
+            ? (int) $row['control_panel_order_id']
+            : null;
+        $json = (string) ($row['leasing_presentation_json'] ?? '');
+        if ($json !== '') {
+            try {
+                $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $orderContext['leasing_snapshot'] = $decoded;
+                }
+            } catch (\Throwable) {
+                error_log('mt_uni_credit: leasing presentation json decode failed attempt_id=' . $attemptId);
+            }
+        }
+
+        return $orderContext;
     }
 
     private function reconcileBankStatus(int $attemptId, int $storeId, int $localOrderId): void

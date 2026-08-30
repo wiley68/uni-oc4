@@ -17,17 +17,14 @@ final class Phase2ScopeGuardTest extends TestCase
         'financing_snapshot',
     ];
 
-    /** @var list<string> */
-    private const FORBIDDEN_PATHS = [
-        '/admin/controller/event',
-    ];
-
-    public function testNoPhase3PlusPaths(): void
+    public function testAdminEventDirOnlyHoldsPresentationHooks(): void
     {
         $root = dirname(__DIR__);
-        foreach (self::FORBIDDEN_PATHS as $suffix) {
-            self::assertDirectoryDoesNotExist($root . $suffix, $suffix);
-        }
+        $dir = $root . '/admin/controller/event';
+        // Phase 11B presentation parity authorizes admin event hooks (Orders list + detail).
+        self::assertDirectoryExists($dir);
+        $files = array_values(array_filter(scandir($dir) ?: [], static fn (string $f): bool => str_ends_with($f, '.php')));
+        self::assertSame(['mt_uni_credit_admin_order.php'], $files);
     }
 
     public function testProductionCodeHasNoCpTransportOrFinancingLifecycle(): void

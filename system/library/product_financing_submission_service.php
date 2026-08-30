@@ -279,6 +279,14 @@ final class ProductFinancingSubmissionService
             throw new ProductFinancingFlowException('order_materialization', 'Поръчката не може да бъде създадена. Моля, опитайте отново.', [], $exception);
         }
 
+        FinancingPresentationSupport::persistFromSubmission(
+            $this->attempts->database(),
+            (int) $attemptRow['attempt_id'],
+            $submission,
+            $created->orderId,
+            $shop
+        );
+
         $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow;
 
         return FinancingControlPanelCompletion::apply(
