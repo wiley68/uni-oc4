@@ -58,12 +58,16 @@ final class CpOrderPayloadContractTest extends TestCase
         self::assertSame('EUR', $fixture['limits']['currency']['db_default']);
     }
 
-    public function testProcess2AddsBankSentProcess2OnCreate(): void
+    public function testPhase10BCreateOmitsBankSentStatusesIncludingProcess2(): void
     {
         $extra = FixtureLoader::load('cp_order_payload.json')['process2_extra_fields'];
-        self::assertSame('shop.uni_proces === 1', $extra['when']);
-        self::assertSame('Изпратен Банка - Процес 2', $extra['status']);
-        self::assertSame('bank_sent_process2', $extra['status_id']);
+        self::assertSame('omit status and status_id (CP defaults cp_sent)', $extra['phase_10b_create']);
+        self::assertSame('bank_sent_process2', $extra['phase_11_status_id']);
+        self::assertStringContainsString('Phase 11', $extra['when']);
+
+        $semantics = FixtureLoader::load('status_vocabulary.json')['process_semantics'];
+        self::assertFalse($semantics['process_1']['phase_10b_cp_create_status_fields']);
+        self::assertFalse($semantics['process_2']['phase_10b_cp_create_status_fields']);
     }
 
     public function testApiEndpointCatalogIsComplete(): void

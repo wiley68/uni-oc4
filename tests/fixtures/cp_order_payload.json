@@ -37,9 +37,10 @@
     "type_client", "currency", "version"
   ],
   "process2_extra_fields": {
-    "when": "shop.uni_proces === 1",
-    "status": "Изпратен Банка - Процес 2",
-    "status_id": "bank_sent_process2"
+    "when": "Phase 11 Process 2 bank handoff only — NOT on Phase 10B POST /orders",
+    "phase_10b_create": "omit status and status_id (CP defaults cp_sent)",
+    "phase_11_status": "Изпратен Банка - Процес 2",
+    "phase_11_status_id": "bank_sent_process2"
   },
   "idempotency": {
     "key": ["shop_id", "order_id"],

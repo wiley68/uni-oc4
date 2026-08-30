@@ -15,27 +15,27 @@
     {
       "status_id": "bank_sent_process1",
       "status_label": "Изпратен Банка - Процес 1",
-      "when": "CP order created and SmartUCF Process 1 succeeded"
+      "when": "Phase 11: CP order already exists and SmartUCF Process 1 succeeded"
     },
     {
       "status_id": "bank_sent_process2",
       "status_label": "Изпратен Банка - Процес 2",
-      "when": "CP order created for Process 2 handoff (no SmartUCF). Also sent on CP create payload when uni_proces===1."
+      "when": "Phase 11: Process 2 bank handoff (no SmartUCF). Never written on Phase 10B CP create."
     },
     {
       "status_id": "bank_send_failed",
       "status_label": "Неуспешно изпратен Банка",
-      "when": "CP create failed during Process 2 (controlPanelFailure(true))"
+      "when": "Phase 11 / legacy Process 2 bank-send failure path"
     },
     {
       "status_id": "bank_send_failed_cp",
       "status_label": "Неуспешно изпратен Банка - КП",
-      "when": "CP create failed during Process 1 (controlPanelFailure(false))"
+      "when": "CP create failed (attempt error taxonomy; create payload still omits bank-sent labels)"
     },
     {
       "status_id": "bank_send_failed_smartucf",
       "status_label": "Неуспешно изпратен Банка - SmartUCF",
-      "when": "CP created and SmartUCF Process 1 failed"
+      "when": "Phase 11: CP created and SmartUCF Process 1 failed"
     }
   ],
   "cp_order_status_enum": [
@@ -61,14 +61,14 @@
   "process_semantics": {
     "process_1": {
       "flag": "uni_proces !== 1",
-      "after_cp": "SmartUCF session + redirect",
-      "cp_create_status_fields": false,
+      "phase_10b_cp_create_status_fields": false,
+      "phase_11_after_cp": "SmartUCF session + redirect",
       "customer_egn": false
     },
     "process_2": {
       "flag": "uni_proces === 1",
-      "after_cp": "native confirmation; no SmartUCF",
-      "cp_create_status_fields": true,
+      "phase_10b_cp_create_status_fields": false,
+      "phase_11_after_cp": "native Process 2 bank handoff; no SmartUCF",
       "customer_egn": true
     }
   }

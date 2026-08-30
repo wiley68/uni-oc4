@@ -75,10 +75,8 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.2**                       |
 | `status` / `status_id`     | optional string max 255, **не** са enum; default `Създаден в КП Банка` / `cp_sent` |
 
-Process 2 (`uni_proces === 1`) добавя при create:
-
-- `status` = `Изпратен Банка - Процес 2`
-- `status_id` = `bank_sent_process2`
+Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `status` / `status_id` — CP прилага default `cp_sent`.  
+`bank_sent_process*` / `bank_send_failed_smartucf` се пишат само след Phase 11 bank-side действие (не при POST /orders).
 
 Идемпотентност (`app/Support/IdempotentOrderCreator.php`): ключ `(shop_id, order_id)`. Същият semantic hash → HTTP **200**; различен hash → **409**. Semantic полетата са замразени в `tests/fixtures/cp_order_payload.json`.
 
@@ -137,18 +135,19 @@ Headers: `X-UniPayment-Timestamp`, `X-UniPayment-Nonce`, `X-UniPayment-Signature
 
 Точни низове от `src/Order/BankStatus.php` — **без** преименуване:
 
-| `status_id`                 | `status_label`                        | Кога                                          |
-| --------------------------- | ------------------------------------- | --------------------------------------------- |
-| `bank_sent_process1`        | `Изпратен Банка - Процес 1`           | CP създадена **и** SmartUCF Process 1 успешен |
-| `bank_sent_process2`        | `Изпратен Банка - Процес 2`           | CP създадена за Process 2 (без SmartUCF)      |
-| `bank_send_failed`          | `Неуспешно изпратен Банка`            | CP create fail при Process 2                  |
-| `bank_send_failed_cp`       | `Неуспешно изпратен Банка - КП`       | CP create fail при Process 1                  |
-| `bank_send_failed_smartucf` | `Неуспешно изпратен Банка - SmartUCF` | CP създадена **и** SmartUCF Process 1 fail    |
+| `status_id`                 | `status_label`                        | Кога                                                               |
+| --------------------------- | ------------------------------------- | ------------------------------------------------------------------ |
+| `bank_sent_process1`        | `Изпратен Банка - Процес 1`           | Phase 11: CP вече съществува **и** SmartUCF Process 1 успешен      |
+| `bank_sent_process2`        | `Изпратен Банка - Процес 2`           | Phase 11: Process 2 bank handoff (без SmartUCF)                    |
+| `bank_send_failed`          | `Неуспешно изпратен Банка`            | Phase 11 / legacy: bank send fail (Process 2 path)                 |
+| `bank_send_failed_cp`       | `Неуспешно изпратен Банка - КП`       | CP create fail (attempt taxonomy; not a bank-sent label on create) |
+| `bank_send_failed_smartucf` | `Неуспешно изпратен Банка - SmartUCF` | Phase 11: CP създадена **и** SmartUCF Process 1 fail               |
 
 Флаг: `ShopConfigurationFlags::isSecondaryProcess` → `(int) uni_proces === 1`. Името на процеса е **обърнато** спрямо числото.
 
-Process 1 (`uni_proces !== 1`): след CP → SmartUCF; create payload **без** status полета; без ЕГН.  
-Process 2 (`uni_proces === 1`): native confirmation; **без** SmartUCF; create payload **със** status полета; ЕГН + `phone2`.
+Phase 10B: POST `/api/v1/orders` **без** `status`/`status_id` за Process 1 и Process 2 → CP default `cp_sent`.  
+Process 1 (`uni_proces !== 1`): след Phase 10B → Phase 11 SmartUCF.  
+Process 2 (`uni_proces === 1`): след Phase 10B → Phase 11 native Process 2; ЕГН + `phone2` (deferred UI).
 
 Inbound `orderbankstatus` **не** сменя storefront order state (`ps_order_state_changed: false`).
 

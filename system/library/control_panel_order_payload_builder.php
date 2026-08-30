@@ -67,11 +67,9 @@ final class ControlPanelOrderPayloadBuilder
             'version' => ModuleConstants::VERSION,
         ];
 
-        // Process 2 shops: CP create stores bank_sent_process2 labels (PS9). No SmartUCF call.
-        if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
-            $payload['status'] = 'Изпратен Банка - Процес 2';
-            $payload['status_id'] = 'bank_sent_process2';
-        }
+        // Phase 10B: omit status/status_id for all shops. CP StoreOrderRequest defaults to
+        // "Създаден в КП Банка" / cp_sent. bank_sent_process1|2 and bank_send_failed_smartucf
+        // are Phase 11 bank-side outcomes only — CP create ≠ sent to bank.
 
         return $payload;
     }

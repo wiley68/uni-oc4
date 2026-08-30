@@ -27,7 +27,8 @@ Module release version remains frozen at `2.0.2` (`ModuleConstants::VERSION`) fo
 | Idempotency          | `(shop_id, order_id)` + semantic payload hash — **no GET lookup**                        |
 
 Process 1 shops: omit `status` / `status_id` (CP defaults `cp_sent`).
-Process 2 shops (`uni_proces === 1`): include `status` / `status_id=bank_sent_process2` on create only (PS9 parity). This does **not** execute Process 2 / SmartUCF.
+Process 2 shops (`uni_proces === 1`): also omit `status` / `status_id` on Phase 10B create — same CP defaults.  
+`bank_sent_process1` / `bank_sent_process2` / `bank_send_failed_smartucf` are written only after Phase 11 bank-side actions. CP order created ≠ sent to bank.
 
 ## Shared services
 

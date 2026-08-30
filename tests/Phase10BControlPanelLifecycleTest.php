@@ -68,7 +68,11 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $process2Shop = ProductFinancingTestHarness::shop();
         $process2Shop['uni_proces'] = 1;
         $p2 = $builder->build($submission, 1, $process2Shop);
-        self::assertSame('bank_sent_process2', $p2['status_id']);
+        self::assertArrayNotHasKey('status', $p2);
+        self::assertArrayNotHasKey('status_id', $p2);
+        foreach (['bank_sent_process1', 'bank_sent_process2', 'bank_send_failed_smartucf'] as $forbidden) {
+            self::assertNotContains($forbidden, $p2);
+        }
     }
 
     public function testProductCpSubmitPersistsIdAndState(): void
