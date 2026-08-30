@@ -196,9 +196,12 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         $correlations = new OrderCorrelationRepository($db);
         // Checkout does not apply Product/Cart payment status here (native confirm does).
         // productCartOrderStatusId=0 so payment Processing is not Checkout-reuse-eligible.
+        // config_order_status_id: CP-failure visibility fallback + same-cart retry reuse.
+        $failureVisibleStatusId = (int) $this->config->get('config_order_status_id');
         $statusPolicy = new FinancingOrderStatusPolicy(
             0,
-            (int) $this->config->get('config_void_status_id')
+            (int) $this->config->get('config_void_status_id'),
+            $failureVisibleStatusId
         );
         $verifier = new OpenCartOrderVerifier();
         $materializer = new OpenCartOrderMaterializer(
@@ -229,7 +232,9 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             new ConsentResolver(),
             new CartOrderDraftFactory(),
             new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(),
-            $this->createControlPanelLifecycle($db, $attempts, $locks)
+            $this->createControlPanelLifecycle($db, $attempts, $locks),
+            $orders,
+            $failureVisibleStatusId
         );
     }
 

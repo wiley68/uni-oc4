@@ -174,7 +174,18 @@ final class ControlPanelOrderLifecycleService
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::INVALID_RESPONSE, true);
         } catch (\Throwable $exception) {
             $this->persistFailure($attemptId, ControlPanelErrorClass::TRANSPORT_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
-            $this->log('cp_unexpected', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::TRANSPORT_FAILED, null);
+            $this->log(
+                'cp_unexpected',
+                $attemptId,
+                $submission->entryPoint,
+                $submission->storeId,
+                $localOrderId,
+                null,
+                ControlPanelErrorClass::TRANSPORT_FAILED,
+                null,
+                $exception::class,
+                substr($exception->getMessage(), 0, 200)
+            );
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::TRANSPORT_FAILED, true);
         }
@@ -248,12 +259,14 @@ final class ControlPanelOrderLifecycleService
         int $localOrderId,
         ?int $cpOrderId,
         ?string $errorClass,
-        ?int $httpStatus
+        ?int $httpStatus,
+        ?string $exceptionClass = null,
+        ?string $exceptionMessage = null
     ): void {
         if ($this->logger === null) {
             return;
         }
-        ($this->logger)([
+        $payload = [
             'event' => $event,
             'attempt_id' => $attemptId,
             'entry_point' => $entryPoint,
@@ -262,6 +275,13 @@ final class ControlPanelOrderLifecycleService
             'cp_order_id' => $cpOrderId,
             'error_class' => $errorClass,
             'http_status' => $httpStatus,
-        ]);
+        ];
+        if ($exceptionClass !== null) {
+            $payload['exception_class'] = $exceptionClass;
+        }
+        if ($exceptionMessage !== null && $exceptionMessage !== '') {
+            $payload['exception_message'] = $exceptionMessage;
+        }
+        ($this->logger)($payload);
     }
 }

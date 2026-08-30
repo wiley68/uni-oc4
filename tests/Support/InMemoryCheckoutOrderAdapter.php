@@ -131,4 +131,16 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
         }
         $this->history[] = compact('orderId', 'orderStatusId', 'comment', 'notify');
     }
+
+    public function historyCountFor(int $orderId): int
+    {
+        $count = 0;
+        foreach ($this->history as $entry) {
+            if ((int) $entry['orderId'] === $orderId) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
 }

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Checkout Phase 9 customer validation.
+ * Checkout customer validation for financing submit.
  *
- * Mirrors Product identity rules for firstname/lastname/email, but primary telephone
- * is optional (native present → use it; missing → ''). Product/Cart keep
- * {@see ProductCustomerValidator} requiring telephone.
+ * Telephone is required: CP StoreOrderRequest rejects empty phone (HTTP 422).
+ * OpenCart guest checkout may allow empty telephone when config_telephone_required
+ * is off — financing must not POST that state to CP.
  */
 final class CheckoutCustomerValidator
 {
@@ -34,8 +34,7 @@ final class CheckoutCustomerValidator
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 96) {
             $errors['email'] = 'Моля, въведете валиден имейл.';
         }
-        // Primary telephone optional for Checkout (legacy Process 1 / uni-oc4-old).
-        if ($telephone !== '' && mb_strlen($telephone) > 32) {
+        if ($telephone === '' || mb_strlen($telephone) > 32) {
             $errors['telephone'] = 'Моля, въведете валиден телефон.';
         }
 

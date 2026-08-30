@@ -47,7 +47,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $this->locks = new OperationLockRepository($db);
     }
 
-    public function testPayloadBuilderMatchesCpContractAndPreservesEmptyCheckoutPhone(): void
+    public function testPayloadBuilderMatchesCpContract(): void
     {
         $builder = new ControlPanelOrderPayloadBuilder();
         $submission = OrderMaterializationTestHarness::productSubmission();
@@ -58,6 +58,8 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         self::assertSame('BGN', $payload['currency']);
         self::assertArrayNotHasKey('status_id', $payload);
 
+        // Builder still serializes empty phone if given (frozen recovery). Checkout
+        // validator now rejects empty telephone before a new CP submit.
         $checkout = OrderMaterializationTestHarness::productSubmission();
         $checkout->customer = new FinancingCustomerData(0, 1, 'Ivan', 'Petrov', 'ivan@example.test', '');
         $emptyPhone = $builder->build($checkout, 99, ProductFinancingTestHarness::shop());

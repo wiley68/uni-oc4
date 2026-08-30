@@ -24,6 +24,8 @@ final class CheckoutFinancingSubmissionService
         private CartOrderDraftFactory $draftFactory,
         private PersistenceClock $clock,
         private ControlPanelOrderLifecycleService $cpLifecycle,
+        private CheckoutOrderModelPort $orders,
+        private int $checkoutCpFailureVisibleStatusId = 0,
         private CheckoutOrderCustomerAdapter $orderCustomerAdapter = new CheckoutOrderCustomerAdapter(),
         private ProductPopupFormNormalizer $popupFormNormalizer = new ProductPopupFormNormalizer()
     ) {
@@ -337,14 +339,36 @@ final class CheckoutFinancingSubmissionService
 
         $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow;
 
-        return FinancingControlPanelCompletion::apply(
-            $this->cpLifecycle,
-            new FinancingAttemptContext($fresh),
-            $submission,
-            $created->orderId,
-            $shop,
-            $lockOwnerToken
-        );
+        try {
+            return FinancingControlPanelCompletion::apply(
+                $this->cpLifecycle,
+                new FinancingAttemptContext($fresh),
+                $submission,
+                $created->orderId,
+                $shop,
+                $lockOwnerToken
+            );
+        } catch (ProductFinancingFlowException $exception) {
+            $this->ensureOrderVisibleAfterCpFailure($created->orderId, $exception->errorCode());
+            throw $exception;
+        }
+    }
+
+    private function ensureOrderVisibleAfterCpFailure(int $orderId, string $errorCode): void
+    {
+        if (!str_starts_with($errorCode, 'cp_')) {
+            return;
+        }
+
+        try {
+            CheckoutCpFailureOrderVisibility::ensureVisible(
+                $this->orders,
+                $orderId,
+                $this->checkoutCpFailureVisibleStatusId
+            );
+        } catch (\Throwable) {
+            // CP diagnostic state already persisted; visibility is best-effort.
+        }
     }
 
     /** @param array<string, mixed> $row */

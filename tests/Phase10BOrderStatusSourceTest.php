@@ -111,6 +111,7 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             dirname(__DIR__) . '/catalog/model/module/mt_uni_credit_checkout.php'
         ));
         self::assertStringContainsString("new FinancingOrderStatusPolicy(\n            0,", $checkoutModel);
+        self::assertStringContainsString('config_order_status_id', $checkoutModel);
         self::assertStringNotContainsString('PAYMENT_ORDER_STATUS_SETTING', $checkoutModel);
         self::assertStringNotContainsString('resolveProductCartOrderStatusId', $checkoutModel);
     }

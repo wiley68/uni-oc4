@@ -29,6 +29,10 @@ Module remediation (no core patch):
 
 Old Voided rows remain in DB/history. Old financing attempts stay bound to the old `order_id`; a materially new checkout gets a new local order / attempt lifecycle. Unchanged cart retries keep the same `session.order_id` (no duplicate draft).
 
+### Checkout CP failure visibility
+
+If CP submit fails while `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (neutral Pending). Attempt remains `cp_failed_retryable` / `cp_outcome_unknown`. Same cart + Pending remains reuse-eligible for CP retry without a second `addOrder()`.
+
 ## Status visibility (Phase 10A / remediated)
 
 Product/Cart apply `addHistory(payment_mt_uni_credit_order_status_id)` after attach.  

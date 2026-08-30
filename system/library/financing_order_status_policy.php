@@ -11,17 +11,23 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  * configured order status ({@see ModuleConstants::PAYMENT_ORDER_STATUS_SETTING}) via
  * addHistory() so Admin Sales → Orders (WHERE order_status_id > 0) includes them.
  *
- * Checkout reuses the native session.order_id row and does not apply this status here.
+ * Checkout reuses the native session.order_id row and does not apply Product/Cart status here.
  * OpenCart 4.1.0.3 `editOrder()` always voids first via config_void_status_id, so active
  * checkout orders commonly sit at void until payment confirmation — that void status must
- * remain financing-reuse-eligible (along with status 0). The payment-method status is NOT
- * treated as a Checkout reuse key (avoids expanding reuse to Processing mid-lifecycle).
+ * remain financing-reuse-eligible (along with status 0).
+ *
+ * After CP failure before native success, Checkout may apply store
+ * {@see config_order_status_id} (neutral Pending) so Admin does not hide the order.
+ * That failure-visible status must also remain Checkout reuse-eligible for same-cart CP retry.
+ * The payment-method status is NOT treated as a Checkout reuse key (avoids expanding reuse
+ * to Processing mid-lifecycle).
  */
 final class FinancingOrderStatusPolicy
 {
     public function __construct(
         private int $productCartOrderStatusId,
-        private int $voidStatusId = 0
+        private int $voidStatusId = 0,
+        private int $checkoutFailureVisibleStatusId = 0
     ) {
     }
 
@@ -51,6 +57,11 @@ final class FinancingOrderStatusPolicy
         return $this->voidStatusId;
     }
 
+    public function checkoutFailureVisibleStatusId(): int
+    {
+        return $this->checkoutFailureVisibleStatusId;
+    }
+
     public function isCheckoutReuseAllowedStatus(int $orderStatusId): bool
     {
         if ($orderStatusId === 0) {
@@ -62,6 +73,10 @@ final class FinancingOrderStatusPolicy
             return true;
         }
         if ($this->voidStatusId > 0 && $orderStatusId === $this->voidStatusId) {
+            return true;
+        }
+        // Neutral CP-failure visibility fallback (config_order_status_id) — same-cart retry.
+        if ($this->checkoutFailureVisibleStatusId > 0 && $orderStatusId === $this->checkoutFailureVisibleStatusId) {
             return true;
         }
 

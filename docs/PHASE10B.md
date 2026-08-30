@@ -71,8 +71,12 @@ Customer-facing copy remains generic (order exists; financing system send failed
 
 ## Checkout empty telephone
 
-Module still allows `telephone=''`. Payload sends `phone=''`.
-**CP StoreOrderRequest currently requires non-empty phone** (422). This is a known CP-vs-shop contract tension; OC4 does not invent placeholders.
+Checkout financing requires a non-empty native telephone before CP submit (same as Product/Cart).
+CP `StoreOrderRequest` rejects empty `phone` with HTTP 422. OpenCart may allow empty telephone when
+`config_telephone_required` is off — financing must not POST that state.
+
+Runtime evidence (local order + apache `POST /api/v1/orders` → 422): empty phone. Taxonomy for HTTP 422
+is `cp_rejected` / `cp_failed_retryable` (not `cp_transport_failed`).
 
 ## OpenCart status
 
@@ -80,9 +84,11 @@ Module still allows `telephone=''`. Payload sends `phone=''`.
 | -------- | ------------------------------------------------------------------------------------ |
 | Product  | UniCredit payment `payment_mt_uni_credit_order_status_id` („Състояние на поръчката“) |
 | Cart     | Same payment-method setting                                                          |
-| Checkout | Native Checkout/payment confirm lifecycle                                            |
+| Checkout | Native Checkout/payment confirm lifecycle on CP success                              |
 
 CP success alone does not change OpenCart status. CP failure leaves Product/Cart at the configured payment status (order not deleted / not reverted to 0).
+
+Checkout CP failure before native success: if `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (typically Pending) so Admin is not Missing Orders. That status remains Checkout reuse-eligible for same-cart CP retry. Success path still uses payment method status via native confirm.
 
 There is **no** separate module setting `module_mt_uni_credit_awaiting_financing_order_status_id`.
 
