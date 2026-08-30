@@ -14,6 +14,10 @@ final class PersistenceTableNames
 
     public const ORDER_CORRELATION = 'mt_uni_credit_order_correlation';
 
+    public const ORDER_BANK_STATUS = 'mt_uni_credit_order_bank_status';
+
+    public const DIAGNOSTIC_DEBUG_LOG = 'mt_uni_credit_diagnostic_debug_log';
+
     /** @return list<string> */
     public static function phase3Tables(): array
     {
@@ -32,8 +36,17 @@ final class PersistenceTableNames
     }
 
     /** @return list<string> */
+    public static function bridgeATables(): array
+    {
+        return [
+            self::ORDER_BANK_STATUS,
+            self::DIAGNOSTIC_DEBUG_LOG,
+        ];
+    }
+
+    /** @return list<string> */
     public static function allPersistenceTables(): array
     {
-        return array_merge(self::phase3Tables(), self::phase6Tables());
+        return array_merge(self::phase3Tables(), self::phase6Tables(), self::bridgeATables());
     }
 }

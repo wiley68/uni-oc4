@@ -43,7 +43,7 @@ final class Phase0ScopeGuardTest extends TestCase
                 continue;
             }
 
-            if (self::isPhase4CpProductionFile($path)) {
+            if (self::isPhase4CpProductionFile($path) || self::isBridgeAInboundProductionFile($path)) {
                 continue;
             }
 
@@ -52,6 +52,16 @@ final class Phase0ScopeGuardTest extends TestCase
             self::assertStringNotContainsString('ControlPanelClient', $contents, $path);
             self::assertStringNotContainsString('SmartUcf', $contents, $path);
         }
+    }
+
+    private static function isBridgeAInboundProductionFile(string $path): bool
+    {
+        return str_contains($path, '/catalog/controller/api/')
+            || str_contains($path, '/system/library/module_request_')
+            || str_contains($path, '/system/library/module_api_exception.php')
+            || str_contains($path, '/system/library/inbound_')
+            || str_contains($path, '/system/library/order_bank_status_repository.php')
+            || str_contains($path, '/system/library/diagnostic_');
     }
 
     private static function isPhase4CpProductionFile(string $path): bool

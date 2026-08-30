@@ -37,6 +37,9 @@ final class Phase3ScopeGuardTest extends TestCase
                 if (!$file->isFile() || $file->getExtension() !== 'php') {
                     continue;
                 }
+                if (self::isBridgeAAllowed($file->getPathname())) {
+                    continue;
+                }
                 $contents = (string) file_get_contents($file->getPathname());
                 foreach (self::FORBIDDEN_MARKERS as $marker) {
                     self::assertStringNotContainsString(
@@ -47,6 +50,15 @@ final class Phase3ScopeGuardTest extends TestCase
                 }
             }
         }
+    }
+
+    private static function isBridgeAAllowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/module_request_')
+            || str_contains($path, '/system/library/module_api_exception.php')
+            || str_contains($path, '/system/library/inbound_')
+            || str_contains($path, '/system/library/order_bank_status_repository.php')
+            || str_contains($path, '/system/library/diagnostic_');
     }
 
     public function testSchemaInstallerDoesNotCreatePhase4PlusTables(): void

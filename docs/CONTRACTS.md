@@ -127,6 +127,18 @@ Headers: `X-UniPayment-Timestamp`, `X-UniPayment-Nonce`, `X-UniPayment-Signature
 
 Невалиден HMAC **не** консумира nonce (uni-ps9 authenticator).
 
+### Bridge A — inbound OC4 routes (frozen)
+
+See `docs/INBOUND-API.md`. Production URLs:
+
+```text
+https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/shop_cache
+https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/order_bank_status
+https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/smartucf_debug_log
+```
+
+Implementations: `ModuleRequestSignatureProtocol`, `ModuleRequestAuthenticator`, catalog `api/*` controllers.
+
 ---
 
 ## 4. Речник на статусите

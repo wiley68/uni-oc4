@@ -49,6 +49,8 @@ final class PersistenceSchemaInstaller
         $operationLock = $prefix . PersistenceTableNames::OPERATION_LOCK;
         $financingAttempt = $prefix . PersistenceTableNames::FINANCING_ATTEMPT;
         $orderCorrelation = $prefix . PersistenceTableNames::ORDER_CORRELATION;
+        $orderBankStatus = $prefix . PersistenceTableNames::ORDER_BANK_STATUS;
+        $diagnosticDebugLog = $prefix . PersistenceTableNames::DIAGNOSTIC_DEBUG_LOG;
 
         return [
             "CREATE TABLE IF NOT EXISTS `{$shopCache}` (
@@ -129,6 +131,32 @@ final class PersistenceSchemaInstaller
                 UNIQUE KEY `uniq_mt_uni_credit_correlation_attempt` (`attempt_id`),
                 UNIQUE KEY `uniq_mt_uni_credit_correlation_store_order` (`store_id`, `order_id`),
                 KEY `idx_mt_uni_credit_correlation_store_attempt` (`store_id`, `attempt_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+            "CREATE TABLE IF NOT EXISTS `{$orderBankStatus}` (
+                `order_bank_status_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `store_id` INT UNSIGNED NOT NULL,
+                `order_id` INT UNSIGNED NOT NULL,
+                `order_reference` VARCHAR(64) NOT NULL,
+                `status_id` VARCHAR(255) NOT NULL,
+                `status_label` VARCHAR(255) NOT NULL,
+                `updated_at` DATETIME NOT NULL,
+                PRIMARY KEY (`order_bank_status_id`),
+                UNIQUE KEY `uniq_mt_uni_credit_order_bank_store_order` (`store_id`, `order_id`),
+                KEY `idx_mt_uni_credit_order_bank_reference` (`order_reference`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+            "CREATE TABLE IF NOT EXISTS `{$diagnosticDebugLog}` (
+                `diagnostic_debug_log_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `store_id` INT UNSIGNED NOT NULL,
+                `order_id` INT UNSIGNED NOT NULL,
+                `entry_point` VARCHAR(16) NOT NULL DEFAULT '',
+                `event_code` VARCHAR(64) NOT NULL DEFAULT '',
+                `http_status` INT NULL,
+                `summary_json` LONGTEXT NULL,
+                `created_at` DATETIME NOT NULL,
+                PRIMARY KEY (`diagnostic_debug_log_id`),
+                KEY `idx_mt_uni_credit_diag_store_order` (`store_id`, `order_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         ];
     }

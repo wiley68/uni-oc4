@@ -21,7 +21,7 @@ final class Phase7IntegrationTableCleanupTest extends TestCase
         }
 
         $names = PersistenceIntegrationHarness::expectedIntegrationTableNames();
-        self::assertCount(5, $names);
+        self::assertCount(7, $names);
         foreach ($names as $name) {
             self::assertStringContainsString(PersistenceIntegrationHarness::INTEGRATION_PREFIX_MARKER, $name);
             self::assertFalse(str_starts_with($name, 'oc_mt_uni_credit_'));

@@ -70,6 +70,9 @@ final class Phase5ScopeGuardTest extends TestCase
                 if (in_array($relative, self::ALLOWED_CALCULATOR_FILES, true)) {
                     continue;
                 }
+                if (self::isBridgeAAllowed($path)) {
+                    continue;
+                }
                 $contents = (string) file_get_contents($path);
                 foreach (self::FORBIDDEN_MARKERS as $marker) {
                     self::assertStringNotContainsString(
@@ -80,6 +83,15 @@ final class Phase5ScopeGuardTest extends TestCase
                 }
             }
         }
+    }
+
+    private static function isBridgeAAllowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/module_request_')
+            || str_contains($path, '/system/library/module_api_exception.php')
+            || str_contains($path, '/system/library/inbound_')
+            || str_contains($path, '/system/library/order_bank_status_repository.php')
+            || str_contains($path, '/system/library/diagnostic_');
     }
 
     public function testCalculatorClassesHaveNoOpenCartRuntimeDependencies(): void

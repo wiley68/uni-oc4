@@ -99,6 +99,24 @@ class ShopConfigurationService
         return $this->refresh($unicid);
     }
 
+    /**
+     * CP push path: validate and replace local shop cache (no remote GET).
+     *
+     * @param array<string, mixed> $shopData
+     */
+    public function replaceSnapshot(string $unicid, array $shopData): bool
+    {
+        $unicid = trim($unicid);
+        if ($unicid === '' || $shopData === []) {
+            return false;
+        }
+
+        $this->snapshotValidator->validate($shopData, $unicid);
+        $this->cache->replaceValidated($this->storeId, $unicid, $shopData);
+
+        return true;
+    }
+
     /** @return array<string, mixed> */
     private function refresh(string $unicid): array
     {

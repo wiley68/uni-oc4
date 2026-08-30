@@ -51,6 +51,9 @@ final class Phase1ScopeGuardTest extends TestCase
                 if (str_ends_with($file->getPathname(), '/system/library/persistence_schema_installer.php')) {
                     continue;
                 }
+                if (self::isBridgeAAllowed($file->getPathname())) {
+                    continue;
+                }
                 $contents = (string) file_get_contents($file->getPathname());
                 foreach (self::FORBIDDEN_PRODUCTION_MARKERS as $marker) {
                     self::assertStringNotContainsString(
@@ -61,6 +64,15 @@ final class Phase1ScopeGuardTest extends TestCase
                 }
             }
         }
+    }
+
+    private static function isBridgeAAllowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/module_request_')
+            || str_contains($path, '/system/library/module_api_exception.php')
+            || str_contains($path, '/system/library/inbound_')
+            || str_contains($path, '/system/library/order_bank_status_repository.php')
+            || str_contains($path, '/system/library/diagnostic_');
     }
 
     public function testAdminSettingsRemainLocalOnly(): void

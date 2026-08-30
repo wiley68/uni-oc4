@@ -74,16 +74,18 @@ final class Phase7AdminFinalizationTest extends TestCase
         self::assertSame(0, ModuleLocalSettings::normalizeButtonTopSpacing(-5));
     }
 
-    public function testProductionPersistenceIsExactlyFiveTables(): void
+    public function testProductionPersistenceIsExactlySevenTables(): void
     {
         $tables = PersistenceTableNames::allPersistenceTables();
-        self::assertCount(5, $tables);
+        self::assertCount(7, $tables);
         self::assertSame([
             'mt_uni_credit_shop_cache',
             'mt_uni_credit_api_nonce',
             'mt_uni_credit_operation_lock',
             'mt_uni_credit_financing_attempt',
             'mt_uni_credit_order_correlation',
+            'mt_uni_credit_order_bank_status',
+            'mt_uni_credit_diagnostic_debug_log',
         ], $tables);
     }
 
