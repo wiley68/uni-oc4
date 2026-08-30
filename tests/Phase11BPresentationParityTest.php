@@ -258,10 +258,15 @@ HTML;
             . '<div id="column-left"></div>'
             . '<div id="content">'
             . '<div class="page-header"><div class="container-fluid"><h1>Order</h1></div></div>'
-            . '<div class="container-fluid"><div class="card mb-3">ORDER_FORM</div></div>'
-            . '</div></div></body>';
+            . '<div class="container-fluid">'
+            . '<div class="card mb-3">ORDER_FORM</div>'
+            . '<div class="card mb-3"><div class="card-header"><i class="fa-solid fa-comment"></i> History</div>'
+            . '<div class="card-body">hist</div></div>'
+            . '</div></div>'
+            . '<div id="modal-customer" class="modal"></div>'
+            . '</div></body>';
         $replaced = preg_replace(
-            '/(<div id="content">\s*<div class="page-header">\s*<div class="container-fluid">[\s\S]*?<\/div>\s*<\/div>\s*)(<div class="container-fluid">)/',
+            '/(\s*)(<\/div>\s*<\/div>\s*<div id="modal-customer")/',
             '$1' . $block . '$2',
             $output,
             1,
@@ -270,18 +275,60 @@ HTML;
         self::assertSame(1, $count);
         self::assertIsString($replaced);
         $headerPos = strpos($replaced, 'ADMIN_HEADER');
+        $formPos = strpos($replaced, 'ORDER_FORM');
+        $historyPos = strpos($replaced, 'fa-comment');
         $leasingPos = strpos($replaced, 'mt-uni-credit-admin-order-leasing');
-        $contentPos = strpos($replaced, 'id="content"');
+        $modalPos = strpos($replaced, 'id="modal-customer"');
         self::assertNotFalse($headerPos);
+        self::assertNotFalse($formPos);
+        self::assertNotFalse($historyPos);
         self::assertNotFalse($leasingPos);
-        self::assertNotFalse($contentPos);
+        self::assertNotFalse($modalPos);
         self::assertLessThan($leasingPos, $headerPos);
-        self::assertLessThan($leasingPos, $contentPos);
-        // Must not land inside the navbar container-fluid.
+        self::assertLessThan($leasingPos, $formPos);
+        self::assertLessThan($leasingPos, $historyPos);
+        self::assertLessThan($modalPos, $leasingPos);
+        self::assertStringContainsString('card mb-3 mt-uni-credit-admin-order-leasing', $replaced);
         self::assertDoesNotMatchRegularExpression(
             '/id="header"[\s\S]*mt-uni-credit-admin-order-leasing[\s\S]*<\/header>/',
             $replaced
         );
+    }
+
+    public function testAdminAlertBrHtmlKeepsLineStructureUnderSetHtml(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $rows = $presenter->rows(
+            $snapshot,
+            BankStatus::LABEL_SENT_PROCESS2,
+            FinancingPresentationAudience::CUSTOMER,
+            new ProcessTwoSensitiveData('1990011599', '0888123456')
+        );
+        // Native order_alert path: Mail::setHtml with br-line body.
+        $mailBody = "Order received<br/>\n<br/>\nOrder ID: 55<br/>\n";
+        $mailBody .= '<br/><br/>' . $presenter->renderBrHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг<br/>', $mailBody);
+        self::assertStringContainsString('Статус към банката: ' . BankStatus::LABEL_SENT_PROCESS2 . '<br/>', $mailBody);
+        self::assertStringContainsString('КП shop order_id: 55', $mailBody);
+        self::assertStringNotContainsString('<table', $mailBody);
+        self::assertStringNotContainsString('1990011599', $mailBody);
+        self::assertStringNotContainsString('ЕГН', $mailBody);
+        // Must not be a single newline-only block (HTML clients collapse those).
+        self::assertStringNotContainsString("УниКредит лизинг\nСтатус", $mailBody);
+    }
+
+    public function testPlainTextRendererUsesNewlinesWithoutHtmlTags(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $rows = $presenter->rows($snapshot, BankStatus::LABEL_SENT_PROCESS2, FinancingPresentationAudience::CUSTOMER);
+        $text = $presenter->renderText($rows);
+        self::assertStringStartsWith("УниКредит лизинг\n\n", $text);
+        self::assertStringContainsString("\nСтатус към банката: ", $text);
+        self::assertStringNotContainsString('<table', $text);
+        self::assertStringNotContainsString('<div', $text);
+        self::assertStringNotContainsString('<br', $text);
     }
 
     public function testEmptyBankStatusDoesNotInventProcessLabel(): void

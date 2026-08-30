@@ -63,13 +63,16 @@ Field order: Статус към банката → КП поръчка (ID) →
 
 ### Runtime placement (remediation)
 
-| Surface            | Mechanism                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Thank You          | `catalog/view/common/success/before` → append leasing HTML to `text_message` (inside `#content`, after header)                       |
-| Admin Order detail | `admin/view/sale/order_info/after` → insert after `#content` `.page-header` (not admin navbar `.container-fluid`)                    |
-| Native emails      | `catalog/view/mail/order_add\|order_alert/after` append; snapshot persisted **before** `addHistory` in `OrderMaterializationService` |
+| Surface               | Mechanism                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Thank You             | `catalog/view/common/success/before` → append leasing HTML to `text_message` (inside `#content`, after header)                       |
+| Admin Order detail    | `admin/view/sale/order_info/after` → last `card mb-3` inside `#content` `.container-fluid` (after history, before `#modal-customer`) |
+| Native customer email | `catalog/view/mail/order_add/after` → HTML table (`Mail::setHtml`)                                                                   |
+| Native admin alert    | `catalog/view/mail/order_alert/after` → `<br/>` line HTML (`Mail::setHtml`, not `setText`)                                           |
 
 Empty durable bank status does **not** invent `bank_sent_process*` labels (native mail fires at interim status).
+
+**Admin alert formatting:** `order_alert.twig` is br-line markup via `setHtml`. Plain `\\n` text collapses in HTML clients — use `FinancingLeasingPresenter::renderBrHtml()`.
 
 ## Hard guards
 

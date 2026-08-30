@@ -121,10 +121,10 @@ class MtUniCreditAdminOrder extends \Opencart\System\Engine\Controller
             $block = '<div class="card mb-3 mt-uni-credit-admin-order-leasing"><div class="card-header">'
                 . '<i class="fa-solid fa-university"></i> УниКредит — кредитна заявка</div>'
                 . '<div class="card-body">' . $html . '</div></div>';
-            // Admin header also has .container-fluid — never match that.
-            // Insert after #content > .page-header (nested container-fluid), before the form.
+            // Place last inside main #content > .container-fluid (after history card),
+            // immediately before the two closings that precede #modal-customer.
             $replaced = preg_replace(
-                '/(<div id="content">\s*<div class="page-header">\s*<div class="container-fluid">[\s\S]*?<\/div>\s*<\/div>\s*)(<div class="container-fluid">)/',
+                '/(\s*)(<\/div>\s*<\/div>\s*<div id="modal-customer")/',
                 '$1' . $block . '$2',
                 $output,
                 1,
@@ -132,15 +132,25 @@ class MtUniCreditAdminOrder extends \Opencart\System\Engine\Controller
             );
             if (is_string($replaced) && $count > 0) {
                 $output = $replaced;
-            } elseif (preg_match('/<div id="content">/', $output)) {
+            } elseif (preg_match('/(<div class="card mb-3">\s*<div class="card-header">[\s\S]*?fa-solid fa-comment[\s\S]*?<\/div>\s*<\/div>)(\s*<\/div>\s*<\/div>)/', $output)) {
                 $output = preg_replace(
-                    '/(<div id="content">)/',
-                    '$1' . $block,
+                    '/(<div class="card mb-3">\s*<div class="card-header">[\s\S]*?fa-solid fa-comment[\s\S]*?<\/div>\s*<\/div>)(\s*<\/div>\s*<\/div>)/',
+                    '$1' . $block . '$2',
                     $output,
                     1
                 ) ?? ($output . $block);
             } else {
-                $output .= $block;
+                // Last resort: still inside #content if present.
+                if (preg_match('/(<div id="content">[\s\S]*)(<\/div>\s*\{\{?\s*footer)/', $output)) {
+                    $output = preg_replace(
+                        '/(<div id="content">[\s\S]*)(<\/div>\s*)(\{\{?\s*footer|<\/body)/',
+                        '$1' . $block . '$2$3',
+                        $output,
+                        1
+                    ) ?? ($output . $block);
+                } else {
+                    $output .= $block;
+                }
             }
         } catch (\Throwable $exception) {
             error_log('mt_uni_credit: admin order info leasing failed class=' . $exception::class);

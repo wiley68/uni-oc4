@@ -12,35 +12,38 @@ use Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection;
  * Inject non-sensitive UniCredit leasing block into native OpenCart order emails.
  *
  * Runtime path (OC 4.1.0.3):
- * model/checkout/order.addHistory → mail/order(.alert)
- * → load->view('mail/order_add'|'mail/order_alert')
- * → view/mail/.../after → Mail::setHtml($output) → send.
+ * - customer: mail/order.add → view/mail/order_add → Mail::setHtml (full HTML)
+ * - admin alert: mail/order.alert → view/mail/order_alert → Mail::setHtml (br-line HTML)
  *
- * Core mail templates are not patched; leasing is appended to the rendered body.
- * Snapshot must already be persisted before addHistory (OrderMaterializationService).
+ * order_alert is NOT Mail::setText — it is setHtml with &lt;br/&gt; markup.
+ * Appending plain "\\n" text there flattens in HTML clients.
  */
 class MtUniCreditOrderMail extends \Opencart\System\Engine\Controller
 {
     public function afterOrderAdd(string &$route, array &$data, mixed &$output): void
     {
-        $this->appendLeasing($data, $output);
+        $this->appendLeasing($data, $output, 'html_table');
     }
 
     public function afterOrderAlert(string &$route, array &$data, mixed &$output): void
     {
         // Native admin alert: non-sensitive audience (no EGN) — separate from Process 2 admin mail.
-        $this->appendLeasing($data, $output);
+        $this->appendLeasing($data, $output, 'html_br');
     }
 
     /**
      * @param array<string, mixed> $data
+     * @param 'html_table'|'html_br'|'text' $format
      */
-    private function appendLeasing(array $data, mixed &$output): void
+    private function appendLeasing(array $data, mixed &$output, string $format): void
     {
         if (!is_string($output) || $output === '') {
             return;
         }
-        if (str_contains($output, 'mt-uni-credit-leasing-block')) {
+        if (str_contains($output, 'mt-uni-credit-leasing-block')
+            || str_contains($output, 'УниКредит лизинг<br')
+            || str_contains($output, "УниКредит лизинг\n")
+        ) {
             return;
         }
         $orderId = (int) ($data['order_id'] ?? 0);
@@ -56,14 +59,21 @@ class MtUniCreditOrderMail extends \Opencart\System\Engine\Controller
                 return;
             }
             $presenter = new FinancingLeasingPresenter();
-            // order_alert.twig is plain-text style (no <html>/<table>); order_add is HTML.
-            $plain = !str_contains($output, '<html') && !str_contains($output, '<table');
-            if ($plain) {
-                $text = $presenter->renderText($rows);
-                if ($text === '' || str_contains($text, 'ЕГН')) {
+            if ($format === 'html_br') {
+                $chunk = $presenter->renderBrHtml($rows);
+                if ($chunk === '' || str_contains($chunk, 'ЕГН')) {
                     return;
                 }
-                $output .= "\n\n" . $text;
+                $output .= '<br/><br/>' . $chunk;
+
+                return;
+            }
+            if ($format === 'text') {
+                $chunk = $presenter->renderText($rows);
+                if ($chunk === '' || str_contains($chunk, 'ЕГН')) {
+                    return;
+                }
+                $output .= "\n\n" . $chunk;
 
                 return;
             }

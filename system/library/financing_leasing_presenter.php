@@ -101,7 +101,7 @@ final class FinancingLeasingPresenter
                 . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
                 . '</h3>';
         }
-        $html .= '<table class="mt-uni-credit-leasing-block__table" style="border-collapse:collapse;">';
+        $html .= '<table class="mt-uni-credit-leasing-block__table" style="border-collapse:collapse;width:100%;">';
         foreach ($rows as $row) {
             $html .= '<tr><th style="text-align:left;padding:4px 16px 4px 0;vertical-align:top;">'
                 . htmlspecialchars($row['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
@@ -115,6 +115,33 @@ final class FinancingLeasingPresenter
     }
 
     /**
+     * Email-safe HTML for OC4 mail/order_alert (setHtml + &lt;br/&gt; line markup).
+     * Newlines alone are collapsed by HTML mail clients.
+     *
+     * @param list<array{label: string, value: string}> $rows
+     */
+    public function renderBrHtml(array $rows, string $title = self::TITLE): string
+    {
+        if ($rows === []) {
+            return '';
+        }
+        $parts = [];
+        if ($title !== '') {
+            $parts[] = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $parts[] = '';
+        }
+        foreach ($rows as $row) {
+            $parts[] = htmlspecialchars($row['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                . ': '
+                . htmlspecialchars($row['value'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        return implode('<br/>', $parts);
+    }
+
+    /**
+     * Plain-text leasing block (Mail::setText / multipart text part).
+     *
      * @param list<array{label: string, value: string}> $rows
      */
     public function renderText(array $rows, string $title = self::TITLE): string
@@ -122,7 +149,11 @@ final class FinancingLeasingPresenter
         if ($rows === []) {
             return '';
         }
-        $lines = [$title, ''];
+        $lines = [];
+        if ($title !== '') {
+            $lines[] = $title;
+            $lines[] = '';
+        }
         foreach ($rows as $row) {
             $lines[] = $row['label'] . ': ' . $row['value'];
         }
