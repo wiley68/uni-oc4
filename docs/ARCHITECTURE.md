@@ -47,9 +47,13 @@ Shared builder/lifecycle for Product, Cart, Checkout. See `docs/PHASE10B.md`.
 ## Phase 11A Process 1 boundary
 
 ```text
-cp_created → direct SmartUCF session start
+cp_created → read/replay SmartUCF state
+→ certificate-enabled: CP metadata compare → optional bundle refresh → consumer lease
+→ claim submitting → direct SmartUCF session start
 → smartucf created → CP/local bank_sent_process1 → trusted bank redirect
 ```
+
+Certificate synchronization is intentionally before the remote-submit claim. A sync failure is retryable pre-send, does not call SmartUCF, and does not publish a bank failure status. Only a definitive remote SmartUCF rejection writes `bank_send_failed_smartucf`. The certificate and private key are CP-synchronized; the private-key passphrase remains local-only.
 
 Process 2 is skipped and does not write a Process 2 bank status in this phase. See `docs/PHASE11A.md`.
 

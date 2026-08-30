@@ -73,6 +73,16 @@ final class CertificatePairValidator
         }
     }
 
+    public function sha256(string $pemBytes): string
+    {
+        return hash('sha256', $pemBytes);
+    }
+
+    public function isSha256Hex(string $value): bool
+    {
+        return (bool) preg_match('/^[a-f0-9]{64}$/', $value);
+    }
+
     /**
      * Parse certificate metadata without requiring a matching private key.
      *

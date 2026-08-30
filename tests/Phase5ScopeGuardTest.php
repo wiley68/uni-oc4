@@ -98,6 +98,7 @@ final class Phase5ScopeGuardTest extends TestCase
     {
         return str_contains($path, '/system/library/smart_ucf_')
             || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/control_panel_order_status_port.php')
             || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
             || str_ends_with($path, '/system/library/shop_configuration_flags.php')
             || str_ends_with($path, '/system/library/financing_control_panel_completion.php')

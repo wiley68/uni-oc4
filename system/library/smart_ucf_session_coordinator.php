@@ -6,6 +6,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 
 final class SmartUcfSessionCoordinator
 {
+    public const ERROR_CREDENTIALS_SYNC_FAILED = 'smartucf_credentials_sync_failed';
+
     public const CUSTOMER_OUTCOME_UNKNOWN =
         'Поръчката е създадена, но потвърждението от банковата система не беше получено. Не изпращайте заявката повторно.';
     public const CUSTOMER_PROCESSING = 'Заявката към банката се обработва. Моля, изчакайте.';
@@ -14,17 +16,21 @@ final class SmartUcfSessionCoordinator
 
     private object $client;
 
+    private CertificateSynchronizer $certificateSynchronizer;
+
     public function __construct(
         private SmartUcfLifecycleRepository $lifecycle,
         object $client,
         private SmartUcfFailureClassifier $classifier,
         private OrderBankStatusRepository $bankStatuses,
-        private ControlPanelOrderStatusPort $controlPanel
+        private ControlPanelClient $controlPanel,
+        ?CertificateSynchronizer $certificateSynchronizer = null
     ) {
         if (!method_exists($client, 'createSession')) {
             throw new \InvalidArgumentException('SmartUCF client must provide createSession().');
         }
         $this->client = $client;
+        $this->certificateSynchronizer = $certificateSynchronizer ?? new CertificateSynchronizer($controlPanel);
     }
 
     /**
@@ -54,8 +60,26 @@ final class SmartUcfSessionCoordinator
             return $known;
         }
 
+        $lease = null;
+        if (ShopConfigurationFlags::usesSmartUcfCertificate($shop)) {
+            try {
+                $lease = $this->certificateSynchronizer->ensureCurrent();
+            } catch (CertificateSyncException $exception) {
+                $errorClass = self::ERROR_CREDENTIALS_SYNC_FAILED . '_' . $exception->reason();
+                try {
+                    $this->lifecycle->markFailed($attemptId, $errorClass, true);
+                } catch (\Throwable $ignored) {
+                }
+
+                return SmartUcfCoordinationResult::failed(self::CUSTOMER_FAILED, true, $errorClass);
+            }
+        }
+
         $claimed = $this->lifecycle->claimForSubmitting($attemptId);
         if ($claimed === null) {
+            if ($lease !== null) {
+                $lease->release();
+            }
             $latest = $this->lifecycle->readAndNormalize($attemptId);
 
             return $latest === null
@@ -65,9 +89,15 @@ final class SmartUcfSessionCoordinator
 
         try {
             /** @var array{session_id: string, redirect_url: string, http_code: int} $session */
-            $session = $this->client->createSession($shop, $submission, $localOrderId);
+            $session = $lease === null
+                ? $this->client->createSession($shop, $submission, $localOrderId)
+                : $this->client->createSession($shop, $submission, $localOrderId, $lease);
         } catch (\Throwable $exception) {
             return $this->handleFailure($attemptId, $submission->storeId, $localOrderId, $cpOrderId, $exception);
+        } finally {
+            if ($lease !== null) {
+                $lease->release();
+            }
         }
 
         try {
@@ -163,7 +193,9 @@ final class SmartUcfSessionCoordinator
             );
         } catch (\Throwable $ignored) {
         }
-        $this->persistBankStatus($storeId, $localOrderId, $cpOrderId, BankStatus::smartUcfFailure());
+        if ($classification->errorClass() === SmartUcfFailureClassification::CLASS_REMOTE_REJECT) {
+            $this->persistBankStatus($storeId, $localOrderId, $cpOrderId, BankStatus::smartUcfFailure());
+        }
 
         return SmartUcfCoordinationResult::failed(
             self::CUSTOMER_FAILED,

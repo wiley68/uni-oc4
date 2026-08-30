@@ -85,6 +85,7 @@ final class Phase0ScopeGuardTest extends TestCase
     private static function isPhase11SmartUcfProductionFile(string $path): bool
     {
         return str_contains($path, '/system/library/smart_ucf_')
+            || str_contains($path, '/system/library/certificate_')
             || str_ends_with($path, '/system/library/bank_status.php')
             || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
             || str_ends_with($path, '/system/library/shop_configuration_flags.php')

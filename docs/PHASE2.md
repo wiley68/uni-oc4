@@ -1,6 +1,6 @@
 # Phase 2 — Deployment configuration, secrets and local settings
 
-Phase 2 adds **deployment primitives** and admin health for manually installed secrets/certificates. No Control Panel HTTP, no calculator, no storefront financing.
+Phase 2 added the deployment primitives and admin health model. Phase 11A runtime remediation now synchronizes certificate material through the authenticated Control Panel client before SmartUCF.
 
 Frozen contracts: `docs/CONTRACTS.md`. Phase 1 shell: `docs/PHASE1.md`.
 
@@ -16,8 +16,8 @@ mt_uni_credit/
 ├── keys/
 │   ├── .htaccess           # tracked — deny all
 │   ├── index.php           # tracked — 403
-│   ├── avalon_cert.pem     # manual / Git-ignored
-│   └── avalon_private_key.pem  # manual / Git-ignored
+│   ├── avalon_cert.pem     # CP-synchronized at runtime / Git-ignored
+│   └── avalon_private_key.pem  # CP-synchronized at runtime / Git-ignored
 └── secrets/
     ├── .htaccess           # tracked — deny all
     ├── index.php           # tracked — exit
@@ -26,13 +26,13 @@ mt_uni_credit/
 
 ### Tracked vs manual
 
-| Path                                 | Tracked | Contents                          |
-| ------------------------------------ | ------- | --------------------------------- |
-| `config/environment.php`             | yes     | `control_panel_url` only          |
-| `secrets/smartucf-key.php`           | **no**  | `return ['passphrase' => '...'];` |
-| `keys/avalon_cert.pem`               | **no**  | client certificate PEM            |
-| `keys/avalon_private_key.pem`        | **no**  | private key PEM                   |
-| protection `.htaccess` / `index.php` | yes     | deny direct HTTP                  |
+| Path                                 | Tracked | Contents                           |
+| ------------------------------------ | ------- | ---------------------------------- |
+| `config/environment.php`             | yes     | `control_panel_url` only           |
+| `secrets/smartucf-key.php`           | **no**  | `return ['passphrase' => '...'];`  |
+| `keys/avalon_cert.pem`               | **no**  | CP-synchronized client certificate |
+| `keys/avalon_private_key.pem`        | **no**  | CP-synchronized private key        |
+| protection `.htaccess` / `index.php` | yes     | deny direct HTTP                   |
 
 ## Single-source Control Panel endpoint
 
@@ -75,15 +75,17 @@ Same filename/key as PS9. Missing/invalid/blank → controlled `null` / health s
 
 `CertificatePairValidator` performs **local** OpenSSL checks (parse, validity window, key/cert match). Passphrase comes only from the secrets provider.
 
-## Explicit: no automatic certificate sync
+## Phase 11A runtime certificate synchronization
 
-OpenCart module **2.0.2** must **not**:
+When `uni_sertificat` is enabled, `CertificateSynchronizer` runs before the SmartUCF submitting claim:
 
-- call CP `/ssl/certificate` or certificate bundle endpoints
-- download / replace / rotate certificates
-- write private keys received over HTTP
+- `GET /ssl/certificate` compares CP SHA-256 metadata with the exact local PEM bytes.
+- Missing or mismatched material triggers `GET /ssl/certificate/bundle`.
+- The pair is validated locally, staged and promoted under a filesystem lock.
+- SmartUCF consumes a private temporary lease and the lease is deleted after the request.
+- A transient metadata failure may use an already-valid local pair; explicit CP unavailability fails closed.
 
-The operator manually installs PEMs and `smartucf-key.php`, same operational intent as PS9 ZIP packaging (without OC4 auto-sync).
+The private-key passphrase is never returned by CP. It remains local-only in `secrets/smartucf-key.php`.
 
 ## Health model
 
@@ -126,19 +128,19 @@ Web user must be able to **read** these files; they must not be world-writable.
 
 1. Set `config/environment.php` → `control_panel_url` for the target environment.
 2. Place `secrets/smartucf-key.php` with the mTLS passphrase.
-3. Place `keys/avalon_cert.pem` and `keys/avalon_private_key.pem`.
-4. Open admin module page → confirm deployment health statuses.
+3. Ensure CP has an available certificate bundle for the shop.
+4. Open admin module page → confirm deployment health statuses; the first certificate-enabled Process 1 request performs synchronization.
 5. Enable module when ready.
 
 ## OpenCart-specific differences vs PS9/Woo
 
-| Topic                 | Difference                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| Package root          | OpenCart extension under `extension/mt_uni_credit/` instead of PrestaShop `modules/unipayment/`   |
-| Autoload              | Native OC `system/library/*.php` (no Composer runtime)                                            |
-| Certificate sync      | **Intentionally absent** in OC4 2.0.2 (PS9 may still have synchronizer code; OC4 does not use it) |
-| Admin UI              | OpenCart module settings + health panel (not PS back-office form)                                 |
-| `config/services.yml` | Not used (PrestaShop DI only)                                                                     |
+| Topic                 | Difference                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| Package root          | OpenCart extension under `extension/mt_uni_credit/` instead of PrestaShop `modules/unipayment/`          |
+| Autoload              | Native OC `system/library/*.php` (no Composer runtime)                                                   |
+| Certificate sync      | Phase 11A parity: CP metadata/bundle sync with local-only passphrase and fail-open only for a valid pair |
+| Admin UI              | OpenCart module settings + health panel (not PS back-office form)                                        |
+| `config/services.yml` | Not used (PrestaShop DI only)                                                                            |
 
 File names (`environment.php`, `smartucf-key.php`, `avalon_*.pem`) and directory names (`config/`, `keys/`, `secrets/`) are intentionally identical.
 

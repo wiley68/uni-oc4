@@ -24,7 +24,12 @@ final class SmartUcfSessionClient
      * @param array<string, mixed> $shop
      * @return array{session_id: string, redirect_url: string, http_code: int}
      */
-    public function createSession(array $shop, ValidatedFinancingSubmission $submission, int $localOrderId): array
+    public function createSession(
+        array $shop,
+        ValidatedFinancingSubmission $submission,
+        int $localOrderId,
+        ?CertificateConsumerLease $lease = null
+    ): array
     {
         try {
             $url = $this->endpointPolicy->buildSessionStartUrl($this->serviceUrl($shop));
@@ -58,8 +63,8 @@ final class SmartUcfSessionClient
         ];
 
         if (ShopConfigurationFlags::usesSmartUcfCertificate($shop)) {
-            $key = $this->certificatePaths->privateKeyPath();
-            $certificate = $this->certificatePaths->certificatePath();
+            $key = $lease !== null ? $lease->privateKeyPath() : $this->certificatePaths->privateKeyPath();
+            $certificate = $lease !== null ? $lease->certificatePath() : $this->certificatePaths->certificatePath();
             if (!is_readable($key) || !is_readable($certificate)) {
                 throw new SmartUcfSessionException(
                     'SmartUCF SSL key or certificate is missing or unreadable.',
@@ -69,7 +74,7 @@ final class SmartUcfSessionClient
                     SmartUcfSessionException::KIND_PRE_SEND
                 );
             }
-            $password = $this->passphrases->require();
+            $password = $lease !== null ? $lease->password() : $this->passphrases->require();
             $options[CURLOPT_SSLKEY] = $key;
             $options[CURLOPT_SSLKEYPASSWD] = $password;
             $options[CURLOPT_SSLCERT] = $certificate;

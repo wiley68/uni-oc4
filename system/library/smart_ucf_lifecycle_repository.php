@@ -96,7 +96,7 @@ final class SmartUcfLifecycleRepository
             'smartucf_error_class' => substr($errorClass, 0, 64),
             'smartucf_http_code' => $httpCode > 0 ? $httpCode : null,
             'smartucf_retryable' => $retryable ? 1 : 0,
-        ]);
+        ], [SmartUcfLifecycleStates::SUBMITTING, SmartUcfLifecycleStates::NOT_STARTED]);
     }
 
     /** @param array<string, mixed> $row */

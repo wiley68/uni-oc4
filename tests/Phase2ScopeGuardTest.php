@@ -59,7 +59,7 @@ final class Phase2ScopeGuardTest extends TestCase
         }
     }
 
-    public function testNoAutomaticCertificateSyncEndpoints(): void
+    public function testCertificateSyncEndpointsStayInAllowlistedRuntimeFiles(): void
     {
         $root = dirname(__DIR__);
         $iterator = new \RecursiveIteratorIterator(
@@ -67,6 +67,9 @@ final class Phase2ScopeGuardTest extends TestCase
         );
         foreach ($iterator as $file) {
             if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            if (self::isCertificateSyncAllowed($file->getPathname())) {
                 continue;
             }
             $contents = (string) file_get_contents($file->getPathname());
@@ -86,9 +89,17 @@ final class Phase2ScopeGuardTest extends TestCase
     private static function isPhase11Allowed(string $path): bool
     {
         return str_contains($path, '/system/library/smart_ucf_')
+            || str_contains($path, '/system/library/certificate_')
             || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/control_panel_client.php')
             || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
             || str_ends_with($path, '/system/library/financing_control_panel_completion.php')
             || str_ends_with($path, '/system/library/shop_configuration_flags.php');
+    }
+
+    private static function isCertificateSyncAllowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/certificate_')
+            || str_ends_with($path, '/system/library/control_panel_client.php');
     }
 }

@@ -32,4 +32,14 @@ Diagnostic debug retrieval redacts EGN, contact fields, tokens, and key material
 
 ## SmartUCF Process 1 mTLS
 
-SmartUCF is called directly over HTTPS with peer and hostname verification enabled and a 10-second timeout. Destination policy accepts only the frozen `online.ucfin.bg` / `onlinetest.ucfin.bg` paths. When `uni_sertificat` is enabled, certificate and key are read from the module-local `keys/` directory and the private-key passphrase from `secrets/smartucf-key.php`. OpenCart does not download or synchronize certificates from CP.
+SmartUCF is called directly over HTTPS with peer and hostname verification enabled and a 10-second timeout. Destination policy accepts only the frozen `online.ucfin.bg` / `onlinetest.ucfin.bg` paths.
+
+When `uni_sertificat` is enabled:
+
+- The authenticated CP client reads `/ssl/certificate` metadata and downloads `/ssl/certificate/bundle` only for missing or mismatched material.
+- SHA-256 covers the exact raw PEM bytes; certificate/key validity and matching are checked locally.
+- Replacement is lock-protected and staged; authoritative modes are certificate `0640`, key `0600`.
+- SmartUCF receives a temporary `0600` consumer lease, removed in `finally`.
+- The private-key passphrase remains exclusively in `secrets/smartucf-key.php`; CP never supplies it.
+- Transient CP errors may fail open only with a complete valid local pair. Explicit CP unavailability fails closed.
+- Synchronization/pre-send failures are retryable and do not write `bank_send_failed_smartucf`.

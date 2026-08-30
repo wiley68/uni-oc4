@@ -1,6 +1,6 @@
 # Phase 11A Process 1
 
-After CP order creation, the module calls the trusted SmartUCF `sucfOnlineSessionStart` endpoint directly. A valid session persists `smartucf_state=created`, updates CP and local status to `bank_sent_process1`, and returns `redirect_url` with `bank_submitted=true`. Definitive rejection writes `bank_send_failed_smartucf`; ambiguous outcomes write neither failure nor Process 2 status. `uni_proces=1` skips this lifecycle for now.
+After CP order creation, the module synchronizes the certificate and private key from CP when `uni_sertificat` is enabled, then calls the trusted SmartUCF `sucfOnlineSessionStart` endpoint. The passphrase remains local-only. A valid session persists `smartucf_state=created`, updates CP and local status to `bank_sent_process1`, and returns `redirect_url` with `bank_submitted=true`. Only definitive remote rejection writes `bank_send_failed_smartucf`; certificate/pre-send and ambiguous outcomes write no bank failure status. `uni_proces=1` skips this lifecycle for now.
 
 # UniCredit OpenCart 4.x — замразени договори (Phase 0)
 
@@ -42,18 +42,20 @@ Authoritative source: `ModuleConstants::VERSION`. See `docs/RELEASE.md`.
 
 Клиентът в uni-ps9: `src/Api/ControlPanelClient.php`.
 
-| Метод | Път                     | Auth   | Throttle        | Бележки                                                                  |
-| ----- | ----------------------- | ------ | --------------- | ------------------------------------------------------------------------ |
-| POST  | `/api/v1/auth/login`    | не     | 10 / IP / min   | body: `unicid`, `name`, `secret` (required string, без max)              |
-| POST  | `/api/v1/auth/refresh`  | Bearer | 30 / shop / min | ротира токена; стар се забравя                                           |
-| POST  | `/api/v1/auth/logout`   | Bearer | 30 / shop / min | повторно logout → 401                                                    |
-| GET   | `/api/v1/shop`          | Bearer | 30 / shop / min | `data` = ShopModuleResource + `coeff_list`                               |
-| POST  | `/api/v1/orders`        | Bearer | 60 / shop / min | виж §2                                                                   |
-| PATCH | `/api/v1/orders/status` | Bearer | 60 / shop / min | `order_id` max 13, `status` required, `status_id` optional; **без** enum |
+| Метод | Път                              | Auth   | Throttle        | Бележки                                                                  |
+| ----- | -------------------------------- | ------ | --------------- | ------------------------------------------------------------------------ |
+| POST  | `/api/v1/auth/login`             | не     | 10 / IP / min   | body: `unicid`, `name`, `secret` (required string, без max)              |
+| POST  | `/api/v1/auth/refresh`           | Bearer | 30 / shop / min | ротира токена; стар се забравя                                           |
+| POST  | `/api/v1/auth/logout`            | Bearer | 30 / shop / min | повторно logout → 401                                                    |
+| GET   | `/api/v1/shop`                   | Bearer | 30 / shop / min | `data` = ShopModuleResource + `coeff_list`                               |
+| GET   | `/api/v1/ssl/certificate`        | Bearer | CP policy       | SSL availability, revision and exact-PEM SHA-256 metadata                |
+| GET   | `/api/v1/ssl/certificate/bundle` | Bearer | CP policy       | Certificate + private key PEM; never returns passphrase                  |
+| POST  | `/api/v1/orders`                 | Bearer | 60 / shop / min | виж §2                                                                   |
+| PATCH | `/api/v1/orders/status`          | Bearer | 60 / shop / min | `order_id` max 13, `status` required, `status_id` optional; **без** enum |
 
 Токен: 64 символа, TTL 24h, cache ключ `shop_token_{token}`. Login **не** е идемпотентен.
 
-Допълнителни CP endpoint-и (SSL bundle) съществуват, но **не** са част от Phase 0 freeze за storefront.
+SSL endpoint-ите са runtime dependency само за certificate-enabled Phase 11A Process 1.
 
 ---
 
@@ -298,16 +300,16 @@ Phase 1 добавя admin module shell и install wiring. Подробност�
 
 Подробности: `docs/PHASE2.md`.
 
-| Елемент                             | Стойност                                                 |
-| ----------------------------------- | -------------------------------------------------------- |
-| CP URL (единствен tracked източник) | `config/environment.php` → `control_panel_url`           |
-| Loader                              | `ModuleDeploymentEnvironment`                            |
-| API prefix                          | `/api/v1` (host + prefix; **без** HTTP в Phase 2)        |
-| Secrets file                        | `secrets/smartucf-key.php` → `passphrase` (Git-ignored)  |
-| Certificate                         | `keys/avalon_cert.pem` (Git-ignored, ръчно)              |
-| Private key                         | `keys/avalon_private_key.pem` (Git-ignored, ръчно)       |
-| Health                              | `DeploymentHealthService` (локално; без CP connectivity) |
-| Auto cert sync                      | **забранено** за OC4 `2.0.2`                             |
+| Елемент                             | Стойност                                                     |
+| ----------------------------------- | ------------------------------------------------------------ |
+| CP URL (единствен tracked източник) | `config/environment.php` → `control_panel_url`               |
+| Loader                              | `ModuleDeploymentEnvironment`                                |
+| API prefix                          | `/api/v1` (host + prefix; **без** HTTP в Phase 2)            |
+| Secrets file                        | `secrets/smartucf-key.php` → `passphrase` (Git-ignored)      |
+| Certificate                         | `keys/avalon_cert.pem` (Git-ignored, CP-synchronized)        |
+| Private key                         | `keys/avalon_private_key.pem` (Git-ignored, CP-synchronized) |
+| Health                              | `DeploymentHealthService` (локално; без CP connectivity)     |
+| Runtime cert sync                   | Phase 11A metadata/bundle sync; passphrase stays local       |
 
 ---
 
