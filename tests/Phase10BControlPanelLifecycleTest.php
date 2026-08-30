@@ -58,12 +58,12 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         self::assertSame('BGN', $payload['currency']);
         self::assertArrayNotHasKey('status_id', $payload);
 
-        // Builder still serializes empty phone if given (frozen recovery). Checkout
-        // validator now rejects empty telephone before a new CP submit.
+        // Checkout may send phone='' — builder must not invent a placeholder.
         $checkout = OrderMaterializationTestHarness::productSubmission();
         $checkout->customer = new FinancingCustomerData(0, 1, 'Ivan', 'Petrov', 'ivan@example.test', '');
         $emptyPhone = $builder->build($checkout, 99, ProductFinancingTestHarness::shop());
         self::assertSame('', $emptyPhone['phone']);
+        self::assertSame(ModuleConstants::VERSION, $emptyPhone['version']);
 
         $process2Shop = ProductFinancingTestHarness::shop();
         $process2Shop['uni_proces'] = 1;

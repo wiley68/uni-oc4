@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Checkout confirm adapts native order + session Checkout state (OC 4.1 timing).
  *
- * Telephone is required for financing (CP StoreOrderRequest).
+ * Primary telephone is optional for Checkout only (legacy Process 1 / uni-oc4-old).
  */
 final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
 {
@@ -50,7 +50,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         self::assertSame('ул. Пример 1', $billing->address1);
     }
 
-    public function testGuestCheckoutEmptyTelephoneIsRejected(): void
+    public function testGuestCheckoutEmptyTelephonePassesValidation(): void
     {
         $adapter = new CheckoutOrderCustomerAdapter();
         $order = [
@@ -75,17 +75,14 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         ];
 
         $resolved = $adapter->fromCheckoutContext($order, [], null);
-        self::assertContains('telephone', $resolved['missing']);
+        self::assertSame([], $resolved['missing']);
         self::assertSame('', $resolved['input']['telephone']);
+        self::assertNotContains('telephone', $resolved['missing']);
 
         $normalized = (new ProductPopupFormNormalizer())->normalize($resolved['input'], []);
-        try {
-            (new CheckoutCustomerValidator())->validate($normalized, 1, 0);
-            self::fail('Empty telephone must fail Checkout financing validation');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertSame('validation', $exception->errorCode());
-            self::assertArrayHasKey('telephone', $exception->fieldErrors());
-        }
+        $validated = (new CheckoutCustomerValidator())->validate($normalized, 1, 0);
+        self::assertSame('', $validated['customer']->telephone);
+        self::assertSame(0, $validated['customer']->customerId);
     }
 
     public function testNativeTelephonePreservedWhenPresent(): void
@@ -203,7 +200,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         ];
 
         $resolved = $adapter->fromCheckoutContext($order, [], null);
-        self::assertContains('telephone', $resolved['missing']);
+        self::assertSame([], $resolved['missing']);
         self::assertSame('ул. Доставка 9', $resolved['input']['address']);
         self::assertSame('order.shipping_address_1', $resolved['sources']['address']);
         self::assertSame('', $resolved['input']['telephone']);
@@ -231,8 +228,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
         ];
 
         $resolved = $adapter->fromCheckoutContext($order, $session, null);
-        self::assertContains('telephone', $resolved['missing']);
-        self::assertContains('address', $resolved['missing']);
+        self::assertSame(['address'], $resolved['missing']);
         self::assertSame('missing', $resolved['sources']['address']);
     }
 
@@ -257,7 +253,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
                 'firstname'   => 'Guest',
                 'lastname'    => 'Buyer',
                 'email'       => 'guest@example.com',
-                'telephone'   => '+359888111222',
+                'telephone'   => '',
             ],
             'payment_address' => [],
             'shipping_address' => [
@@ -280,7 +276,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             1,
             0
         );
-        self::assertSame('+359888111222', $validated['customer']->telephone);
+        self::assertSame('', $validated['customer']->telephone);
     }
 
     public function testLoggedInVerifiedAddressCompletesPartialOrder(): void
@@ -292,7 +288,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             'firstname'          => 'Logged',
             'lastname'           => 'In',
             'email'              => 'logged@example.com',
-            'telephone'          => '+359888333444',
+            'telephone'          => '',
             'payment_firstname'  => '',
             'payment_lastname'   => '',
             'payment_address_1'  => '',
@@ -305,7 +301,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
                 'firstname'   => 'Logged',
                 'lastname'    => 'In',
                 'email'       => 'logged@example.com',
-                'telephone'   => '+359888333444',
+                'telephone'   => '',
             ],
             'payment_address'  => [],
             'shipping_address' => [],
@@ -330,7 +326,7 @@ final class Phase9CheckoutOrderCustomerAdapterTest extends TestCase
             42
         );
         self::assertSame(42, $validated['customer']->customerId);
-        self::assertSame('+359888333444', $validated['customer']->telephone);
+        self::assertSame('', $validated['customer']->telephone);
     }
 
     public function testPostedCustomerFieldsDoNotOverrideNativeCheckout(): void

@@ -71,12 +71,13 @@ Customer-facing copy remains generic (order exists; financing system send failed
 
 ## Checkout empty telephone
 
-Checkout financing requires a non-empty native telephone before CP submit (same as Product/Cart).
-CP `StoreOrderRequest` rejects empty `phone` with HTTP 422. OpenCart may allow empty telephone when
-`config_telephone_required` is off — financing must not POST that state.
+Checkout primary telephone remains **optional** (`telephone=''` is valid).  
+CP `StoreOrderRequest` accepts `phone=''` (nullable/empty string persisted as `''` on non-null column).  
+OpenCart may omit telephone when `config_telephone_required` is off — financing POSTs `phone=''` without placeholders.
 
-Runtime evidence (local order + apache `POST /api/v1/orders` → 422): empty phone. Taxonomy for HTTP 422
-is `cp_rejected` / `cp_failed_retryable` (not `cp_transport_failed`).
+Product/Cart still require telephone.
+
+SmartUCF acceptance of empty `clientPhone` remains a Phase 11 real-bank test — not validated here.
 
 ## OpenCart status
 

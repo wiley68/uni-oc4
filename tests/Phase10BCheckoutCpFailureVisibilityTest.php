@@ -52,11 +52,11 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
         $this->attempts = new FinancingAttemptRepository($db);
     }
 
-    public function testEmptyPhoneCp422MapsToRejectedNotTransport(): void
+    public function testGenericCp422MapsToRejectedNotTransport(): void
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        // Exact CP body observed for open40 attempt 124 (POST /api/v1/orders → 422).
+        // Application rejection (e.g. historical empty-phone 422) must not become transport_failed.
         $transport->enqueueJson(422, [
             'message' => 'Телефонният номер е задължителен.',
             'errors'  => [

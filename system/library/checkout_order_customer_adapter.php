@@ -20,8 +20,7 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  * 6. session.customer
  * 7. verified logged-in address row (optional)
  *
- * Telephone must come from native Checkout sources (never fabricated). Empty
- * telephone is reported in {@see $missing} — CP requires a non-empty phone.
+ * Primary telephone is optional: native value or '' (never fabricated).
  * Browser POST customer fields are never authoritative.
  */
 final class CheckoutOrderCustomerAdapter
@@ -172,9 +171,9 @@ final class CheckoutOrderCustomerAdapter
             'zone_id'    => (string) $zoneId,
         ];
 
-        // Checkout financing required identity (telephone required for CP POST /orders).
+        // Checkout required identity (telephone intentionally omitted — may be '').
         $missing = [];
-        foreach (['firstname', 'lastname', 'email', 'telephone', 'address'] as $required) {
+        foreach (['firstname', 'lastname', 'email', 'address'] as $required) {
             if (trim((string) ($input[$required] ?? '')) === '') {
                 $missing[] = $required;
             }
