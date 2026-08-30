@@ -52,6 +52,7 @@
     let currentStep = 1;
     let calcBusy = false;
     let submitBusy = false;
+    let redirectTerminal = false;
     let firstInstallmentTimer = null;
     let issueFlight = null;
     let modalHomeParent = modal.parentElement;
@@ -1347,6 +1348,7 @@
         return;
       }
       submitBusy = true;
+      redirectTerminal = false;
       button.setAttribute('aria-busy', 'true');
       button.disabled = true;
       clearFieldErrors();
@@ -1365,8 +1367,11 @@
 
         const json = await postJson(state.submit_url, payload, { abort: false });
         if (json.success) {
-          if (json.redirect_url) {
-            window.location.assign(json.redirect_url);
+          if (json.redirect_url
+            && window.MtUniCreditRedirect
+            && window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)) {
+            // Terminal: keep loader until navigation unloads the page.
+            redirectTerminal = true;
             return;
           }
           const successMessage = modal.querySelector('[data-mtuc-success-message]');
@@ -1389,9 +1394,11 @@
         }
         updateSubmitState(false);
       } finally {
-        button.setAttribute('aria-busy', 'false');
-        submitBusy = false;
-        setProcessing(false);
+        if (!redirectTerminal) {
+          button.setAttribute('aria-busy', 'false');
+          submitBusy = false;
+          setProcessing(false);
+        }
       }
     }
 

@@ -17,6 +17,8 @@ final class FakeCpHttpTransport implements CpHttpTransport
 
     private ?int $autoCreateOrderId = null;
 
+    public bool $failStatusPatch = false;
+
     public function enableAutoAuthAndCreate(int $cpOrderId = 901): void
     {
         $this->autoCreateOrderId = $cpOrderId;
@@ -86,6 +88,12 @@ final class FakeCpHttpTransport implements CpHttpTransport
                 ], JSON_THROW_ON_ERROR));
             }
             if (str_contains($url, '/orders/status') && strtoupper($method) === 'PATCH') {
+                if ($this->failStatusPatch) {
+                    return new CpHttpResponse(500, json_encode([
+                        'error' => 'status_update_failed',
+                        'message' => 'Forced PATCH failure for tests',
+                    ], JSON_THROW_ON_ERROR));
+                }
                 return new CpHttpResponse(200, json_encode([
                     'success' => true,
                     'message' => 'Статусът е обновен',

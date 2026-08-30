@@ -28,6 +28,10 @@ class MtUniCreditProductController extends \Opencart\System\Engine\Controller
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'));
         // Footer: product fragment is injected in body; header scripts run too early.
         $this->document->addScript(
+            ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_redirect.js'),
+            'footer'
+        );
+        $this->document->addScript(
             ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_product.js'),
             'footer'
         );

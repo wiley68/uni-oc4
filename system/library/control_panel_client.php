@@ -186,17 +186,20 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
 
     /**
      * PATCH /orders/status after a definitive bank lifecycle transition.
+     *
+     * @param string $shopOrderId Shop order identifier — same value as POST /orders `order_id`
+     *                            (local OpenCart order id), not the Control Panel internal PK.
      */
-    public function updateOrderStatus(string $cpOrderId, string $statusLabel, string $statusId): void
+    public function updateOrderStatus(string $shopOrderId, string $statusLabel, string $statusId): void
     {
-        $cpOrderId = trim($cpOrderId);
+        $shopOrderId = trim($shopOrderId);
         $statusLabel = trim($statusLabel);
         $statusId = trim($statusId);
-        if ($cpOrderId === '' || $statusId === '') {
+        if ($shopOrderId === '' || $statusId === '') {
             throw new CpInvalidPayloadException('Control Panel order status fields are incomplete.');
         }
         $this->authenticatedRequest('PATCH', '/orders/status', [
-            'order_id' => $cpOrderId,
+            'order_id' => $shopOrderId,
             'status' => $statusLabel,
             'status_id' => $statusId,
         ]);

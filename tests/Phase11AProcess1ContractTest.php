@@ -90,8 +90,83 @@ final class Phase11AProcess1ContractTest extends TestCase
                 && str_contains($request['url'], '/orders/status')
         ));
         self::assertCount(1, $patches);
-        self::assertSame('901', $patches[0]['payload']['order_id']);
+        self::assertSame('811', $patches[0]['payload']['order_id']);
         self::assertSame(BankStatus::SENT_PROCESS1, $patches[0]['payload']['status_id']);
+        self::assertSame(BankStatus::LABEL_SENT_PROCESS1, $patches[0]['payload']['status']);
+    }
+
+    public function testCpPatchUsesShopOrderIdNotControlPanelInternalId(): void
+    {
+        [$coordinator, $attemptId, $submission, $db, $transport] = $this->coordinatorWithClient(
+            new class {
+                public int $calls = 0;
+
+                /** @return array{session_id: string, redirect_url: string, http_code: int} */
+                public function createSession(array $shop, object $submission, int $localOrderId): array
+                {
+                    $this->calls++;
+
+                    return [
+                        'session_id' => 'session-shop-id',
+                        'redirect_url' => 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-shop-id',
+                        'http_code' => 200,
+                    ];
+                }
+            },
+            820
+        );
+
+        $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $submission, 820, 999001);
+        $patches = array_values(array_filter(
+            $transport->requests,
+            static fn(array $request): bool => $request['method'] === 'PATCH'
+                && str_contains($request['url'], '/orders/status')
+        ));
+        self::assertSame('820', $patches[0]['payload']['order_id']);
+        self::assertNotSame('999001', $patches[0]['payload']['order_id']);
+    }
+
+    public function testCpPatchFailureAfterSmartUcfSuccessDoesNotWriteFailureAndReplayReconcilesWithoutSecondSession(): void
+    {
+        $client = new class {
+            public int $calls = 0;
+
+            /** @return array{session_id: string, redirect_url: string, http_code: int} */
+            public function createSession(array $shop, object $submission, int $localOrderId): array
+            {
+                $this->calls++;
+
+                return [
+                    'session_id' => 'session-replay',
+                    'redirect_url' => 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-replay',
+                    'http_code' => 200,
+                ];
+            }
+        };
+        [$coordinator, $attemptId, $submission, $db, $transport] = $this->coordinatorWithClient($client, 821);
+        $transport->failStatusPatch = true;
+
+        $first = $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $submission, 821, 9021);
+        self::assertTrue($first->isCreated());
+        self::assertSame(1, $client->calls);
+        $status = $db->query(
+            'SELECT `status_id` FROM `' . $db->getPrefix() . 'mt_uni_credit_order_bank_status` WHERE `order_id` = 821'
+        );
+        self::assertSame(BankStatus::SENT_PROCESS1, $status->row['status_id']);
+        self::assertNotSame(BankStatus::SEND_FAILED_SMARTUCF, $status->row['status_id']);
+
+        $transport->failStatusPatch = false;
+        $second = $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $submission, 821, 9021);
+        self::assertTrue($second->isCreated());
+        self::assertSame(1, $client->calls);
+        $patches = array_values(array_filter(
+            $transport->requests,
+            static fn(array $request): bool => $request['method'] === 'PATCH'
+                && str_contains($request['url'], '/orders/status')
+        ));
+        self::assertGreaterThanOrEqual(2, count($patches));
+        self::assertSame('821', $patches[array_key_last($patches)]['payload']['order_id']);
+        self::assertSame(BankStatus::SENT_PROCESS1, $patches[array_key_last($patches)]['payload']['status_id']);
     }
 
     public function testKnownFailureWritesSmartUcfFailureWhileTimeoutStaysUnknown(): void

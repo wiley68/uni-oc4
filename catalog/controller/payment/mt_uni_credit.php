@@ -69,6 +69,10 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'));
         $this->document->addStyle(ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_checkout.css'));
         $this->document->addScript(
+            ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_redirect.js'),
+            'footer'
+        );
+        $this->document->addScript(
             ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_checkout.js'),
             'footer'
         );

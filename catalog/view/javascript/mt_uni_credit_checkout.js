@@ -61,6 +61,7 @@
     let calcBusy = false;
     let issueFlight = null;
     let confirmBusy = false;
+    let redirectTerminal = false;
     let firstInstallmentTimer = null;
     let cartFingerprint = state.calculator?.cart_fingerprint || '';
 
@@ -385,6 +386,7 @@
       }
 
       confirmBusy = true;
+      redirectTerminal = false;
       button.setAttribute('aria-busy', 'true');
       button.disabled = true;
       setProcessing(true);
@@ -420,9 +422,20 @@
             success.hidden = false;
           }
           if (json.redirect_url) {
-            window.location.assign(json.redirect_url);
+            if (window.MtUniCreditRedirect
+              && window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)) {
+              redirectTerminal = true;
+              return;
+            }
+            if (submitErrorEl()) {
+              submitErrorEl().textContent = 'Заявката не може да бъде обработена.';
+            }
+            updateConfirmState();
           } else if (json.redirect) {
-            window.location = json.redirect;
+            // Non-bank success page (e.g. Process 2 / CP-only): keep loader until unload.
+            redirectTerminal = true;
+            window.location.assign(json.redirect);
+            return;
           }
         } else {
           if (json.error_code === 'checkout_order_changed' || json.error_code === 'checkout_order_missing') {
@@ -439,9 +452,11 @@
         }
         updateConfirmState();
       } finally {
-        button.setAttribute('aria-busy', 'false');
-        confirmBusy = false;
-        setProcessing(false);
+        if (!redirectTerminal) {
+          button.setAttribute('aria-busy', 'false');
+          confirmBusy = false;
+          setProcessing(false);
+        }
       }
     }
 
