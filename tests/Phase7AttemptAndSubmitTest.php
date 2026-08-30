@@ -96,7 +96,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection);
 
         $result = $service->submit(
-            ProductFinancingTestHarness::shop(),
+            array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => 1]),
             ProductFinancingTestHarness::STORE_ID,
             (string) $attempt['submission_token'],
             $actor,
@@ -303,7 +303,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
         self::assertSame(0, (int) $attempt['store_id']);
 
         $result = $service->submit(
-            ProductFinancingTestHarness::shop(),
+            array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => 1]),
             $storeId,
             (string) $attempt['submission_token'],
             $actor,

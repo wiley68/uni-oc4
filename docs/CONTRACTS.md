@@ -1,3 +1,7 @@
+# Phase 11A Process 1
+
+After CP order creation, the module calls the trusted SmartUCF `sucfOnlineSessionStart` endpoint directly. A valid session persists `smartucf_state=created`, updates CP and local status to `bank_sent_process1`, and returns `redirect_url` with `bank_submitted=true`. Definitive rejection writes `bank_send_failed_smartucf`; ambiguous outcomes write neither failure nor Process 2 status. `uni_proces=1` skips this lifecycle for now.
+
 # UniCredit OpenCart 4.x — замразени договори (Phase 0)
 
 Този документ записва **проверени** договори от текущите реализации. Не е спецификация на желано бъдещо поведение.

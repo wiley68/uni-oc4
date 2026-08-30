@@ -368,8 +368,11 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             $token = (string) $attempt['submission_token'];
         }
 
+        $phase10Shop = ProductFinancingTestHarness::shop();
+        $phase10Shop['uni_proces'] = 1;
+
         return $service->submit(
-            ProductFinancingTestHarness::shop(),
+            $phase10Shop,
             ProductFinancingTestHarness::STORE_ID,
             $token,
             $actor,

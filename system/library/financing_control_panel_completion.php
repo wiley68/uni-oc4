@@ -15,19 +15,19 @@ final class FinancingControlPanelCompletion
         ValidatedFinancingSubmission $submission,
         int $localOrderId,
         array $shop,
-        string $lockOwnerToken
+        string $lockOwnerToken,
+        ?PostControlPanelLifecycleService $postControlPanel = null
     ): ProductFinancingResult {
         $row = $attempt->row();
         $existingCp = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
         if ($existingCp > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
-            return new ProductFinancingResult(
-                true,
-                'cp_order_prepared',
+            return self::postControlPanel($lifecycle, $postControlPanel)->handle(
+                $attempt->attemptId(),
+                $submission,
                 $localOrderId,
-                ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
-                true,
-                FinancingAttemptState::CP_CREATED,
-                $existingCp
+                $existingCp,
+                $shop,
+                true
             );
         }
 
@@ -39,14 +39,13 @@ final class FinancingControlPanelCompletion
 
         $result = $lifecycle->submitOrRecover($attempt, $submission, $localOrderId, $shop, $lockOwnerToken);
         if ($result->success && $result->cpOrderId !== null) {
-            return new ProductFinancingResult(
-                true,
-                'cp_order_prepared',
+            return self::postControlPanel($lifecycle, $postControlPanel)->handle(
+                $attempt->attemptId(),
+                $submission,
                 $localOrderId,
-                ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
-                $result->replay,
-                FinancingAttemptState::CP_CREATED,
-                $result->cpOrderId
+                $result->cpOrderId,
+                $shop,
+                $result->replay
             );
         }
 
@@ -58,5 +57,24 @@ final class FinancingControlPanelCompletion
                 'recoverable' => $result->recoverable ? '1' : '0',
             ]
         );
+    }
+
+    private static function postControlPanel(
+        ControlPanelOrderLifecycleService $lifecycle,
+        ?PostControlPanelLifecycleService $service
+    ): PostControlPanelLifecycleService {
+        if ($service !== null) {
+            return $service;
+        }
+        $db = $lifecycle->database();
+        $coordinator = new SmartUcfSessionCoordinator(
+            new SmartUcfLifecycleRepository($db),
+            new SmartUcfSessionClient(),
+            new SmartUcfFailureClassifier(),
+            new OrderBankStatusRepository($db),
+            $lifecycle->client()
+        );
+
+        return new PostControlPanelLifecycleService($coordinator);
     }
 }

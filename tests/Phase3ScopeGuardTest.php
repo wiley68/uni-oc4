@@ -37,7 +37,7 @@ final class Phase3ScopeGuardTest extends TestCase
                 if (!$file->isFile() || $file->getExtension() !== 'php') {
                     continue;
                 }
-                if (self::isBridgeAAllowed($file->getPathname())) {
+                if (self::isBridgeAAllowed($file->getPathname()) || self::isPhase11Allowed($file->getPathname())) {
                     continue;
                 }
                 $contents = (string) file_get_contents($file->getPathname());
@@ -59,6 +59,16 @@ final class Phase3ScopeGuardTest extends TestCase
             || str_contains($path, '/system/library/inbound_')
             || str_contains($path, '/system/library/order_bank_status_repository.php')
             || str_contains($path, '/system/library/diagnostic_');
+    }
+
+    private static function isPhase11Allowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/smart_ucf_')
+            || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
+            || str_ends_with($path, '/system/library/shop_configuration_flags.php')
+            || str_ends_with($path, '/system/library/financing_control_panel_completion.php')
+            || str_ends_with($path, '/system/library/control_panel_client.php');
     }
 
     public function testSchemaInstallerDoesNotCreatePhase4PlusTables(): void

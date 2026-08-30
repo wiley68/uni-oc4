@@ -14,7 +14,9 @@ final class ProductFinancingResult
         public bool $replay = false,
         public string $lifecycleState = 'local_order_prepared',
         public ?int $controlPanelOrderId = null,
-        public ?string $errorCode = null
+        public ?string $errorCode = null,
+        public ?string $redirectUrl = null,
+        public bool $bankSubmitted = false
     ) {
     }
 
@@ -26,7 +28,7 @@ final class ProductFinancingResult
             'step'             => $this->step,
             'message'          => $this->message,
             'lifecycle_state'  => $this->lifecycleState,
-            'bank_submitted'   => false,
+            'bank_submitted'   => $this->bankSubmitted,
         ];
         if ($this->orderId !== null) {
             $payload['order_id'] = $this->orderId;
@@ -36,6 +38,9 @@ final class ProductFinancingResult
         }
         if ($this->errorCode !== null) {
             $payload['error_code'] = $this->errorCode;
+        }
+        if ($this->redirectUrl !== null && $this->redirectUrl !== '') {
+            $payload['redirect_url'] = $this->redirectUrl;
         }
         if ($this->replay) {
             $payload['replay'] = true;

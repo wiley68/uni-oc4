@@ -56,7 +56,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection);
 
         $result = $service->submit(
-            ProductFinancingTestHarness::shop(),
+            array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => 1]),
             ProductFinancingTestHarness::STORE_ID,
             (string) $attempt['submission_token'],
             $actor,
@@ -128,7 +128,7 @@ final class Phase10AProductOrderCreationIntegrationTest extends TestCase
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection);
 
         $args = [
-            ProductFinancingTestHarness::shop(),
+            array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => 1]),
             ProductFinancingTestHarness::STORE_ID,
             (string) $attempt['submission_token'],
             $actor,

@@ -85,6 +85,12 @@ final class FakeCpHttpTransport implements CpHttpTransport
                     ],
                 ], JSON_THROW_ON_ERROR));
             }
+            if (str_contains($url, '/orders/status') && strtoupper($method) === 'PATCH') {
+                return new CpHttpResponse(200, json_encode([
+                    'success' => true,
+                    'message' => 'Статусът е обновен',
+                ], JSON_THROW_ON_ERROR));
+            }
             if (str_contains($url, '/shop')) {
                 return new CpHttpResponse(200, json_encode([
                     'success' => true,

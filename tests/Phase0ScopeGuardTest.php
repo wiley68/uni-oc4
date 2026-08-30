@@ -43,7 +43,8 @@ final class Phase0ScopeGuardTest extends TestCase
                 continue;
             }
 
-            if (self::isPhase4CpProductionFile($path) || self::isBridgeAInboundProductionFile($path)) {
+            if (self::isPhase4CpProductionFile($path) || self::isBridgeAInboundProductionFile($path)
+                || self::isPhase11SmartUcfProductionFile($path)) {
                 continue;
             }
 
@@ -79,5 +80,14 @@ final class Phase0ScopeGuardTest extends TestCase
             || str_contains($path, '/system/library/module_encryption_key_provider.php')
             || str_contains($path, '/system/library/open_cart_module_setting_store.php')
             || str_contains($path, '/admin/model/module/mt_uni_credit.php');
+    }
+
+    private static function isPhase11SmartUcfProductionFile(string $path): bool
+    {
+        return str_contains($path, '/system/library/smart_ucf_')
+            || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
+            || str_ends_with($path, '/system/library/shop_configuration_flags.php')
+            || str_ends_with($path, '/system/library/financing_control_panel_completion.php');
     }
 }

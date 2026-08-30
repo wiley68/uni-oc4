@@ -29,3 +29,7 @@ Exact URLs and payloads: `docs/INBOUND-API.md`.
 Frozen `cp_payload` on the attempt row is required for idempotent recovery. Do not add a second permanent customer payload table for CP retry.
 
 Diagnostic debug retrieval redacts EGN, contact fields, tokens, and key material before returning to CP.
+
+## SmartUCF Process 1 mTLS
+
+SmartUCF is called directly over HTTPS with peer and hostname verification enabled and a 10-second timeout. Destination policy accepts only the frozen `online.ucfin.bg` / `onlinetest.ucfin.bg` paths. When `uni_sertificat` is enabled, certificate and key are read from the module-local `keys/` directory and the private-key passphrase from `secrets/smartucf-key.php`. OpenCart does not download or synchronize certificates from CP.

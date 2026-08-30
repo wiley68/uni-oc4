@@ -70,7 +70,7 @@ final class Phase5ScopeGuardTest extends TestCase
                 if (in_array($relative, self::ALLOWED_CALCULATOR_FILES, true)) {
                     continue;
                 }
-                if (self::isBridgeAAllowed($path)) {
+                if (self::isBridgeAAllowed($path) || self::isPhase11Allowed($path)) {
                     continue;
                 }
                 $contents = (string) file_get_contents($path);
@@ -92,6 +92,16 @@ final class Phase5ScopeGuardTest extends TestCase
             || str_contains($path, '/system/library/inbound_')
             || str_contains($path, '/system/library/order_bank_status_repository.php')
             || str_contains($path, '/system/library/diagnostic_');
+    }
+
+    private static function isPhase11Allowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/smart_ucf_')
+            || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
+            || str_ends_with($path, '/system/library/shop_configuration_flags.php')
+            || str_ends_with($path, '/system/library/financing_control_panel_completion.php')
+            || str_ends_with($path, '/system/library/control_panel_client.php');
     }
 
     public function testCalculatorClassesHaveNoOpenCartRuntimeDependencies(): void

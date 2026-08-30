@@ -1365,6 +1365,10 @@
 
         const json = await postJson(state.submit_url, payload, { abort: false });
         if (json.success) {
+          if (json.redirect_url) {
+            window.location.assign(json.redirect_url);
+            return;
+          }
           const successMessage = modal.querySelector('[data-mtuc-success-message]');
           if (successMessage) {
             successMessage.textContent = json.message || 'Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.';

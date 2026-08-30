@@ -63,6 +63,9 @@ final class Phase8ScopeGuardTest extends TestCase
             if (!$file->isFile() || $file->getExtension() !== 'php') {
                 continue;
             }
+            if (self::isPhase11Allowed($file->getPathname())) {
+                continue;
+            }
             $contents = (string) file_get_contents($file->getPathname());
             foreach (self::FORBIDDEN_MARKERS as $marker) {
                 self::assertStringNotContainsString(
@@ -80,5 +83,10 @@ final class Phase8ScopeGuardTest extends TestCase
         self::assertStringContainsString('mt_uni_credit_cart', $controller);
         self::assertStringNotContainsString('mt_uni_credit_product.calculate', $controller);
         self::assertStringNotContainsString('ProductOperationIdentity', $controller);
+    }
+
+    private static function isPhase11Allowed(string $path): bool
+    {
+        return str_ends_with($path, '/catalog/controller/module/mt_uni_credit_cart.php');
     }
 }

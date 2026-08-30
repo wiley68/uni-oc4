@@ -44,6 +44,9 @@ final class Phase2ScopeGuardTest extends TestCase
                 if (!$file->isFile() || $file->getExtension() !== 'php') {
                     continue;
                 }
+                if (self::isPhase11Allowed($file->getPathname())) {
+                    continue;
+                }
                 $contents = (string) file_get_contents($file->getPathname());
                 foreach (self::FORBIDDEN_MARKERS as $marker) {
                     self::assertStringNotContainsString(
@@ -78,5 +81,14 @@ final class Phase2ScopeGuardTest extends TestCase
         self::assertStringContainsString('config|keys|secrets', $htaccess);
         self::assertFileExists(dirname(__DIR__) . '/keys/.htaccess');
         self::assertFileExists(dirname(__DIR__) . '/secrets/.htaccess');
+    }
+
+    private static function isPhase11Allowed(string $path): bool
+    {
+        return str_contains($path, '/system/library/smart_ucf_')
+            || str_ends_with($path, '/system/library/bank_status.php')
+            || str_ends_with($path, '/system/library/post_control_panel_lifecycle_service.php')
+            || str_ends_with($path, '/system/library/financing_control_panel_completion.php')
+            || str_ends_with($path, '/system/library/shop_configuration_flags.php');
     }
 }

@@ -44,6 +44,9 @@ final class Phase9ScopeGuardTest extends TestCase
                 if (!$file->isFile()) {
                     continue;
                 }
+                if (self::isPhase11Allowed($file->getPathname())) {
+                    continue;
+                }
                 $this->assertNoMarkers($file->getPathname(), (string) file_get_contents($file->getPathname()));
             }
         }
@@ -62,5 +65,11 @@ final class Phase9ScopeGuardTest extends TestCase
         foreach (self::FORBIDDEN_MARKERS as $marker) {
             self::assertStringNotContainsString($marker, $contents, $path . ' must not contain ' . $marker);
         }
+    }
+
+    private static function isPhase11Allowed(string $path): bool
+    {
+        return str_ends_with($path, '/catalog/controller/payment/mt_uni_credit.php')
+            || str_ends_with($path, '/catalog/view/javascript/mt_uni_credit_checkout.js');
     }
 }

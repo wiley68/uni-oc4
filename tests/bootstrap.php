@@ -13,7 +13,7 @@ spl_autoload_register(static function (string $class): void {
     $relative = substr($class, strlen($prefix));
 
     if (str_ends_with($relative, 'Exception')) {
-        foreach (['persistence_exception.php', 'cp_exception.php', 'shop_snapshot_validation_exception.php', 'unavailable_scheme_exception.php', 'order_materialization_exception.php', 'product_financing_flow_exception.php', 'module_api_exception.php'] as $exceptionFile) {
+        foreach (['persistence_exception.php', 'cp_exception.php', 'shop_snapshot_validation_exception.php', 'unavailable_scheme_exception.php', 'order_materialization_exception.php', 'product_financing_flow_exception.php', 'module_api_exception.php', 'smart_ucf_session_exception.php'] as $exceptionFile) {
             $exceptionPath = dirname(__DIR__) . '/system/library/' . $exceptionFile;
             if (is_file($exceptionPath)) {
                 require_once $exceptionPath;

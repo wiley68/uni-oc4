@@ -7,7 +7,7 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Control Panel HTTP client — login, refresh, logout, GET /shop (Phase 4).
  */
-final class ControlPanelClient
+final class ControlPanelClient implements ControlPanelOrderStatusPort
 {
     private ModuleCredentialsRepository $credentials;
 
@@ -129,6 +129,24 @@ final class ControlPanelClient
         }
 
         return $response;
+    }
+
+    /**
+     * PATCH /orders/status after a definitive bank lifecycle transition.
+     */
+    public function updateOrderStatus(string $cpOrderId, string $statusLabel, string $statusId): void
+    {
+        $cpOrderId = trim($cpOrderId);
+        $statusLabel = trim($statusLabel);
+        $statusId = trim($statusId);
+        if ($cpOrderId === '' || $statusId === '') {
+            throw new CpInvalidPayloadException('Control Panel order status fields are incomplete.');
+        }
+        $this->authenticatedRequest('PATCH', '/orders/status', [
+            'order_id' => $cpOrderId,
+            'status' => $statusLabel,
+            'status_id' => $statusId,
+        ]);
     }
 
     /**

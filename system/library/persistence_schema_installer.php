@@ -37,6 +37,30 @@ final class PersistenceSchemaInstaller
         } catch (\Throwable $exception) {
             // Table may be mid-install or already compatible; CREATE path uses BIGINT.
         }
+
+        $columns = [
+            'smartucf_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
+            'smartucf_session_id' => 'VARCHAR(128) NULL',
+            'smartucf_redirect_url' => 'VARCHAR(768) NULL',
+            'smartucf_http_code' => 'INT NULL',
+            'smartucf_error_class' => 'VARCHAR(64) NULL',
+            'smartucf_retryable' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'smartucf_claimed_at' => 'DATETIME NULL',
+            'smartucf_completed_at' => 'DATETIME NULL',
+        ];
+        foreach ($columns as $column => $definition) {
+            try {
+                $result = $this->db->query(
+                    "SHOW COLUMNS FROM `{$financingAttempt}` LIKE '" . $this->db->escape($column) . "'"
+                );
+                if (is_object($result) && (int) ($result->num_rows ?? 0) > 0) {
+                    continue;
+                }
+                $this->db->query("ALTER TABLE `{$financingAttempt}` ADD COLUMN `{$column}` {$definition}");
+            } catch (\Throwable $exception) {
+                // Concurrent installer or restricted metadata access; retry remains idempotent.
+            }
+        }
     }
 
     /**
@@ -107,6 +131,14 @@ final class PersistenceSchemaInstaller
                 `order_id` INT UNSIGNED NULL,
                 `control_panel_order_id` BIGINT UNSIGNED NULL,
                 `cp_payload` LONGTEXT NULL,
+                `smartucf_state` VARCHAR(32) NOT NULL DEFAULT 'not_started',
+                `smartucf_session_id` VARCHAR(128) NULL,
+                `smartucf_redirect_url` VARCHAR(768) NULL,
+                `smartucf_http_code` INT NULL,
+                `smartucf_error_class` VARCHAR(64) NULL,
+                `smartucf_retryable` TINYINT(1) NOT NULL DEFAULT 0,
+                `smartucf_claimed_at` DATETIME NULL,
+                `smartucf_completed_at` DATETIME NULL,
                 `last_error_class` VARCHAR(64) NULL,
                 `expires_at` DATETIME NULL,
                 `created_at` DATETIME NOT NULL,

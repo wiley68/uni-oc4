@@ -299,6 +299,14 @@ namespace Opencart\System\Library\Extension\MtUniCredit {
     final class PersistenceNotFoundException extends PersistenceException {}
 
     final class OrderMaterializationException extends \RuntimeException {}
+
+    /**
+     * IDE surface for Phase 11A CP status updates (runtime: control_panel_order_status_port.php).
+     */
+    interface ControlPanelOrderStatusPort
+    {
+        public function updateOrderStatus(string $cpOrderId, string $statusLabel, string $statusId): void;
+    }
 }
 
 namespace Opencart\System\Library\Cart {

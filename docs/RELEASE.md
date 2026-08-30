@@ -43,3 +43,5 @@ are allowed only after the `v2.0.2` tag/release exists.
 ### Schema / upgrades
 
 Before first production release, schema changes use uninstall/reinstall. Do not add `upgrade-2.0.2.php` (or similar) solely because the version string is frozen.
+
+Phase 11A adds idempotent `smartucf_*` columns through `PersistenceSchemaInstaller::installAll()`. This does not change the frozen module version. The release boundary includes Process 1 SmartUCF only; Process 2 execution remains unimplemented.

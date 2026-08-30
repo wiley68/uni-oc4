@@ -17,6 +17,11 @@ final class FinancingAttemptRepository
         $this->clock = $clock ?? new PersistenceClock();
     }
 
+    public function database(): DbConnection
+    {
+        return $this->db;
+    }
+
     /**
      * @return array<string, mixed>
      */

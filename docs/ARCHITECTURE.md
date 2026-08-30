@@ -20,8 +20,8 @@ validated context → usable local OC order → durable attempt/snapshot → CP 
 | 8 Cart             | UI + submit to local order path                       |
 | 9 Checkout payment | `local_order_prepared` on existing `session.order_id` |
 | 10A Local parity   | Product/Cart visible local orders (`addHistory`)      |
-| 10B CP lifecycle   | CP create/recover → `cp_created` (no SmartUCF)        |
-| Later (11+)        | SmartUCF / Process execution / bank redirect          |
+| 10B CP lifecycle   | CP create/recover → `cp_created`                      |
+| 11A Process 1      | direct SmartUCF session → bank redirect               |
 
 ## Unified local boundary (Phase 10A)
 
@@ -43,6 +43,15 @@ local_order_prepared (order_created)
 ```
 
 Shared builder/lifecycle for Product, Cart, Checkout. See `docs/PHASE10B.md`.
+
+## Phase 11A Process 1 boundary
+
+```text
+cp_created → direct SmartUCF session start
+→ smartucf created → CP/local bank_sent_process1 → trusted bank redirect
+```
+
+Process 2 is skipped and does not write a Process 2 bank status in this phase. See `docs/PHASE11A.md`.
 
 ## Phase 9 Checkout payment path
 

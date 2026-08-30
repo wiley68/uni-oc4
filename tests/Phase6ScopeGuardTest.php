@@ -78,6 +78,9 @@ final class Phase6ScopeGuardTest extends TestCase
                     continue;
                 }
                 $relative = substr($file->getPathname(), strlen($root));
+                if (self::isPhase11Allowed($relative)) {
+                    continue;
+                }
                 if (in_array($relative, $allowed, true)) {
                     continue;
                 }
@@ -116,5 +119,12 @@ final class Phase6ScopeGuardTest extends TestCase
     {
         return str_starts_with($relative, '/system/library/')
             && !in_array($relative, self::ALLOWED_PHASE6_FILES, true);
+    }
+
+    private static function isPhase11Allowed(string $relative): bool
+    {
+        return str_starts_with($relative, '/system/library/smart_ucf_')
+            || $relative === '/system/library/bank_status.php'
+            || $relative === '/system/library/post_control_panel_lifecycle_service.php';
     }
 }

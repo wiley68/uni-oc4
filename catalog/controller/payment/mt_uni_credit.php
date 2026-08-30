@@ -315,11 +315,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->session->data['mt_uni_credit_checkout_success'] = $this->language->get('text_success_financing');
 
             $payload = $result->toArray();
-            $payload['redirect'] = $this->url->link(
-                'checkout/success',
-                'language=' . $this->config->get('config_language'),
-                true
-            );
+            $payload['redirect'] = $payload['redirect_url'] ?? $this->url->link(
+                    'checkout/success',
+                    'language=' . $this->config->get('config_language'),
+                    true
+                );
 
             return $payload;
         });

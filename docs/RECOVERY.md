@@ -54,3 +54,7 @@ POST /orders → CP creates N
 Timeout / unknown: state `cp_outcome_unknown`, then same re-POST recovery. Never invent a second shop `order_id`.
 
 CP has no GET-by-local-order lookup; recovery is create-idempotency only. See `docs/PHASE10B.md`.
+
+## SmartUCF unknown outcome (Phase 11A)
+
+`submitting` is an atomic claim. A valid returned session is persisted as `created`; replay returns the stored trusted redirect without a second bank call. Timeout, duplicate-order evidence, invalid response after send, or stale `submitting` becomes `outcome_unknown`. Customers are told not to resubmit, and `bank_send_failed_smartucf` is not written for an ambiguous outcome. Only a definitive failure writes that status locally and to CP.

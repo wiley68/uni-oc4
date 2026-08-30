@@ -17,20 +17,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class Phase7CpRefreshWithoutSmartUcfTest extends TestCase
 {
-    public function testRefreshSucceedsWhenSmartUcfFilesAreAbsent(): void
+    public function testRefreshSucceedsIndependentOfSmartUcfMtlsMaterial(): void
     {
         if (!PersistenceIntegrationHarness::enabled()) {
             self::markTestSkipped('Integration DB required (MT_UNI_CREDIT_INTEGRATION=1).');
         }
 
-        $root = dirname(__DIR__);
-        self::assertFileDoesNotExist($root . '/keys/avalon_cert.pem');
-        self::assertFileDoesNotExist($root . '/keys/avalon_private_key.pem');
-
+        // Phase 11A may deploy keys/avalon_*.pem; CP login + GET /shop must not require them.
         $health = (new DeploymentHealthService())->evaluate();
-        self::assertFalse($health['deployment_ready']);
-        self::assertNotSame(DeploymentHealthStatus::HEALTHY, $health['certificate']['status']);
-        self::assertNotSame(DeploymentHealthStatus::HEALTHY, $health['private_key']['status']);
+        self::assertArrayHasKey('deployment_ready', $health);
+        self::assertArrayHasKey('certificate', $health);
+        self::assertArrayHasKey('private_key', $health);
 
         PersistenceIntegrationHarness::resetTables();
         $transport = new FakeCpHttpTransport();

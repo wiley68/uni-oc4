@@ -419,7 +419,9 @@
           if (success) {
             success.hidden = false;
           }
-          if (json.redirect) {
+          if (json.redirect_url) {
+            window.location.assign(json.redirect_url);
+          } else if (json.redirect) {
             window.location = json.redirect;
           }
         } else {

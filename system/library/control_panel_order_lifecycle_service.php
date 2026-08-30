@@ -29,6 +29,16 @@ final class ControlPanelOrderLifecycleService
         $this->logger = $logger;
     }
 
+    public function database(): DbConnection
+    {
+        return $this->attempts->database();
+    }
+
+    public function client(): ControlPanelClient
+    {
+        return $this->client;
+    }
+
     /**
      * @param array<string, mixed> $shop
      */
