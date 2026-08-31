@@ -15,6 +15,11 @@ final class FinancingAttemptState
     public const CP_CREATED = 'cp_created';
     public const CP_FAILED_RETRYABLE = 'cp_failed_retryable';
     public const CP_OUTCOME_UNKNOWN = 'cp_outcome_unknown';
+
+    /**
+     * Reserved top-level states — post-CP lifecycle is tracked in smartucf_state /
+     * process2_state substates. Not written in Revision 1 production paths.
+     */
     public const POST_CP_PROCESSING = 'post_cp_processing';
     public const COMPLETED = 'completed';
     public const TERMINAL_FAILED = 'terminal_failed';

@@ -2,6 +2,7 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
+use Opencart\System\Library\Extension\MtUniCredit\FinancingLeasingPresenter;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingPresentationAudience;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingPresentationRepository;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingPresentationService;
@@ -15,6 +16,8 @@ use Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection;
  *
  * OpenCart checkout/success unsets session.order_id before the view runs; we read
  * mt_uni_credit_success_order_id stashed by MtUniCreditCheckoutSuccessOrder::before.
+ *
+ * Order identity is session-only — never trust GET order_id (IDOR hardening).
  */
 class MtUniCreditCheckoutSuccess extends \Opencart\System\Engine\Controller
 {
@@ -36,16 +39,26 @@ class MtUniCreditCheckoutSuccess extends \Opencart\System\Engine\Controller
             return;
         }
 
+        $storeId = (int) ($this->config->get('config_store_id') ?? 0);
+        if (!$this->canPresentOrderToCurrentCustomer($storeId, $orderId)) {
+            return;
+        }
+
         try {
             $db = new OpenCartDbConnection($this->db, DB_PREFIX);
             $service = new FinancingPresentationService(new FinancingPresentationRepository($db));
-            $storeId = (int) ($this->config->get('config_store_id') ?? 0);
-            $html = $service->htmlForOrder($storeId, $orderId, FinancingPresentationAudience::CUSTOMER);
-            if ($html === '' || str_contains($html, 'ЕГН')) {
-                if (str_contains($html, 'ЕГН')) {
-                    error_log('mt_uni_credit: blocked Thank You leasing HTML containing EGN');
+            $rows = $service->rowsForOrder($storeId, $orderId, FinancingPresentationAudience::CUSTOMER);
+            if ($rows === [] || !$this->isCustomerPresentationSafe($rows)) {
+                if (!$this->isCustomerPresentationSafe($rows)) {
+                    error_log('mt_uni_credit: blocked Thank You leasing rows containing Process 2 sensitive fields');
                 }
 
+                return;
+            }
+
+            $presenter = new FinancingLeasingPresenter();
+            $html = $presenter->renderHtml($rows);
+            if ($html === '') {
                 return;
             }
 
@@ -63,11 +76,51 @@ class MtUniCreditCheckoutSuccess extends \Opencart\System\Engine\Controller
         if ($orderId <= 0) {
             $orderId = (int) ($this->session->data['order_id'] ?? 0);
         }
-        if ($orderId <= 0) {
-            $orderId = (int) ($this->request->get['order_id'] ?? 0);
-        }
 
         return $orderId;
+    }
+
+    private function canPresentOrderToCurrentCustomer(int $storeId, int $orderId): bool
+    {
+        if (!$this->customer->isLogged()) {
+            return true;
+        }
+
+        $customerId = (int) $this->customer->getId();
+        if ($customerId <= 0) {
+            return false;
+        }
+
+        $result = $this->db->query(
+            "SELECT `customer_id`, `store_id`
+             FROM `" . DB_PREFIX . "order`
+             WHERE `order_id` = " . (int) $orderId . "
+             LIMIT 1"
+        );
+        if (!is_object($result) || $result->num_rows !== 1) {
+            return false;
+        }
+
+        $orderCustomerId = (int) ($result->row['customer_id'] ?? 0);
+        $orderStoreId = (int) ($result->row['store_id'] ?? 0);
+
+        return $orderCustomerId === $customerId && $orderStoreId === $storeId;
+    }
+
+    /**
+     * @param list<array{label: string, value: string}> $rows
+     */
+    private function isCustomerPresentationSafe(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            $label = (string) ($row['label'] ?? '');
+            if ($label === FinancingLeasingPresenter::LABEL_EGN
+                || $label === FinancingLeasingPresenter::LABEL_PHONE2) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

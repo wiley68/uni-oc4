@@ -6,11 +6,18 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
  * Persists / loads frozen leasing presentation JSON on financing_attempt.
+ *
+ * Presentation retention uses {@see SecurityConstants::PRESENTATION_RETENTION_DAYS} from
+ * attempt {@see created_at} — the moment the financing attempt row was issued, not
+ * {@see updated_at}, so later bank/status transitions do not extend snapshot retention.
  */
 final class FinancingPresentationRepository
 {
-    public function __construct(private DbConnection $db)
-    {
+    public function __construct(
+        private DbConnection $db,
+        private ?PersistenceClock $clock = null
+    ) {
+        $this->clock ??= new PersistenceClock();
     }
 
     public function persist(int $attemptId, FinancingPresentationSnapshot $snapshot): void
@@ -22,6 +29,7 @@ final class FinancingPresentationRepository
              SET `leasing_presentation_json` = '" . $this->db->escape($json) . "'
              WHERE `attempt_id` = " . (int) $attemptId
         );
+        $this->redactExpiredPresentationBatch();
     }
 
     public function attachControlPanelOrderId(int $attemptId, int $controlPanelOrderId): void
@@ -53,10 +61,6 @@ final class FinancingPresentationRepository
     {
         $attempt = (new FinancingAttemptRepository($this->db))->findByOrderId($storeId, $orderId);
         if ($attempt === null) {
-            // Fallback: any store correlation for default-store Product/Cart quirks.
-            $attempt = $this->findAttemptByOrderAnyStore($orderId);
-        }
-        if ($attempt === null) {
             return null;
         }
         $decoded = $this->decode((string) ($attempt['leasing_presentation_json'] ?? ''));
@@ -72,9 +76,30 @@ final class FinancingPresentationRepository
      */
     public function findAttemptRowByOrderId(int $storeId, int $orderId): ?array
     {
-        $attempt = (new FinancingAttemptRepository($this->db))->findByOrderId($storeId, $orderId);
+        return (new FinancingAttemptRepository($this->db))->findByOrderId($storeId, $orderId);
+    }
 
-        return $attempt ?? $this->findAttemptByOrderAnyStore($orderId);
+    /**
+     * Retention: clear presentation JSON older than retention days (default ~6 months).
+     * Uses attempt {@see created_at}; does not delete attempt rows or P2 ciphertext.
+     */
+    public function redactExpiredPresentationBatch(
+        int $retentionDays = SecurityConstants::PRESENTATION_RETENTION_DAYS,
+        int $limit = SecurityConstants::CLEANUP_DEFAULT_BATCH_SIZE
+    ): int {
+        $retentionDays = max(1, $retentionDays);
+        $limit = max(1, min(500, $limit));
+        $cutoff = gmdate('Y-m-d H:i:s', $this->clock->now() - ($retentionDays * 86400));
+        $table = $this->table();
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `leasing_presentation_json` = NULL
+             WHERE `leasing_presentation_json` IS NOT NULL
+               AND `created_at` < '" . $this->db->escape($cutoff) . "'
+             LIMIT " . (int) $limit
+        );
+
+        return $this->db->countAffected();
     }
 
     /**
@@ -122,26 +147,6 @@ final class FinancingPresentationRepository
         }
 
         return $map[$orderId] ?? '';
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function findAttemptByOrderAnyStore(int $orderId): ?array
-    {
-        $table = $this->table();
-        $result = $this->db->query(
-            "SELECT *
-             FROM `{$table}`
-             WHERE `order_id` = " . (int) $orderId . "
-             ORDER BY `attempt_id` DESC
-             LIMIT 1"
-        );
-        if (!is_object($result) || $result->num_rows !== 1) {
-            return null;
-        }
-
-        return $result->row;
     }
 
     private function decode(string $json): ?FinancingPresentationSnapshot

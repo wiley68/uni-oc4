@@ -16,4 +16,7 @@ final class SecurityConstants
     public const LOCK_OWNER_TOKEN_BYTES = 16;
     public const HASH_HEX_LENGTH = 64;
     public const CLEANUP_DEFAULT_BATCH_SIZE = 100;
+
+    /** Frozen leasing presentation JSON retention (~6 months). */
+    public const PRESENTATION_RETENTION_DAYS = 183;
 }
