@@ -100,3 +100,21 @@ Retryable pre-send, outcome unknown, and CP failures remain interactive.
 **Tests:** `tests/Phase11CSmartUcfTerminalFailureTest.php`
 
 Module version remains **2.0.2**.
+
+## SmartUCF debug journal (Remediation 05)
+
+**Problem:** Debug mode ON + real Process 1 SmartUCF activity produced no durable diagnostics — Admin „Изтегли журнал операции“ was disabled; CP diagnostic API returned not-found.
+
+**Root cause:** Bridge A read path existed (`DiagnosticDebugLogRepository::findLatestByOrderId`, CP `smartucf_debug_log`) but no writer populated `mt_uni_credit_diagnostic_debug_log`; Admin UI was a placeholder.
+
+**Fix:**
+
+- `SmartUcfDiagnosticJournal` + `DiagnosticDebugLogRepository::insert()` gated by `module_mt_uni_credit_debug_enabled`.
+- Capture wired in `SmartUcfSessionCoordinator` on success/failure (actual `raw_request` / `raw_response` from `SmartUcfSessionClient`).
+- Expanded `DiagnosticPayloadRedactor` (PS9 key parity + Bearer regex).
+- Admin `downloadJournal` POST export (`unipayment-smartucf-log-{timestamp}.json`), button enabled (PS9 parity).
+- Retention: 3 months prune on read/write.
+
+**Tests:** `tests/Phase11CSmartUcfDebugJournalTest.php`
+
+Module version remains **2.0.2**.

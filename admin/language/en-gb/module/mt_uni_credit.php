@@ -22,10 +22,10 @@ $_['help_unicid']             = 'Your unique shop identification code in the Uni
 $_['help_secret']             = 'Your shop secret code in the UniCredit system.';
 $_['text_secret_keep_current'] = 'Leave blank to keep the current secret.';
 $_['help_advertising_enabled'] = 'Enable or disable advertising on the store home page.';
-$_['help_debug_enabled']      = 'When enabled, technical events are written to the OpenCart server log only (never to the customer browser console).';
+$_['help_debug_enabled']      = 'When enabled, server-side SmartUCF diagnostic entries (request/response) are stored for support. Data is redacted and never shown to customers.';
 $_['help_product_button_action'] = 'Behavior of the secondary button in the product popup.';
 $_['help_button_top_spacing'] = 'Space above the button in px (0–200).';
-$_['help_journal_unavailable'] = 'The operations journal will be available in a later phase (bank request diagnostics).';
+$_['help_download_journal']   = 'Downloads a JSON journal of SmartUCF operations for the current store (empty when no entries exist or debug mode is off).';
 
 $_['button_save']             = 'Save';
 $_['button_back']             = 'Back';
@@ -47,4 +47,5 @@ $_['error_bank_request_failed'] = 'Bank data could not be refreshed due to a tec
 
 $_['error_secret_required']   = 'Shop secret code is required.';
 $_['error_unicid_required']   = 'UNICID is required.';
+$_['error_journal_download_failed'] = 'The operations journal could not be downloaded.';
 $_['error_permission']        = 'Warning: You do not have permission to modify UniCredit module settings!';

@@ -90,15 +90,16 @@
 						<button type="submit" formaction="{{ refresh_bank_data }}" formmethod="post" formnovalidate form="form-refresh-bank" name="mt_uni_credit_refresh_bank" value="1" class="btn btn-outline-primary">
 							<i class="fa-solid fa-rotate"></i> {{ button_refresh_bank_data }}
 						</button>
-						<button type="button" class="btn btn-outline-secondary" disabled title="{{ help_journal_unavailable }}">
+						<button type="submit" formaction="{{ download_journal }}" formmethod="post" formnovalidate form="form-download-journal" class="btn btn-outline-secondary">
 							<i class="fa-solid fa-download"></i> {{ button_download_journal }}
 						</button>
 					</div>
-					<div class="form-text mt-2">{{ help_journal_unavailable }}</div>
+					<div class="form-text mt-2">{{ help_download_journal }}</div>
 				</div>
 			</div>
 		</form>
 		<form id="form-refresh-bank" action="{{ refresh_bank_data }}" method="post" class="d-none" aria-hidden="true"></form>
+		<form id="form-download-journal" action="{{ download_journal }}" method="post" class="d-none" aria-hidden="true"></form>
 	</div>
 </div>
 {{ footer }}

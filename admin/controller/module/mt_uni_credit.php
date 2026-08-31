@@ -6,6 +6,8 @@ use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartCompatibility;
+use Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection;
+use Opencart\System\Library\Extension\MtUniCredit\SmartUcfDiagnosticJournal;
 
 /**
  * Admin module configuration — local settings + bank-data refresh.
@@ -42,6 +44,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $token = 'user_token=' . $this->session->data['user_token'];
         $data['save'] = $this->url->link(OpenCartCompatibility::adminRoute($this->route, 'save'), $token);
         $data['refresh_bank_data'] = $this->url->link(OpenCartCompatibility::adminRoute($this->route, 'refreshBankData'), $token);
+        $data['download_journal'] = $this->url->link(OpenCartCompatibility::adminRoute($this->route, 'downloadJournal'), $token);
         $data['back'] = $this->url->link('marketplace/extension', $token . '&type=module');
 
         $defaults = $this->model_extension_mt_uni_credit_module_mt_uni_credit->getDefaultSettings();
@@ -226,6 +229,54 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         $this->response->redirect($redirect);
+    }
+
+    public function downloadJournal(): void
+    {
+        $this->load->language($this->route);
+        $token = 'user_token=' . $this->session->data['user_token'];
+        $redirect = $this->url->link($this->route, $token);
+
+        if (($this->request->server['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $this->response->redirect($redirect);
+
+            return;
+        }
+
+        if (!$this->user->hasPermission('modify', $this->route)) {
+            $this->session->data['error'] = $this->language->get('error_permission');
+            $this->response->redirect($redirect);
+
+            return;
+        }
+
+        $storeId = (int) ($this->config->get('config_store_id') ?? 0);
+        $journal = SmartUcfDiagnosticJournal::fromDatabase(new OpenCartDbConnection($this->db, DB_PREFIX));
+
+        try {
+            $export = $journal->buildExport($storeId);
+            $json = json_encode(
+                $export,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            );
+        } catch (\JsonException $exception) {
+            $this->session->data['error'] = $this->language->get('error_journal_download_failed');
+            $this->response->redirect($redirect);
+
+            return;
+        }
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        $filename = 'unipayment-smartucf-log-' . gmdate('Ymd-His') . '.json';
+        $this->response->addHeader('Content-Type: application/json; charset=utf-8');
+        $this->response->addHeader('Content-Disposition: attachment; filename="' . $filename . '"');
+        $this->response->addHeader('Content-Length: ' . strlen($json));
+        $this->response->addHeader('Cache-Control: no-store');
+        $this->response->addHeader('X-Content-Type-Options: nosniff');
+        $this->response->setOutput($json);
     }
 
     public function install(): void

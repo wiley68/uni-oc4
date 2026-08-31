@@ -22,15 +22,14 @@ final class SmartUcfSessionClient
 
     /**
      * @param array<string, mixed> $shop
-     * @return array{session_id: string, redirect_url: string, http_code: int}
+     * @return array{session_id: string, redirect_url: string, http_code: int, raw_request: string, raw_response: string, endpoint: string}
      */
     public function createSession(
         array $shop,
         ValidatedFinancingSubmission $submission,
         int $localOrderId,
         ?CertificateConsumerLease $lease = null
-    ): array
-    {
+    ): array {
         try {
             $url = $this->endpointPolicy->buildSessionStartUrl($this->serviceUrl($shop));
             $application = $this->endpointPolicy->assertTrustedApplicationBase($this->applicationUrl($shop));
@@ -143,14 +142,22 @@ final class SmartUcfSessionClient
             );
         }
 
-        return ['session_id' => $sessionId, 'redirect_url' => $redirect, 'http_code' => $httpCode];
+        return [
+            'session_id' => $sessionId,
+            'redirect_url' => $redirect,
+            'http_code' => $httpCode,
+            'raw_request' => $json,
+            'raw_response' => $raw,
+            'endpoint' => $url,
+        ];
     }
 
     private function detectFailureKind(string $raw, int $httpCode): string
     {
         $value = strtolower($raw);
         if ((str_contains($value, 'duplicate') && str_contains($value, 'order'))
-            || str_contains($value, 'already exists') || str_contains($value, 'съществува')) {
+            || str_contains($value, 'already exists') || str_contains($value, 'съществува')
+        ) {
             return SmartUcfSessionException::KIND_DUPLICATE;
         }
 

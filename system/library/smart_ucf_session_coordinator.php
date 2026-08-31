@@ -12,14 +12,18 @@ final class SmartUcfSessionCoordinator
     public const ERROR_CP_BANK_STATUS_SYNC_PENDING = 'cp_bank_status_sync_pending';
 
     public const CUSTOMER_OUTCOME_UNKNOWN =
-        'Поръчката е създадена, но потвърждението от банковата система не беше получено. Не изпращайте заявката повторно.';
+    'Поръчката е създадена, но потвърждението от банковата система не беше получено. Не изпращайте заявката повторно.';
     public const CUSTOMER_PROCESSING = 'Заявката към банката се обработва. Моля, изчакайте.';
     public const CUSTOMER_FAILED =
-        'Поръчката и заявката в Контролния панел са създадени, но изпращането към банковата система не беше успешно.';
+    'Поръчката и заявката в Контролния панел са създадени, но изпращането към банковата система не беше успешно.';
 
     private object $client;
 
     private CertificateSynchronizer $certificateSynchronizer;
+
+    private ?SmartUcfDiagnosticJournal $diagnosticJournal;
+
+    private SmartUcfPayloadBuilder $payloadBuilder;
 
     public function __construct(
         private SmartUcfLifecycleRepository $lifecycle,
@@ -27,13 +31,17 @@ final class SmartUcfSessionCoordinator
         private SmartUcfFailureClassifier $classifier,
         private OrderBankStatusRepository $bankStatuses,
         private ControlPanelClient $controlPanel,
-        ?CertificateSynchronizer $certificateSynchronizer = null
+        ?CertificateSynchronizer $certificateSynchronizer = null,
+        ?SmartUcfDiagnosticJournal $diagnosticJournal = null,
+        ?SmartUcfPayloadBuilder $payloadBuilder = null
     ) {
         if (!method_exists($client, 'createSession')) {
             throw new \InvalidArgumentException('SmartUCF client must provide createSession().');
         }
         $this->client = $client;
         $this->certificateSynchronizer = $certificateSynchronizer ?? new CertificateSynchronizer($controlPanel);
+        $this->diagnosticJournal = $diagnosticJournal;
+        $this->payloadBuilder = $payloadBuilder ?? new SmartUcfPayloadBuilder();
     }
 
     /**
@@ -104,13 +112,34 @@ final class SmartUcfSessionCoordinator
             return SmartUcfCoordinationResult::processing(self::CUSTOMER_PROCESSING);
         }
 
+        $endpoint = '';
+        $smartUcfPayload = null;
         try {
-            /** @var array{session_id: string, redirect_url: string, http_code: int} $session */
+            try {
+                $endpoint = (new SmartUcfEndpointPolicy())->buildSessionStartUrl(
+                    ShopConfigurationFlags::isTestEnvironment($shop)
+                        ? trim((string) ($shop['uni_test_service'] ?? ''))
+                        : trim((string) ($shop['uni_production_service'] ?? ''))
+                );
+                $smartUcfPayload = $this->payloadBuilder->build($submission, $shop, $localOrderId);
+            } catch (\Throwable $ignored) {
+                // Payload/endpoint resolution failures are logged from the client/pre-send exception path.
+            }
+
+            /** @var array{session_id: string, redirect_url: string, http_code: int, raw_request?: string, raw_response?: string, endpoint?: string} $session */
             $session = $lease === null
                 ? $this->client->createSession($shop, $submission, $localOrderId)
                 : $this->client->createSession($shop, $submission, $localOrderId, $lease);
         } catch (\Throwable $exception) {
-            return $this->handleFailure($attemptId, $submission->storeId, $localOrderId, $exception);
+            return $this->handleFailure(
+                $attemptId,
+                $submission->storeId,
+                $localOrderId,
+                $submission->entryPoint,
+                $exception,
+                $smartUcfPayload,
+                $endpoint
+            );
         } finally {
             if ($lease !== null) {
                 $lease->release();
@@ -138,6 +167,14 @@ final class SmartUcfSessionCoordinator
         }
 
         $this->persistProcess1BankStatus($attemptId, $submission->storeId, $localOrderId);
+
+        $this->logSuccessfulSession(
+            $submission->storeId,
+            $localOrderId,
+            $submission->entryPoint,
+            $session,
+            $endpoint
+        );
 
         return SmartUcfCoordinationResult::created(
             (string) $session['redirect_url'],
@@ -179,9 +216,21 @@ final class SmartUcfSessionCoordinator
         int $attemptId,
         int $storeId,
         int $localOrderId,
-        \Throwable $exception
+        string $entryPoint,
+        \Throwable $exception,
+        mixed $requestPayload = null,
+        string $endpoint = ''
     ): SmartUcfCoordinationResult {
         $classification = $this->classifier->classifyThrowable($exception);
+        $this->logFailedSession(
+            $storeId,
+            $localOrderId,
+            $entryPoint,
+            $exception,
+            $requestPayload,
+            $endpoint,
+            $classification
+        );
         if ($classification->targetState() === SmartUcfLifecycleStates::OUTCOME_UNKNOWN) {
             try {
                 $this->lifecycle->markOutcomeUnknown(
@@ -227,10 +276,10 @@ final class SmartUcfSessionCoordinator
         if (!$cpSynced) {
             error_log(
                 'mt_uni_credit: ' . self::ERROR_CP_BANK_STATUS_SYNC_PENDING
-                . ' attempt_id=' . $attemptId
-                . ' store_id=' . $storeId
-                . ' order_id=' . $localOrderId
-                . ' status_id=' . $status['status_id']
+                    . ' attempt_id=' . $attemptId
+                    . ' store_id=' . $storeId
+                    . ' order_id=' . $localOrderId
+                    . ' status_id=' . $status['status_id']
             );
         }
     }
@@ -264,12 +313,92 @@ final class SmartUcfSessionCoordinator
         } catch (\Throwable $exception) {
             error_log(
                 'mt_uni_credit: Control Panel bank status PATCH failed: '
-                . $exception::class
-                . ' order_id=' . $shopOrderId
-                . ' status_id=' . $status['status_id']
+                    . $exception::class
+                    . ' order_id=' . $shopOrderId
+                    . ' status_id=' . $status['status_id']
             );
 
             return false;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     */
+    private function logSuccessfulSession(
+        int $storeId,
+        int $localOrderId,
+        string $entryPoint,
+        array $session,
+        string $endpointFallback
+    ): void {
+        if ($this->diagnosticJournal === null) {
+            return;
+        }
+
+        try {
+            $this->diagnosticJournal->recordSmartUcfSession(
+                $storeId,
+                $localOrderId,
+                $entryPoint,
+                (string) ($session['endpoint'] ?? $endpointFallback),
+                (string) ($session['raw_request'] ?? ''),
+                (string) ($session['raw_response'] ?? ''),
+                (int) ($session['http_code'] ?? 0),
+                null,
+                'success'
+            );
+        } catch (\Throwable $ignored) {
+        }
+    }
+
+    private function logFailedSession(
+        int $storeId,
+        int $localOrderId,
+        string $entryPoint,
+        \Throwable $exception,
+        mixed $requestPayload,
+        string $endpointFallback,
+        SmartUcfFailureClassification $classification
+    ): void {
+        if ($this->diagnosticJournal === null) {
+            return;
+        }
+
+        $httpCode = $exception instanceof SmartUcfSessionException ? $exception->httpCode() : 0;
+        $rawResponse = $exception instanceof SmartUcfSessionException ? $exception->rawResponse() : '';
+        $transportError = null;
+        if ($classification->targetState() === SmartUcfLifecycleStates::OUTCOME_UNKNOWN) {
+            $transportError = $exception->getMessage();
+        } elseif (
+            $exception instanceof SmartUcfSessionException
+            && $exception->getFailureKind() === SmartUcfSessionException::KIND_TRANSPORT
+        ) {
+            $transportError = $exception->getMessage();
+        }
+
+        $request = $requestPayload;
+        if ($request === null && $exception instanceof SmartUcfSessionException) {
+            $request = '';
+        }
+
+        $response = $rawResponse !== '' ? $rawResponse : (
+            $transportError !== null ? null : $exception->getMessage()
+        );
+
+        try {
+            $this->diagnosticJournal->recordSmartUcfSession(
+                $storeId,
+                $localOrderId,
+                $entryPoint,
+                $endpointFallback,
+                $request ?? '',
+                $response,
+                $httpCode,
+                $transportError,
+                $classification->errorClass()
+            );
+        } catch (\Throwable $ignored) {
         }
     }
 }

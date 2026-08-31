@@ -105,7 +105,9 @@ final class FinancingControlPanelCompletion
             new SmartUcfSessionClient(),
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            $lifecycle->client()
+            $lifecycle->client(),
+            null,
+            SmartUcfDiagnosticJournal::fromDatabase($db)
         );
         $process2 = null;
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {

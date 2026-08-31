@@ -26,9 +26,10 @@ final class Phase4AdminBankActionsTest extends TestCase
         self::assertStringContainsString('button_refresh_bank_data', $twig);
         self::assertStringContainsString('button_download_journal', $twig);
         self::assertStringContainsString('refresh_bank_data', $twig);
+        self::assertStringContainsString('download_journal', $twig);
         self::assertStringContainsString('method="post"', $twig);
-        self::assertStringContainsString('disabled', $twig);
-        self::assertStringContainsString('help_journal_unavailable', $twig);
+        self::assertStringContainsString('help_download_journal', $twig);
+        self::assertStringNotContainsString('help_journal_unavailable', $twig);
 
         self::assertStringNotContainsString('button_cp_connect', $twig);
         self::assertStringNotContainsString('button_cp_disconnect', $twig);
@@ -47,6 +48,7 @@ final class Phase4AdminBankActionsTest extends TestCase
     {
         $controller = (string) file_get_contents(dirname(__DIR__) . '/admin/controller/module/mt_uni_credit.php');
         self::assertStringContainsString('function refreshBankData', $controller);
+        self::assertStringContainsString('function downloadJournal', $controller);
         self::assertStringContainsString("REQUEST_METHOD", $controller);
         self::assertStringContainsString('hasPermission(\'modify\'', $controller);
         self::assertStringContainsString('session->data[\'success\']', $controller);
