@@ -222,3 +222,20 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CProductBuySchemePreselectTest.php`
 
 Module version remains **2.0.2**.
+
+## Product Buy scheme runtime trace + server-selected Checkout fix (Remediation 09B)
+
+**Problem:** Rem 09A matcher/tests passed, but live Checkout still showed PreferredOffer default after Product „Купи“ with a non-default scheme.
+
+**Proven category:** **E** — correct Product preference reached the presenter/JSON, but Checkout JS rebuilt an empty `<select>` and `resolvePreferredSchemeKey()` treated `offers.standard.preferred_scheme_key` (default) as equivalent to Product Buy when `buy_preference_scheme_key` was absent from the first init path; fallback to `schemes[0]` then locked the default before async init completed on AJAX-injected payment panels.
+
+**Fix:**
+
+- Single PHP precedence helper `ProductBuyCheckoutPreference::resolveInitialSchemeSelection()` (override → Product Buy → default).
+- Server-render `<option selected>` in Checkout Twig from `buildCheckoutSchemeOptions()`; `markSchemeMatched` only when Product Buy key is server-selected (visible before JS).
+- Checkout JS `resolveInitialSchemeKey()` + `readServerSelectedSchemeKey()` — Product Buy key is never conflated with default `preferred_scheme_key`.
+- Product Buy stash reads `syncSelectedSchemeFromDom()`; calculator refresh preserves a valid user-selected scheme key.
+
+**Tests:** `tests/Phase11CProductBuySchemeCheckoutIntegrationTest.php` (+ updated Rem 09A contract tests)
+
+Module version remains **2.0.2**.

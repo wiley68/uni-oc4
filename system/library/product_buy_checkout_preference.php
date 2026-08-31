@@ -142,6 +142,140 @@ final class ProductBuyCheckoutPreference
     }
 
     /**
+     * Unified scheme rows from a Checkout calculator presenter.
+     *
+     * @param array<string, mixed> $presenter
+     * @return list<array<string, mixed>>
+     */
+    public static function collectPresenterSchemes(array $presenter): array
+    {
+        $schemes = [];
+        $seen = [];
+        foreach (['standard', 'promo'] as $type) {
+            $list = $presenter['offers'][$type]['schemes'] ?? null;
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $scheme) {
+                if (!is_array($scheme)) {
+                    continue;
+                }
+                $key = (string) ($scheme['key'] ?? '');
+                if ($key !== '' && isset($seen[$key])) {
+                    continue;
+                }
+                if ($key !== '') {
+                    $seen[$key] = true;
+                }
+                $schemes[] = $scheme;
+            }
+        }
+
+        return $schemes;
+    }
+
+    /**
+     * Initial Checkout scheme precedence (single contract):
+     * user override → valid Product Buy preference → Checkout PreferredOffer default.
+     *
+     * @param array<string, mixed> $presenter Checkout calculator presenter
+     * @param array<string, mixed> $sessionData
+     * @return array{key:?string, source:string, buy_matched:bool}
+     */
+    public static function resolveInitialSchemeSelection(
+        array $presenter,
+        array &$sessionData,
+        int $storeId
+    ): array {
+        $schemes = self::collectPresenterSchemes($presenter);
+        $preference = self::load($sessionData, $storeId);
+
+        $defaultKey = self::presenterDefaultSchemeKey($presenter, $schemes);
+
+        if ($preference !== null && !empty($preference['scheme_user_override'])) {
+            return [
+                'key'         => $defaultKey,
+                'source'      => 'user_override',
+                'buy_matched' => false,
+            ];
+        }
+
+        if ($preference !== null) {
+            $buyKey = self::resolveSchemeKey($schemes, $preference);
+            if ($buyKey !== null && $buyKey !== '') {
+                return [
+                    'key'         => $buyKey,
+                    'source'      => 'product_buy',
+                    'buy_matched' => true,
+                ];
+            }
+        }
+
+        return [
+            'key'         => $defaultKey,
+            'source'      => 'checkout_default',
+            'buy_matched' => false,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $schemes
+     */
+    private static function presenterDefaultSchemeKey(array $presenter, array $schemes): ?string
+    {
+        foreach (['standard', 'promo'] as $type) {
+            $key = trim((string) ($presenter['offers'][$type]['preferred_scheme_key'] ?? ''));
+            if ($key !== '') {
+                return $key;
+            }
+        }
+        if ($schemes === []) {
+            return null;
+        }
+        $key = trim((string) ($schemes[0]['key'] ?? ''));
+
+        return $key !== '' ? $key : null;
+    }
+
+    /**
+     * Server-rendered Checkout scheme dropdown rows (standard unified list).
+     *
+     * @param array<string, mixed> $presenter
+     * @return list<array{key:string,label:string,selected:bool}>
+     */
+    public static function buildCheckoutSchemeOptions(array $presenter, ?string $selectedKey): array
+    {
+        $list = $presenter['offers']['standard']['schemes'] ?? [];
+        if (!is_array($list) || $list === []) {
+            $list = self::collectPresenterSchemes($presenter);
+        }
+
+        $options = [];
+        foreach ($list as $scheme) {
+            if (!is_array($scheme)) {
+                continue;
+            }
+            $key = trim((string) ($scheme['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            $months = (int) ($scheme['months'] ?? 0);
+            $label = $months > 0 ? $months . ' месеца' : $key;
+            $description = trim((string) ($scheme['description'] ?? ''));
+            if ($description !== '') {
+                $label .= ' - ' . $description;
+            }
+            $options[] = [
+                'key'      => $key,
+                'label'    => $label,
+                'selected' => $selectedKey !== null && $selectedKey !== '' && $key === $selectedKey,
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
      * Apply UniCredit payment method into session when listed in discovered methods.
      *
      * @param array<string, mixed> $sessionData

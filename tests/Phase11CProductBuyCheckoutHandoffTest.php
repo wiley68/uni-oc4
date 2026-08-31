@@ -220,13 +220,15 @@ final class Phase11CProductBuyCheckoutHandoffTest extends TestCase
         $controller = (string) file_get_contents(
             dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php'
         );
-        self::assertStringContainsString('resolveBuyPreferenceSchemeKey', $controller);
+        self::assertStringContainsString('resolveInitialSchemeSelection', $controller);
         self::assertStringContainsString('buy_preference_scheme_key', $controller);
+        self::assertStringContainsString('buildCheckoutSchemeOptions', $controller);
 
         $js = (string) file_get_contents(
             dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js'
         );
         self::assertStringContainsString('buy_preference_scheme_key', $js);
+        self::assertStringContainsString('resolveInitialSchemeKey', $js);
     }
 
     public function testProductViewBootstrapIncludesStashBuyUrl(): void

@@ -22,7 +22,11 @@
           <span class="mt-uni-credit-product-calculator__label-mobile">{{ text_months_short }}</span>
         </label>
         <div class="mt-uni-credit-product-calculator__popup-value">
-          <select id="mtuc-checkout-months" class="mt-uni-credit-product-calculator__popup-select" data-mtuc-schemes></select>
+          <select id="mtuc-checkout-months" class="mt-uni-credit-product-calculator__popup-select" data-mtuc-schemes>
+            {% for option in scheme_options %}
+              <option value="{{ option.key }}"{% if option.selected %} selected{% endif %}>{{ option.label }}&nbsp;&nbsp;&nbsp;</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
       <div class="mt-uni-credit-product-calculator__popup-row" data-mtuc-first-row{% if not show_first_installment %} hidden{% endif %}>

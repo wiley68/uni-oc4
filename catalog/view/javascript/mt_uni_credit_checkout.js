@@ -121,28 +121,50 @@
       return merged;
     }
 
-    function resolvePreferredSchemeKey() {
+    function readServerSelectedSchemeKey() {
+      const select = schemeSelect();
+      if (!select) {
+        return "";
+      }
+      const marked = select.querySelector("option[selected]");
+      if (marked && marked.value) {
+        return String(marked.value);
+      }
+      if (select.value) {
+        return String(select.value);
+      }
+      return "";
+    }
+
+    /**
+     * Initial scheme precedence (single contract):
+     * user override (server omits buy key) → Product Buy → Checkout PreferredOffer default.
+     */
+    function resolveInitialSchemeKey() {
       const offers = state.calculator?.offers || {};
-      // Product Buy handoff: exact preferred key when still present in current offers.
-      const buyKey = String(
-        state.calculator?.buy_preference_scheme_key ||
-          offers.standard?.preferred_scheme_key ||
+      const schemes = unifiedSchemes();
+      const isValid = (key) =>
+        !!key && schemes.some((scheme) => scheme && scheme.key === key);
+
+      const buyKey = String(state.calculator?.buy_preference_scheme_key || "");
+      if (buyKey && isValid(buyKey)) {
+        return buyKey;
+      }
+
+      const serverSelected = readServerSelectedSchemeKey();
+      if (serverSelected && isValid(serverSelected)) {
+        return serverSelected;
+      }
+
+      const defaultKey = String(
+        offers.standard?.preferred_scheme_key ||
           offers.promo?.preferred_scheme_key ||
           "",
       );
-      if (buyKey) {
-        const schemes = unifiedSchemes();
-        if (schemes.some((scheme) => scheme && scheme.key === buyKey)) {
-          return buyKey;
-        }
+      if (defaultKey && isValid(defaultKey)) {
+        return defaultKey;
       }
-      if (offers.standard?.preferred_scheme_key) {
-        return offers.standard.preferred_scheme_key;
-      }
-      if (offers.promo?.preferred_scheme_key) {
-        return offers.promo.preferred_scheme_key;
-      }
-      const schemes = unifiedSchemes();
+
       return schemes[0]?.key || "";
     }
 
@@ -337,6 +359,10 @@
       if (!select) {
         return;
       }
+      const preservedKey =
+        (selectedSchemeKey && schemes.some((s) => s.key === selectedSchemeKey)
+          ? selectedSchemeKey
+          : "") || readServerSelectedSchemeKey();
       select.replaceChildren();
       schemes.forEach((scheme) => {
         const option = document.createElement("option");
@@ -348,8 +374,13 @@
         option.textContent = `${label}\u00A0\u00A0\u00A0`;
         select.appendChild(option);
       });
-      if (!selectedSchemeKey) {
-        selectedSchemeKey = resolvePreferredSchemeKey();
+      if (
+        preservedKey &&
+        schemes.some((scheme) => scheme && scheme.key === preservedKey)
+      ) {
+        selectedSchemeKey = preservedKey;
+      } else if (!selectedSchemeKey) {
+        selectedSchemeKey = resolveInitialSchemeKey();
       }
       if (selectedSchemeKey) {
         select.value = selectedSchemeKey;
@@ -770,7 +801,7 @@
       });
     }
 
-    selectedSchemeKey = resolvePreferredSchemeKey();
+    selectedSchemeKey = resolveInitialSchemeKey();
     populateSchemeSelect();
     updateConfirmState();
     issueSubmission();

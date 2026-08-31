@@ -1003,9 +1003,16 @@
       if (!data.offers?.[selectedOfferType]) {
         selectedOfferType = Object.keys(data.offers || {})[0] || "standard";
       }
+      const offerSchemes = data.offers?.[selectedOfferType]?.schemes || [];
+      const previousKey = selectedSchemeKey;
+      const previousStillValid =
+        previousKey &&
+        offerSchemes.some((scheme) => scheme && scheme.key === previousKey);
       const preferred =
         data.offers?.[selectedOfferType]?.preferred_scheme_key || "";
-      if (preferred) {
+      if (previousStillValid) {
+        selectedSchemeKey = previousKey;
+      } else if (preferred) {
         selectedSchemeKey = preferred;
       }
       const scheme = selectedScheme();
@@ -1516,7 +1523,7 @@
       if (awaitingNativeCartAdd) {
         return;
       }
-      const scheme = selectedScheme();
+      const scheme = syncSelectedSchemeFromDom();
       if (!scheme) {
         if (entryErrorEl()) {
           entryErrorEl().textContent = "Моля, изберете схема преди покупка.";

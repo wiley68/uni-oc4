@@ -185,6 +185,8 @@ final class Phase11CProductBuySchemePreselectTest extends TestCase
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
         self::assertStringContainsString('buy_preference_scheme_key', $js);
+        self::assertStringContainsString('resolveInitialSchemeKey', $js);
+        self::assertStringContainsString('readServerSelectedSchemeKey', $js);
         self::assertStringContainsString('notifyBuySchemeUserOverride', $js);
         self::assertStringContainsString('scheme_override_url', $js);
         self::assertMatchesRegularExpression(
@@ -196,14 +198,13 @@ final class Phase11CProductBuySchemePreselectTest extends TestCase
     public function testCheckoutControllerAppliesExactPreferenceToPresenter(): void
     {
         $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
-        self::assertStringContainsString('resolveBuyPreferenceSchemeKey', $src);
+        self::assertStringContainsString('resolveInitialSchemeSelection', $src);
+        self::assertStringContainsString('buildCheckoutSchemeOptions', $src);
         self::assertStringContainsString('markSchemeMatched', $src);
         self::assertStringContainsString('markBuySchemeOverride', $src);
         self::assertStringContainsString('scheme_override_url', $src);
-        self::assertMatchesRegularExpression(
-            '/buy_preference_scheme_key[\s\S]*?preferred_scheme_key[\s\S]*?preferred_scheme_key/s',
-            $src
-        );
+        self::assertStringContainsString('buy_preference_scheme_key', $src);
+        self::assertStringContainsString('preferred_scheme_key', $src);
     }
 
     public function testFirstInstallmentIsNotRequiredForIdentityMatch(): void

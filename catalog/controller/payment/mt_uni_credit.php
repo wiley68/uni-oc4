@@ -55,15 +55,24 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $presenter['order_id'] = (int) $order['order_id'];
         $presenter['price'] = $orderTotal;
 
-        $preferredSchemeKey = $this->resolveBuyPreferenceSchemeKey($presenter);
-        if ($preferredSchemeKey !== null) {
-            $presenter['buy_preference_scheme_key'] = $preferredSchemeKey;
-            // Keep both offer buckets aligned so JS preferred_scheme_key fallback cannot
-            // override an exact Product Buy match with the automatic PreferredOffer default.
-            foreach (['standard', 'promo'] as $offerType) {
-                if (isset($presenter['offers'][$offerType]) && is_array($presenter['offers'][$offerType])) {
-                    $presenter['offers'][$offerType]['preferred_scheme_key'] = $preferredSchemeKey;
+        $storeId = (int) $this->config->get('config_store_id');
+        $initialSelection = ProductBuyCheckoutPreference::resolveInitialSchemeSelection(
+            $presenter,
+            $this->session->data,
+            $storeId
+        );
+        $initialSchemeKey = $initialSelection['key'];
+        if ($initialSchemeKey !== null && $initialSchemeKey !== '') {
+            if ($initialSelection['buy_matched']) {
+                $presenter['buy_preference_scheme_key'] = $initialSchemeKey;
+                // Keep both offer buckets aligned so JS cannot fall back to PreferredOffer default.
+                foreach (['standard', 'promo'] as $offerType) {
+                    if (isset($presenter['offers'][$offerType]) && is_array($presenter['offers'][$offerType])) {
+                        $presenter['offers'][$offerType]['preferred_scheme_key'] = $initialSchemeKey;
+                    }
                 }
+                // Visible application: selected option is server-rendered in Twig before JS init.
+                ProductBuyCheckoutPreference::markSchemeMatched($this->session->data, $initialSchemeKey);
             }
         }
 
@@ -149,6 +158,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['process2'] = $secondaryProcess;
         $data['checkout_helper'] = $this->language->get(
             $secondaryProcess ? 'text_checkout_helper_process2' : 'text_checkout_helper_process1'
+        );
+        $data['initial_scheme_key'] = (string) ($initialSchemeKey ?? '');
+        $data['scheme_options'] = ProductBuyCheckoutPreference::buildCheckoutSchemeOptions(
+            $presenter,
+            $initialSchemeKey
         );
         $data['mt_uni_credit_bootstrap_json'] = json_encode([
             'source'               => 'checkout',
@@ -403,52 +417,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         $this->load->model('checkout/order');
         $this->model_checkout_order->addHistory($orderId, $orderStatusId);
-    }
-
-    /**
-     * Resolve Product Buy scheme preference against current Checkout offers (server-authoritative).
-     *
-     * @param array<string, mixed> $presenter
-     */
-    private function resolveBuyPreferenceSchemeKey(array $presenter): ?string
-    {
-        $storeId = (int) $this->config->get('config_store_id');
-        $preference = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
-        if ($preference === null) {
-            return null;
-        }
-
-        $schemes = [];
-        $seen = [];
-        foreach (['standard', 'promo'] as $type) {
-            $list = $presenter['offers'][$type]['schemes'] ?? null;
-            if (!is_array($list)) {
-                continue;
-            }
-            foreach ($list as $scheme) {
-                if (!is_array($scheme)) {
-                    continue;
-                }
-                $key = (string) ($scheme['key'] ?? '');
-                if ($key !== '' && isset($seen[$key])) {
-                    continue;
-                }
-                if ($key !== '') {
-                    $seen[$key] = true;
-                }
-                $schemes[] = $scheme;
-            }
-        }
-
-        $key = ProductBuyCheckoutPreference::resolveSchemeKey($schemes, $preference);
-        if ($key === null) {
-            // Stale / overridden — do not force; keep payment prefer if still useful.
-            return null;
-        }
-
-        ProductBuyCheckoutPreference::markSchemeMatched($this->session->data, $key);
-
-        return $key;
     }
 
     /**
