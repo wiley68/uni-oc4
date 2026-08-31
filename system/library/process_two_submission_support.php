@@ -54,11 +54,25 @@ final class ProcessTwoSubmissionSupport
         ProcessTwoSensitiveData $data,
         ?string $encryptionSecretOverride = null
     ): void {
+        try {
+            $cipher = new ProcessTwoSensitiveCipher($encryptionSecretOverride);
+            $encrypted = $cipher->encrypt($data);
+        } catch (\Throwable $exception) {
+            throw new ProductFinancingFlowException(
+                'process2_encryption_unavailable',
+                'Поръчката не може да бъде обработена в момента. Моля, опитайте отново.',
+                [
+                    'error_class' => 'process2_encryption_unavailable',
+                    'recoverable' => '0',
+                ],
+                $exception
+            );
+        }
+
         $submission->process2Sensitive = $data;
-        $cipher = new ProcessTwoSensitiveCipher($encryptionSecretOverride);
         (new ProcessTwoLifecycleRepository($db))->persistSensitiveEncrypted(
             $attemptId,
-            $cipher->encrypt($data)
+            $encrypted
         );
     }
 }

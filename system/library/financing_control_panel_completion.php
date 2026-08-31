@@ -111,11 +111,24 @@ final class FinancingControlPanelCompletion
         );
         $process2 = null;
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
+            try {
+                $cipher = new ProcessTwoSensitiveCipher();
+            } catch (\Throwable $exception) {
+                throw new ProductFinancingFlowException(
+                    'process2_encryption_unavailable',
+                    'Поръчката е създадена, но обработката за Процес 2 не беше завършена успешно.',
+                    [
+                        'error_class' => 'process2_encryption_unavailable',
+                        'recoverable' => '0',
+                    ],
+                    $exception
+                );
+            }
             $process2 = new ProcessTwoLifecycleCoordinator(
                 new ProcessTwoLifecycleRepository($db),
                 new OrderBankStatusRepository($db),
                 $lifecycle->client(),
-                new ProcessTwoSensitiveCipher(),
+                $cipher,
                 $process2Mailer ?? new PhpMailProcessTwoMailer()
             );
         }

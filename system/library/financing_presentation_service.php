@@ -9,12 +9,13 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  */
 final class FinancingPresentationService
 {
+    private bool $cipherResolved = false;
+
     public function __construct(
         private FinancingPresentationRepository $repository,
         private FinancingLeasingPresenter $presenter = new FinancingLeasingPresenter(),
         private ?ProcessTwoSensitiveCipher $cipher = null
     ) {
-        $this->cipher ??= new ProcessTwoSensitiveCipher();
     }
 
     /**
@@ -70,12 +71,31 @@ final class FinancingPresentationService
         if ($enc === '') {
             return null;
         }
+        $cipher = $this->resolveCipher();
+        if ($cipher === null) {
+            return null;
+        }
         try {
-            return $this->cipher->decrypt($enc);
+            return $cipher->decrypt($enc);
         } catch (\Throwable) {
             error_log('mt_uni_credit: leasing presentation sensitive decrypt failed order_id=' . $orderId);
 
             return null;
         }
+    }
+
+    private function resolveCipher(): ?ProcessTwoSensitiveCipher
+    {
+        if ($this->cipher !== null || $this->cipherResolved) {
+            return $this->cipher;
+        }
+        $this->cipherResolved = true;
+        try {
+            $this->cipher = new ProcessTwoSensitiveCipher();
+        } catch (\Throwable) {
+            $this->cipher = null;
+        }
+
+        return $this->cipher;
     }
 }

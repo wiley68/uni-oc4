@@ -6,6 +6,9 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
  * Encrypts Process 2 EGN/phone2 for durable attempt storage (PS9 sensitive_payload parity).
+ *
+ * Production construction requires a resolvable deployment encryption secret.
+ * Tests may pass an explicit secret; there is no predictable test-secret fallback.
  */
 final class ProcessTwoSensitiveCipher
 {
@@ -15,16 +18,18 @@ final class ProcessTwoSensitiveCipher
 
     public function __construct(?string $secretInputOverride = null)
     {
-        if ($secretInputOverride === null) {
-            try {
-                $secretInputOverride = (new ModuleEncryptionKeyProvider())->resolveSecretInput();
-            } catch (\Throwable) {
-                $secretInputOverride = ModuleEncryptionKeyProvider::testSecretInput();
+        if ($secretInputOverride !== null) {
+            if ($secretInputOverride === '') {
+                throw new \RuntimeException('Process 2 sensitive encryption secret unavailable.');
             }
+            $secretInput = $secretInputOverride;
+        } else {
+            $secretInput = (new ModuleEncryptionKeyProvider())->resolveSecretInput();
         }
+
         $key = hash_hkdf(
             'sha256',
-            $secretInputOverride,
+            $secretInput,
             32,
             self::DERIVATION_INFO
         );
