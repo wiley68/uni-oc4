@@ -61,3 +61,9 @@ No OpenCart core template edits.
 3. CP shop-cache refresh → next homepage load shows updated content.
 
 Module version remains **2.0.2**.
+
+## Checkout Process 2 loader (Remediation 02)
+
+Checkout payment used incomplete `[data-mtuc-processing]` markup (title/text only). CSS for panel/spinner existed in `mt_uni_credit_checkout.css` but did not apply.
+
+**Fix:** shared processing panel + spinner markup (cart modal parity), viewport-fixed overlay (`z-index: 100050`, dimmed backdrop), `setProcessing()` toggles `mt-uni-credit-checkout--processing` + scroll lock. Loader stays on until Thank You navigation (`redirectTerminal` guard unchanged).

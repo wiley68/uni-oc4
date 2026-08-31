@@ -708,13 +708,26 @@
 }
 
 #mt-uni-credit-checkout-root .mt-uni-credit-product-calculator__processing {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 100050;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, .35);
+  background: rgba(0, 0, 0, .4);
+  pointer-events: auto;
+}
+
+#mt-uni-credit-checkout-root.mt-uni-credit-checkout--processing {
+  pointer-events: none;
+}
+
+#mt-uni-credit-checkout-root.mt-uni-credit-checkout--processing .mt-uni-credit-product-calculator__processing {
+  pointer-events: auto;
+}
+
+html.mt-uni-credit-checkout-processing-active {
+  overflow: hidden;
 }
 
 #mt-uni-credit-checkout-root .mt-uni-credit-product-calculator__processing-panel {

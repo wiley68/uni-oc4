@@ -96,13 +96,16 @@
       <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-submit-error role="alert"></span>
     </form>
 
-    <div class="mt-uni-credit-product-calculator__processing" data-mtuc-processing hidden>
-      <strong>{{ text_processing_title }}</strong>
-      <span>{{ text_processing_message }}</span>
-    </div>
-
     <div class="mt-uni-credit-checkout-panel__success" data-mtuc-success hidden>
       <p data-mtuc-success-message>{{ text_local_order_prepared }}</p>
+    </div>
+  </div>
+
+  <div class="mt-uni-credit-product-calculator__processing" data-mtuc-processing hidden>
+    <div class="mt-uni-credit-product-calculator__processing-panel" role="status" aria-live="polite" aria-busy="false">
+      <span class="mt-uni-credit-product-calculator__processing-spinner" aria-hidden="true"></span>
+      <strong>{{ text_processing_title }}</strong>
+      <span>{{ text_processing_message }}</span>
     </div>
   </div>
 
