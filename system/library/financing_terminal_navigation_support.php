@@ -5,29 +5,15 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Shared Product/Cart/Checkout terminal Thank You navigation
- * (Process 2 + SmartUCF definite failure + Checkout Process 1 success).
+ * Shared Product/Cart/Checkout terminal Thank You navigation (Process 2 + SmartUCF definite failure).
  */
 final class FinancingTerminalNavigationSupport
 {
     public const STEP_SMARTUCF_TERMINAL_FAILED = 'smartucf_terminal_failed';
 
-    public const STEP_BANK_REDIRECT = 'bank_redirect';
-
     public static function isSmartUcfTerminalFailure(ProductFinancingResult $result): bool
     {
         return $result->step === self::STEP_SMARTUCF_TERMINAL_FAILED;
-    }
-
-    /**
-     * Checkout Process 1 success: local Thank You (not bank application URL).
-     * Product/Cart keep bank redirect via {@see ProductFinancingResult::$redirectUrl}.
-     */
-    public static function isCheckoutProcess1Success(ProductFinancingResult $result): bool
-    {
-        return $result->success
-            && $result->step === self::STEP_BANK_REDIRECT
-            && $result->bankSubmitted;
     }
 
     public static function isThankYouTerminalStep(ProductFinancingResult $result): bool
@@ -45,22 +31,8 @@ final class FinancingTerminalNavigationSupport
         array $payload,
         ProductFinancingResult $result,
         string $thankYouUrl,
-        array &$sessionData,
-        bool $checkoutProcess1ToThankYou = false
+        array &$sessionData
     ): array {
-        if ($checkoutProcess1ToThankYou && self::isCheckoutProcess1Success($result) && $result->orderId !== null) {
-            $sessionData['order_id'] = $result->orderId;
-            $sessionData['mt_uni_credit_success_order_id'] = $result->orderId;
-            // Checkout must navigate to local Thank You — never the SmartUCF application URL.
-            $payload['redirect_url'] = $thankYouUrl;
-            $payload['redirect'] = $thankYouUrl;
-            $payload['terminal'] = true;
-            $payload['continuation'] = 'thank_you';
-            $payload['outcome'] = 'success';
-
-            return $payload;
-        }
-
         if ($result->orderId === null || !self::isThankYouTerminalStep($result)) {
             return $payload;
         }

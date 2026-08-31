@@ -66,8 +66,8 @@ final class Phase11CCheckoutLoaderParityTest extends TestCase
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
 
         self::assertStringContainsString('redirectTerminal = true', $js);
+        self::assertStringContainsString('navigateIfTrusted(json.redirect_url)', $js);
         self::assertStringContainsString('window.location.assign(json.redirect)', $js);
-        self::assertStringContainsString('window.location.assign(json.redirect_url || json.redirect)', $js);
         self::assertMatchesRegularExpression(
             '/if\s*\(\s*!redirectTerminal\s*\)\s*\{[\s\S]*?setProcessing\(false\)/',
             $js

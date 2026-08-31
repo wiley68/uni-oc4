@@ -588,7 +588,6 @@
 
         // Confirm must not share abort with issue/calculate.
         const json = await postJson(state.confirm_url, payload, {});
-        // Terminal local Thank You first (P1 success, P2, known SmartUCF reject).
         if (
           window.MtUniCreditRedirect &&
           window.MtUniCreditRedirect.navigateTerminalThankYou(json.redirect_url)
@@ -597,31 +596,17 @@
           return;
         }
         if (json.success) {
-          // Checkout Process 1 / Process 2: prefer local Thank You over bank URL or in-page messages.
-          if (
-            (json.terminal === true ||
-              json.step === "process2_prepared" ||
-              json.step === "bank_redirect" ||
-              json.continuation === "thank_you") &&
-            (json.redirect_url || json.redirect)
-          ) {
+          if (json.step === "process2_prepared" && json.redirect_url) {
             redirectTerminal = true;
-            window.location.assign(json.redirect_url || json.redirect);
+            window.location.assign(json.redirect_url);
             return;
           }
-          if (json.redirect_url) {
-            if (
-              window.MtUniCreditRedirect &&
-              window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)
-            ) {
-              redirectTerminal = true;
-              return;
-            }
-            if (submitErrorEl()) {
-              submitErrorEl().textContent =
-                "Заявката не може да бъде обработена.";
-            }
-            updateConfirmState();
+          if (
+            json.redirect_url &&
+            window.MtUniCreditRedirect &&
+            window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)
+          ) {
+            redirectTerminal = true;
             return;
           }
           if (json.redirect) {
@@ -629,7 +614,6 @@
             window.location.assign(json.redirect);
             return;
           }
-          // Non-terminal success only: never mix with navigation/error paths.
           const success = root.querySelector("[data-mtuc-success]");
           const successMessage = root.querySelector(
             "[data-mtuc-success-message]",

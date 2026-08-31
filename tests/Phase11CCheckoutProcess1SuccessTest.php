@@ -23,11 +23,13 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/fixtures/cp_shop_snapshot.php';
 
 /**
- * Phase 11C Remediation 06 — Checkout Process 1 success → local Thank You (no mixed messages).
+ * Phase 11C Remediation 06A — Checkout Process 1 success → trusted SmartUCF bank redirect (not Thank You).
  */
 final class Phase11CCheckoutProcess1SuccessTest extends TestCase
 {
-    public function testProcess1SuccessWithValidSessionProducesBankRedirectResult(): void
+    private const TRUSTED_BANK_URL = 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-checkout-p1';
+
+    public function testProcess1SuccessLifecycleReturnsBankRedirectUrl(): void
     {
         if (!PersistenceIntegrationHarness::enabled()) {
             self::markTestSkipped('Integration database is unavailable.');
@@ -42,19 +44,19 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
         $row = $attempts->issueWithSubmissionToken(
             $submission->storeId,
             $submission->entryPoint,
-            hash('sha256', 'checkout-p1-success-op'),
-            hash('sha256', 'checkout-p1-success-actor'),
-            hash('sha256', 'checkout-p1-success-sel')
+            hash('sha256', 'checkout-p1-bank-op'),
+            hash('sha256', 'checkout-p1-bank-actor'),
+            hash('sha256', 'checkout-p1-bank-sel')
         );
-        $orderId = 9601;
+        $orderId = 9701;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
 
         $transport = new \MtUniCredit\Tests\Support\FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();
         $services = Phase4TestHarness::services($transport, null, $db, $submission->storeId);
 
-        $sessionId = 'session-checkout-p1-success-01';
-        $bankUrl = 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/' . $sessionId;
+        $sessionId = 'session-checkout-p1';
+        $bankUrl = self::TRUSTED_BANK_URL;
         $coordinator = new SmartUcfSessionCoordinator(
             new SmartUcfLifecycleRepository($db),
             new class($sessionId, $bankUrl) {
@@ -67,7 +69,7 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
                         'session_id' => $this->sessionId,
                         'redirect_url' => $this->bankUrl,
                         'http_code' => 200,
-                        'raw_request' => '{"orderNo":"9601"}',
+                        'raw_request' => '{"orderNo":"9701"}',
                         'raw_response' => json_encode([
                             'errorCode' => null,
                             'errorText' => null,
@@ -82,23 +84,20 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
             $services['client']
         );
 
-        $thankYou = 'https://shop.example/index.php?route=checkout/success';
-        $service = new PostControlPanelLifecycleService($coordinator, null, $thankYou);
+        $service = new PostControlPanelLifecycleService($coordinator, null, 'https://shop.example/checkout/success');
         $result = $service->handle(
             (int) $row['attempt_id'],
             $submission,
             $orderId,
-            88001,
+            89001,
             mt_uni_credit_valid_shop_snapshot(),
             false
         );
 
         self::assertTrue($result->success);
-        self::assertSame(FinancingTerminalNavigationSupport::STEP_BANK_REDIRECT, $result->step);
+        self::assertSame('bank_redirect', $result->step);
         self::assertTrue($result->bankSubmitted);
         self::assertSame($bankUrl, $result->redirectUrl);
-        self::assertSame(ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE, $result->message);
-        self::assertTrue(FinancingTerminalNavigationSupport::isCheckoutProcess1Success($result));
 
         $status = $db->query(
             'SELECT `status_id` FROM `' . $db->getPrefix() . 'mt_uni_credit_order_bank_status` WHERE `order_id` = ' . $orderId
@@ -106,143 +105,148 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
         self::assertSame(BankStatus::SENT_PROCESS1, $status->row['status_id']);
     }
 
-    public function testCheckoutEnrichmentReplacesBankUrlWithLocalThankYou(): void
+    public function testCheckoutEnrichmentPreservesBankRedirectNotThankYou(): void
     {
+        $bankUrl = self::TRUSTED_BANK_URL;
         $result = new ProductFinancingResult(
             true,
-            FinancingTerminalNavigationSupport::STEP_BANK_REDIRECT,
-            9602,
+            'bank_redirect',
+            9702,
             ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
             false,
             'completed',
-            88002,
-            null,
-            'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-x',
-            true
-        );
-
-        $payload = $result->toArray();
-        self::assertStringContainsString('ucfin.bg', (string) $payload['redirect_url']);
-
-        $session = [];
-        $thankYou = 'https://open40.example/index.php?route=checkout/success&language=bg-bg';
-        $enriched = FinancingTerminalNavigationSupport::enrichTerminalPayload(
-            $payload,
-            $result,
-            $thankYou,
-            $session,
-            true
-        );
-
-        self::assertSame($thankYou, $enriched['redirect_url']);
-        self::assertSame($thankYou, $enriched['redirect']);
-        self::assertTrue($enriched['terminal']);
-        self::assertSame('thank_you', $enriched['continuation']);
-        self::assertSame('success', $enriched['outcome']);
-        self::assertSame(9602, $session['order_id']);
-        self::assertSame(9602, $session['mt_uni_credit_success_order_id']);
-        self::assertStringNotContainsString('ucfin.bg', (string) $enriched['redirect_url']);
-        self::assertSame(ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE, $enriched['message']);
-        self::assertArrayNotHasKey('error_code', $enriched);
-    }
-
-    public function testProductCartEnrichmentKeepsBankRedirectUrl(): void
-    {
-        $bankUrl = 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-product';
-        $result = new ProductFinancingResult(
-            true,
-            FinancingTerminalNavigationSupport::STEP_BANK_REDIRECT,
-            9603,
-            ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
-            false,
-            'completed',
-            88003,
+            89002,
             null,
             $bankUrl,
             true
         );
 
         $session = [];
+        $thankYou = 'https://open40.example/index.php?route=checkout/success&language=bg-bg';
         $enriched = FinancingTerminalNavigationSupport::enrichTerminalPayload(
             $result->toArray(),
             $result,
-            'https://shop.example/index.php?route=checkout/success',
-            $session,
-            false
+            $thankYou,
+            $session
         );
 
         self::assertSame($bankUrl, $enriched['redirect_url']);
+        self::assertStringContainsString('ucfin.bg', (string) $enriched['redirect_url']);
+        self::assertStringNotContainsString('checkout/success', (string) $enriched['redirect_url']);
         self::assertArrayNotHasKey('terminal', $enriched);
         self::assertArrayNotHasKey('order_id', $session);
     }
 
-    public function testCheckoutJsNavigatesTerminalBeforeMixedMessages(): void
-    {
-        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
-
-        self::assertMatchesRegularExpression(
-            '/navigateTerminalThankYou\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
-            $js
-        );
-        self::assertMatchesRegularExpression(
-            '/json\.terminal\s*===\s*true[\s\S]*?bank_redirect[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?location\.assign/',
-            $js
-        );
-        self::assertMatchesRegularExpression(
-            '/finally\s*\{[\s\S]*?if\s*\(\s*!redirectTerminal\s*\)[\s\S]*?setProcessing\(false\)/',
-            $js
-        );
-
-        // Success banner must not precede terminal navigation for bank_redirect.
-        $terminalAssignPos = strpos($js, 'json.continuation === "thank_you"');
-        $successBannerPos = strpos($js, '[data-mtuc-success-message]');
-        self::assertNotFalse($terminalAssignPos);
-        self::assertNotFalse($successBannerPos);
-        self::assertLessThan($successBannerPos, $terminalAssignPos);
-
-        // Contradictory pair must not appear in the same success branch before navigation.
-        self::assertDoesNotMatchRegularExpression(
-            '/data-mtuc-success-message[\s\S]{0,400}Заявката не може да бъде обработена/',
-            $js
-        );
-    }
-
-    public function testCheckoutControllerPassesCheckoutThankYouFlag(): void
-    {
-        $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
-        self::assertMatchesRegularExpression(
-            '/enrichTerminalPayload\(\s*\$payload,\s*\$result,\s*\$thankYouUrl,\s*\$this->session->data,\s*true\s*\)/',
-            $src
-        );
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
-    }
-
-    public function testSuccessfulPayloadCannotCarryGenericErrorCode(): void
+    public function testProcess2EnrichmentStillUsesThankYou(): void
     {
         $result = new ProductFinancingResult(
             true,
-            FinancingTerminalNavigationSupport::STEP_BANK_REDIRECT,
-            9604,
+            'process2_prepared',
+            9703,
+            'Process 2 prepared',
+            false,
+            'process2_prepared',
+            89003,
+            null,
+            '',
+            false
+        );
+
+        $session = [];
+        $thankYou = 'https://open40.example/index.php?route=checkout/success';
+        $enriched = FinancingTerminalNavigationSupport::enrichTerminalPayload(
+            $result->toArray(),
+            $result,
+            $thankYou,
+            $session
+        );
+
+        self::assertSame($thankYou, $enriched['redirect_url']);
+        self::assertSame(9703, $session['mt_uni_credit_success_order_id']);
+    }
+
+    public function testSharedRedirectHelperTrustsUcfinAndRejectsForeignHosts(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_redirect.js');
+
+        self::assertStringContainsString('online.ucfin.bg', $js);
+        self::assertStringContainsString('onlinetest.ucfin.bg', $js);
+        self::assertStringContainsString('/sucf-online/Request/Start/', $js);
+        self::assertStringContainsString('navigateIfTrusted', $js);
+        self::assertStringContainsString('isTrustedApplicationRedirect', $js);
+        self::assertStringContainsString('parsed.username || parsed.password', $js);
+        self::assertStringContainsString('parsed.search || parsed.hash', $js);
+    }
+
+    public function testCheckoutJsMatchesProductCartBankRedirectBeforeSuccessBanner(): void
+    {
+        $checkout = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
+        $product = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
+        $cart = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_cart.js');
+
+        foreach ([$checkout, $product, $cart] as $js) {
+            self::assertMatchesRegularExpression(
+                '/navigateTerminalThankYou\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+                $js
+            );
+            self::assertMatchesRegularExpression(
+                '/navigateIfTrusted\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+                $js
+            );
+            self::assertMatchesRegularExpression(
+                '/finally\s*\{[\s\S]*?if\s*\(\s*!redirectTerminal\s*\)[\s\S]*?setProcessing\(false\)/',
+                $js
+            );
+        }
+
+        $bankNavPos = strpos($checkout, 'navigateIfTrusted(json.redirect_url)');
+        $successBannerPos = strpos($checkout, '[data-mtuc-success-message]');
+        self::assertNotFalse($bankNavPos);
+        self::assertNotFalse($successBannerPos);
+        self::assertLessThan($successBannerPos, $bankNavPos);
+
+        self::assertStringNotContainsString('continuation === "thank_you"', $checkout);
+        self::assertStringNotContainsString('json.step === "bank_redirect"', $checkout);
+        self::assertDoesNotMatchRegularExpression(
+            '/data-mtuc-success-message[\s\S]{0,500}Заявката не може да бъде обработена/',
+            $checkout
+        );
+    }
+
+    public function testCheckoutControllerDoesNotForceThankYouForBankRedirect(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
+        self::assertStringNotContainsString('checkoutProcess1ToThankYou', $src);
+        self::assertStringNotContainsString('isCheckoutProcess1Success', $src);
+        self::assertSame('2.0.2', ModuleConstants::VERSION);
+    }
+
+    public function testProductCartPayloadKeepsBankUrl(): void
+    {
+        $bankUrl = self::TRUSTED_BANK_URL;
+        $result = new ProductFinancingResult(
+            true,
+            'bank_redirect',
+            9704,
             ControlPanelOrderLifecycleService::CUSTOMER_SUCCESS_MESSAGE,
             false,
             'completed',
             null,
             null,
-            'https://onlinetest.ucfin.bg/sucf-online/Request/Start/s1',
+            $bankUrl,
             true
         );
+
         $session = [];
         $payload = FinancingTerminalNavigationSupport::enrichTerminalPayload(
             $result->toArray(),
             $result,
             'https://shop.example/index.php?route=checkout/success',
-            $session,
-            true
+            $session
         );
 
+        self::assertSame($bankUrl, $payload['redirect_url']);
         self::assertTrue($payload['success']);
         self::assertArrayNotHasKey('error_code', $payload);
-        self::assertStringNotContainsString('Заявката не може да бъде обработена', json_encode($payload, JSON_THROW_ON_ERROR));
-        self::assertStringContainsString('checkout/success', (string) $payload['redirect_url']);
     }
 }

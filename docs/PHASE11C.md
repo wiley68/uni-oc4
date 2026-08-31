@@ -119,22 +119,28 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Checkout Process 1 success → Thank You (Remediation 06)
+## Checkout Process 1 success → Thank You (Remediation 06 — superseded)
 
-**Problem:** Checkout Process 1 SmartUCF success left the customer on Checkout showing both:
+Remediation 06 incorrectly sent successful Checkout P1 to local Thank You. **Remediation 06A** restores the frozen contract: Checkout P1 success → trusted SmartUCF bank redirect (Product/Cart parity).
 
-- generic error „Заявката не може да бъде обработена.“
-- green success „Поръчката е изпратена към системата за финансиране.“
+**Original UI bug (still fixed):** Checkout JS rendered the success banner before attempting `navigateIfTrusted`, producing mixed messages when navigation failed.
 
-Bank/CP state was already `bank_sent_process1`.
+## Checkout Process 1 success → SmartUCF bank redirect (Remediation 06A)
 
-**Root cause:** Checkout returned SmartUCF bank `redirect_url`. JS showed the success banner first, then failed `navigateIfTrusted` and rendered the generic error — no Thank You navigation.
+**Problem:** Remediation 06 replaced bank `redirect_url` with `checkout/success` for Checkout P1 success — wrong terminal target.
+
+**Correct contract:**
+
+```text
+Checkout P1 SUCCESS  → trusted SmartUCF/bank URL (navigateIfTrusted)
+Checkout P1 FAILURE  → local Thank You (Remediation 04)
+Checkout P2 SUCCESS  → local Thank You
+```
 
 **Fix:**
 
-- Checkout-only enrichment replaces bank URL with local `checkout/success` (`terminal`, `continuation=thank_you`).
-- Product/Cart keep bank application redirect unchanged.
-- Checkout JS navigates terminal Thank You **before** any in-page success/error UI; loader stays on via `redirectTerminal`.
+- Removed Checkout-only Thank You enrichment (`isCheckoutProcess1Success`, `checkoutProcess1ToThankYou`).
+- Checkout JS aligned with Product/Cart: `navigateIfTrusted` **before** success banner; shared `mt_uni_credit_redirect.js` validator.
 
 **Tests:** `tests/Phase11CCheckoutProcess1SuccessTest.php`
 

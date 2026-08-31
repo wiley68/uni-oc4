@@ -349,8 +349,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 $payload,
                 $result,
                 $thankYouUrl,
-                $this->session->data,
-                true
+                $this->session->data
             );
             $payload['redirect'] = $payload['redirect_url'] ?? $thankYouUrl;
 
