@@ -4,7 +4,9 @@ namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Module;
 
 use Opencart\Catalog\Model\Extension\MtUniCredit\Module\MtUniCreditProduct as ProductFinancingModel;
 use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
+use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductActorBinding;
+use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOperationIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
@@ -153,6 +155,74 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
 
             return $payload;
         });
+    }
+
+    /**
+     * After native cart.add success for product_button_action=buy: stash Checkout preference only.
+     * Does not create orders, CP, SmartUCF, or financing attempts.
+     */
+    public function stashBuyPreference(): void
+    {
+        $this->respondJson(function (): array {
+            $this->assertPostWithCsrf();
+
+            $productId = (int) ($this->request->post['product_id'] ?? 0);
+            $schemeType = trim((string) ($this->request->post['scheme_type'] ?? ''));
+            $kopCode = trim((string) ($this->request->post['kop_code'] ?? ''));
+            $months = (int) ($this->request->post['months'] ?? 0);
+            $filterId = (int) ($this->request->post['filter_id'] ?? 0);
+            $firstInstallment = (float) ($this->request->post['first_installment'] ?? 0);
+
+            if ($productId <= 0 || $schemeType === '' || $kopCode === '' || $months <= 0) {
+                return $this->errorPayload('validation', 'Липсва валидна схема за прехвърляне към Checkout.');
+            }
+
+            if (!$this->cartContainsProduct($productId)) {
+                return $this->errorPayload(
+                    'cart_missing_product',
+                    'Продуктът не е в количката. Моля, опитайте отново.'
+                );
+            }
+
+            $storeId = (int) $this->config->get('config_store_id');
+            ProductBuyCheckoutPreference::save($this->session->data, $storeId, [
+                'product_id'        => $productId,
+                'scheme_type'       => $schemeType,
+                'kop_code'          => $kopCode,
+                'months'            => $months,
+                'filter_id'         => $filterId,
+                'first_installment' => $firstInstallment,
+            ]);
+
+            // Tentative payment preselect; getMethods after-hook revalidates availability.
+            $this->session->data['payment_method'] = PaymentIdentity::paymentMethod();
+
+            $checkoutUrl = $this->url->link(
+                'checkout/checkout',
+                'language=' . $this->config->get('config_language'),
+                true
+            );
+
+            return [
+                'success'      => true,
+                'step'         => 'buy_preference_stashed',
+                'checkout_url' => $checkoutUrl,
+            ];
+        });
+    }
+
+    private function cartContainsProduct(int $productId): bool
+    {
+        if ($productId <= 0) {
+            return false;
+        }
+        foreach ($this->cart->getProducts() as $product) {
+            if ((int) ($product['product_id'] ?? 0) === $productId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function assertPostWithCsrf(): void

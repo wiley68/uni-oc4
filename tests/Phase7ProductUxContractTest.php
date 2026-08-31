@@ -140,7 +140,10 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('closeModal()', $js);
         self::assertStringContainsString('awaitingNativeCartAdd', $js);
         self::assertStringContainsString('unbindNativeCartAddObserver', $js);
-        self::assertStringContainsString("$(document).off('ajaxSuccess.mtUniCreditCart')", $js);
+        self::assertMatchesRegularExpression(
+            '/\$\(document\)\.off\([\'"]ajaxSuccess\.mtUniCreditCart[\'"]\)/',
+            $js
+        );
 
         // Still one native click — no UniCredit cart AJAX payload reconstruction.
         self::assertStringContainsString('cartBtn.click()', $js);
@@ -148,10 +151,12 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringNotContainsString('setTimeout(() => closeModal', $js);
         self::assertStringNotContainsString('setTimeout(closeModal', $js);
 
-        // buy path unchanged.
-        self::assertStringContainsString("!== 'buy'", $js);
-        self::assertStringContainsString('checkout_url', $js);
-        self::assertStringContainsString('window.location.href = checkoutUrl', $js);
+        // buy path: native cart.add → stash preference → Checkout (never bare redirect).
+        self::assertMatchesRegularExpression('/!== [\'"]buy[\'"]/', $js);
+        self::assertStringContainsString('stash_buy_url', $js);
+        self::assertStringContainsString('bindBuyNativeCartAddThenCheckout', $js);
+        self::assertStringContainsString('stashBuyPreferenceAndGoCheckout', $js);
+        self::assertStringNotContainsString('window.location.href = checkoutUrl', $js);
     }
 
     public function testStep1CalcFrameHasAsymmetricUniCreditRadius(): void

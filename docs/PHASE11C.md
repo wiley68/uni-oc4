@@ -181,3 +181,22 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CCheckoutProcess1RejectTest.php`
 
 Module version remains **2.0.2**.
+
+## Product popup „Купи“ → native cart → Checkout handoff (Remediation 09)
+
+**Problem:** With `Бутон купи = Купи`, Product popup secondary action only did `location = checkout/checkout` — **no** `checkout/cart.add`. Empty cart → Checkout bounced to empty Cart.
+
+**Root cause:** Buy path skipped native OpenCart cart API; no payment/scheme preference store.
+
+**Fix (PS9/Woo parity, native OC4 cart):**
+
+1. Buy → `#button-cart` → `checkout/cart.add` (same product/qty/options as native Add to Cart).
+2. On success → `stashBuyPreference` session handoff (`mt_uni_credit_product_buy_preference`: scheme_type/kop/months/filter_id + prefer_payment).
+3. Redirect → `checkout/checkout` (not cart).
+4. Checkout: UniCredit payment preferred when available; scheme preselected if still valid against cart offers (promo≠standard by months alone).
+5. Cleanup: other payment save, Thank You, store/TTL mismatch; never force unavailable payment/scheme.
+6. No local order / CP / SmartUCF / bank status on Buy.
+
+**Tests:** `tests/Phase11CProductBuyCheckoutHandoffTest.php`
+
+Module version remains **2.0.2**.

@@ -174,6 +174,11 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'language=' . $language,
             true
         );
+        $stashBuyUrl = $this->url->link(
+            'extension/mt_uni_credit/module/mt_uni_credit_product.stashBuyPreference',
+            'language=' . $language,
+            true
+        );
         $checkoutUrl = $this->url->link('checkout/checkout', 'language=' . $language, true);
 
         $data['mt_uni_credit'] = [
@@ -192,6 +197,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'calculate_url'         => $calculateUrl,
             'issue_url'             => $issueUrl,
             'submit_url'            => $submitUrl,
+            'stash_buy_url'         => $stashBuyUrl,
             'csrf_token'            => $csrfToken,
         ];
         $data['mt_uni_credit_bootstrap_json'] = json_encode([
@@ -206,6 +212,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
             'calculate_url'         => $calculateUrl,
             'issue_url'             => $issueUrl,
             'submit_url'            => $submitUrl,
+            'stash_buy_url'         => $stashBuyUrl,
             'csrf_token'            => $csrfToken,
             'button_top_spacing'    => ModuleLocalSettings::normalizeButtonTopSpacing(
                 $this->config->get(ModuleLocalSettings::BUTTON_TOP_SPACING)

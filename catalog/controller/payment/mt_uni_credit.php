@@ -12,6 +12,7 @@ use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductStorefrontCsrf;
+use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
 use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags;
 use Opencart\System\Library\Extension\MtUniCredit\SubmissionTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\UnavailableSchemeException;
@@ -53,6 +54,14 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $presenter['source'] = 'checkout';
         $presenter['order_id'] = (int) $order['order_id'];
         $presenter['price'] = $orderTotal;
+
+        $preferredSchemeKey = $this->resolveBuyPreferenceSchemeKey($presenter);
+        if ($preferredSchemeKey !== null) {
+            $presenter['buy_preference_scheme_key'] = $preferredSchemeKey;
+            if (isset($presenter['offers']['standard']) && is_array($presenter['offers']['standard'])) {
+                $presenter['offers']['standard']['preferred_scheme_key'] = $preferredSchemeKey;
+            }
+        }
 
         $customer = $model->customerPrefillFromOrder($order);
         $buttonAction = ModuleLocalSettings::normalizeProductButtonAction(
@@ -384,6 +393,41 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
         $this->load->model('checkout/order');
         $this->model_checkout_order->addHistory($orderId, $orderStatusId);
+    }
+
+    /**
+     * Resolve Product Buy scheme preference against current Checkout offers (server-authoritative).
+     *
+     * @param array<string, mixed> $presenter
+     */
+    private function resolveBuyPreferenceSchemeKey(array $presenter): ?string
+    {
+        $storeId = (int) $this->config->get('config_store_id');
+        $preference = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
+        if ($preference === null) {
+            return null;
+        }
+
+        $schemes = [];
+        foreach (['standard', 'promo'] as $type) {
+            $list = $presenter['offers'][$type]['schemes'] ?? null;
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $scheme) {
+                if (is_array($scheme)) {
+                    $schemes[] = $scheme;
+                }
+            }
+        }
+
+        $key = ProductBuyCheckoutPreference::resolveSchemeKey($schemes, $preference);
+        if ($key === null) {
+            // Stale scheme for current cart — do not force it; keep payment prefer if still useful.
+            return null;
+        }
+
+        return $key;
     }
 
     private function assertPostWithCsrf(): void

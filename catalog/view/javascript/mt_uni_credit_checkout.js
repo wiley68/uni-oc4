@@ -123,6 +123,14 @@
 
     function resolvePreferredSchemeKey() {
       const offers = state.calculator?.offers || {};
+      // Product Buy handoff: exact preferred key when still present in current offers.
+      const buyKey = state.calculator?.buy_preference_scheme_key || "";
+      if (buyKey) {
+        const schemes = unifiedSchemes();
+        if (schemes.some((scheme) => scheme && scheme.key === buyKey)) {
+          return buyKey;
+        }
+      }
       if (offers.standard?.preferred_scheme_key) {
         return offers.standard.preferred_scheme_key;
       }

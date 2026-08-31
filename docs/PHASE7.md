@@ -190,7 +190,9 @@ Mobile ≤768px: frame radius becomes `14px` (no calc background image); Step 1 
 
 ### Secondary `Добави в количката` → close on cart success
 
-`product_button_action=add_to_cart` still clicks native `#button-cart` (OpenCart `#form-product` → `checkout/cart.add`). UniCredit binds a **namespaced one-shot** `ajaxSuccess.mtUniCreditCart` listener and calls existing `closeModal()` only when the response JSON has `success`. Validation/`error` responses leave the popup open. Duplicate clicks while awaiting are ignored; listeners are unbound on close/Cancel/Escape. `buy` still redirects to `checkout_url` unchanged.
+`product_button_action=add_to_cart` still clicks native `#button-cart` (OpenCart `#form-product` → `checkout/cart.add`). UniCredit binds a **namespaced one-shot** `ajaxSuccess.mtUniCreditCart` listener and calls existing `closeModal()` only when the response JSON has `success`. Validation/`error` responses leave the popup open. Duplicate clicks while awaiting are ignored; listeners are unbound on close/Cancel/Escape.
+
+`product_button_action=buy` (Remediation 09): same native `#button-cart` / `checkout/cart.add` first; on `json.success` POSTs `stashBuyPreference` (scheme identity + payment prefer into session) then redirects to `checkout/checkout`. Never bare-redirects to Checkout/Cart with an empty cart. No financing order/CP/SmartUCF on Buy.
 
 ## Required Product options (popup entry)
 

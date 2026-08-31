@@ -1404,6 +1404,95 @@
       return true;
     }
 
+    function buildBuyPreferencePayload(scheme) {
+      const payload = {
+        product_id: state.product_id,
+        scheme_type: scheme.scheme_type || selectedOfferType || "standard",
+        kop_code: scheme.kop_code,
+        months: scheme.months,
+        filter_id: scheme.filter_id || 0,
+        first_installment: resolveFirstInstallmentAmount(scheme),
+        csrf_token: state.csrf_token || "",
+      };
+      return payload;
+    }
+
+    async function stashBuyPreferenceAndGoCheckout(scheme) {
+      const stashUrl = state.stash_buy_url || "";
+      const fallbackCheckout =
+        state.checkout_url || root.getAttribute("data-checkout-url") || "";
+      if (!stashUrl) {
+        if (fallbackCheckout) {
+          window.location.assign(fallbackCheckout);
+        }
+        return;
+      }
+      try {
+        const body = new URLSearchParams();
+        const payload = buildBuyPreferencePayload(scheme);
+        Object.keys(payload).forEach((key) => {
+          body.append(key, String(payload[key] ?? ""));
+        });
+        const response = await fetch(stashUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+          credentials: "same-origin",
+        });
+        const json = await response.json().catch(() => null);
+        const checkoutUrl =
+          (json && json.checkout_url) || fallbackCheckout || "";
+        if (json && json.success && checkoutUrl) {
+          window.location.assign(checkoutUrl);
+          return;
+        }
+        const message =
+          (json && json.message) ||
+          "Продуктът е в количката, но прехвърлянето към Checkout не бе завършено.";
+        if (entryErrorEl()) {
+          entryErrorEl().textContent = message;
+        }
+      } catch (error) {
+        if (entryErrorEl()) {
+          entryErrorEl().textContent =
+            "Продуктът е в количката, но прехвърлянето към Checkout не бе завършено.";
+        }
+      }
+    }
+
+    /**
+     * product_button_action=buy: native cart.add must succeed before Checkout redirect.
+     */
+    function bindBuyNativeCartAddThenCheckout(scheme) {
+      const $ = window.jQuery;
+      if (!$ || typeof $.fn === "undefined") {
+        return false;
+      }
+
+      unbindNativeCartAddObserver();
+      awaitingNativeCartAdd = true;
+
+      const handleCartAjax = function (_event, xhr, settings) {
+        if (!isCheckoutCartAddUrl(settings && settings.url)) {
+          return;
+        }
+        unbindNativeCartAddObserver();
+        const json = parseAjaxJson(xhr);
+        if (json && json.success) {
+          stashBuyPreferenceAndGoCheckout(scheme);
+          return;
+        }
+        // Native option/stock validation — stay on Product; no preference / no redirect.
+        awaitingNativeCartAdd = false;
+      };
+
+      $(document).on("ajaxSuccess.mtUniCreditCart", handleCartAjax);
+      return true;
+    }
+
     function triggerSecondaryAction() {
       if (secondaryActionUsesNativeAddToCart()) {
         if (awaitingNativeCartAdd) {
@@ -1418,11 +1507,30 @@
         // Native #form-product submit handler owns the cart request; we only observe completion.
         return;
       }
-      const checkoutUrl =
-        state.checkout_url || root.getAttribute("data-checkout-url") || "";
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+
+      // Buy: native add-to-cart first, then stash preference + Checkout (never redirect on empty cart).
+      if (awaitingNativeCartAdd) {
+        return;
       }
+      const scheme = selectedScheme();
+      if (!scheme) {
+        if (entryErrorEl()) {
+          entryErrorEl().textContent = "Моля, изберете схема преди покупка.";
+        }
+        return;
+      }
+      const cartBtn = document.querySelector("#button-cart");
+      if (!cartBtn) {
+        if (entryErrorEl()) {
+          entryErrorEl().textContent =
+            "Бутонът за добавяне в количката не е наличен на страницата.";
+        }
+        return;
+      }
+      if (!bindBuyNativeCartAddThenCheckout(scheme)) {
+        return;
+      }
+      cartBtn.click();
     }
 
     async function submitForm(event) {
