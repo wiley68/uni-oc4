@@ -200,3 +200,25 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CProductBuyCheckoutHandoffTest.php`
 
 Module version remains **2.0.2**.
+
+## Product Buy exact scheme preselection (Remediation 09A)
+
+**Problem:** After Rem 09, Product „Купи“ correctly added to cart, opened Checkout, and preselected UniCredit payment — but Checkout still showed the **automatic PreferredOffer default** instead of the Product-selected scheme (e.g. 12m / promo).
+
+**Root causes:**
+
+1. Preference stored component identity without durable `scheme_key`; brittle matching could miss Checkout offer rows (kop encoding / type casing / filter coercion).
+2. Only `offers.standard.preferred_scheme_key` was overwritten — promo matches were weaker in JS fallback paths.
+3. No user-override signal — re-renders could re-assert Product preference after a manual scheme change.
+
+**Fix:**
+
+- Canonical matcher `FinancingSchemeIdentity` (key-first, then type+kop+months, prefer filter_id; normalize type/kop/filter/months).
+- `stashBuyPreference` persists Product `scheme.key` + normalized components.
+- Checkout presenter sets `buy_preference_scheme_key` and both offer buckets' `preferred_scheme_key` on successful match; marks `scheme_matched` without clearing.
+- Checkout scheme `<select>` change → `markBuySchemeOverride` (stop re-forcing).
+- Invalid / missing offer → normal PreferredOffer default (unchanged).
+
+**Tests:** `tests/Phase11CProductBuySchemePreselectTest.php`
+
+Module version remains **2.0.2**.

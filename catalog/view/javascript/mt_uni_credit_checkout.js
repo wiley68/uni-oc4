@@ -124,7 +124,12 @@
     function resolvePreferredSchemeKey() {
       const offers = state.calculator?.offers || {};
       // Product Buy handoff: exact preferred key when still present in current offers.
-      const buyKey = state.calculator?.buy_preference_scheme_key || "";
+      const buyKey = String(
+        state.calculator?.buy_preference_scheme_key ||
+          offers.standard?.preferred_scheme_key ||
+          offers.promo?.preferred_scheme_key ||
+          "",
+      );
       if (buyKey) {
         const schemes = unifiedSchemes();
         if (schemes.some((scheme) => scheme && scheme.key === buyKey)) {
@@ -349,11 +354,30 @@
       if (selectedSchemeKey) {
         select.value = selectedSchemeKey;
       }
+      // If preferred key is missing from the live list, fall back without inventing a match.
       if (!select.value && schemes[0]) {
         selectedSchemeKey = schemes[0].key;
         select.value = selectedSchemeKey;
       }
       syncOfferTypeFromScheme(selectedScheme());
+    }
+
+    function notifyBuySchemeUserOverride() {
+      const url = state.scheme_override_url || "";
+      if (!url || !state.csrf_token) {
+        return;
+      }
+      const body = new URLSearchParams();
+      body.append("csrf_token", String(state.csrf_token));
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: body.toString(),
+        credentials: "same-origin",
+      }).catch(() => {});
     }
 
     function renderCalculation(calculation) {
@@ -710,6 +734,7 @@
     schemeSelect()?.addEventListener("change", () => {
       selectedSchemeKey = schemeSelect().value;
       syncOfferTypeFromScheme(selectedScheme());
+      notifyBuySchemeUserOverride();
       resetFirstInstallmentForSchemeChange();
       issueSubmission();
     });

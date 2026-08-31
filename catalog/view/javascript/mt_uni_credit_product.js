@@ -1410,7 +1410,11 @@
         scheme_type: scheme.scheme_type || selectedOfferType || "standard",
         kop_code: scheme.kop_code,
         months: scheme.months,
-        filter_id: scheme.filter_id || 0,
+        filter_id:
+          scheme.filter_id == null || scheme.filter_id === ""
+            ? 0
+            : scheme.filter_id,
+        scheme_key: scheme.key || "",
         first_installment: resolveFirstInstallmentAmount(scheme),
         csrf_token: state.csrf_token || "",
       };

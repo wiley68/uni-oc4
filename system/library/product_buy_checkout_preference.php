@@ -25,23 +25,36 @@ final class ProductBuyCheckoutPreference
      *     kop_code:string,
      *     months:int,
      *     filter_id:int,
+     *     scheme_key?:string,
      *     first_installment?:float|int|string
      * } $selection
      */
     public static function save(array &$sessionData, int $storeId, array $selection): void
     {
+        $schemeType = FinancingSchemeIdentity::normalizeSchemeType($selection['scheme_type'] ?? '');
+        $kopCode = FinancingSchemeIdentity::normalizeKopCode($selection['kop_code'] ?? '');
+        $months = FinancingSchemeIdentity::normalizeMonths($selection['months'] ?? 0);
+        $filterId = FinancingSchemeIdentity::normalizeFilterId($selection['filter_id'] ?? 0);
+        $schemeKey = trim((string) ($selection['scheme_key'] ?? ''));
+        if ($schemeKey === '' && $schemeType !== '' && $kopCode !== '' && $months > 0) {
+            $schemeKey = ProductSchemeList::keyFromParts($schemeType, $kopCode, $months, $filterId);
+        }
+
         $sessionData[self::SESSION_KEY] = [
-            'flow'              => self::FLOW,
-            'source'            => 'product_buy',
-            'store_id'          => $storeId,
-            'product_id'        => (int) ($selection['product_id'] ?? 0),
-            'scheme_type'       => (string) ($selection['scheme_type'] ?? ''),
-            'kop_code'          => (string) ($selection['kop_code'] ?? ''),
-            'months'            => (int) ($selection['months'] ?? 0),
-            'filter_id'         => (int) ($selection['filter_id'] ?? 0),
-            'first_installment' => (float) ($selection['first_installment'] ?? 0),
-            'prefer_payment'    => true,
-            'created_at'        => time(),
+            'flow'                 => self::FLOW,
+            'source'               => 'product_buy',
+            'store_id'             => $storeId,
+            'product_id'           => (int) ($selection['product_id'] ?? 0),
+            'scheme_type'          => $schemeType,
+            'kop_code'             => $kopCode,
+            'months'               => $months,
+            'filter_id'            => $filterId,
+            'scheme_key'           => $schemeKey,
+            'first_installment'    => (float) ($selection['first_installment'] ?? 0),
+            'prefer_payment'       => true,
+            'scheme_matched'       => false,
+            'scheme_user_override' => false,
+            'created_at'           => time(),
         ];
     }
 
@@ -87,45 +100,45 @@ final class ProductBuyCheckoutPreference
     }
 
     /**
-     * Business identity match: scheme_type + kop_code + months; prefer exact filter_id.
+     * Customer manually changed UniCredit scheme in Checkout — stop re-forcing Product preference.
      *
-     * @param list<array<string, mixed>> $schemes Presenter scheme rows with key/scheme_type/kop_code/months/filter_id
+     * @param array<string, mixed> $sessionData
+     */
+    public static function markSchemeUserOverride(array &$sessionData): void
+    {
+        $raw = $sessionData[self::SESSION_KEY] ?? null;
+        if (!is_array($raw)) {
+            return;
+        }
+        $raw['scheme_user_override'] = true;
+        $sessionData[self::SESSION_KEY] = $raw;
+    }
+
+    /**
+     * @param array<string, mixed> $sessionData
+     */
+    public static function markSchemeMatched(array &$sessionData, string $checkoutSchemeKey): void
+    {
+        $raw = $sessionData[self::SESSION_KEY] ?? null;
+        if (!is_array($raw) || $checkoutSchemeKey === '') {
+            return;
+        }
+        $raw['scheme_matched'] = true;
+        $raw['matched_scheme_key'] = $checkoutSchemeKey;
+        $sessionData[self::SESSION_KEY] = $raw;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $schemes Presenter scheme rows
      * @param array<string, mixed> $preference
      */
     public static function resolveSchemeKey(array $schemes, array $preference): ?string
     {
-        $candidates = [];
-        foreach ($schemes as $scheme) {
-            if (!is_array($scheme)) {
-                continue;
-            }
-            if ((string) ($scheme['scheme_type'] ?? '') !== (string) ($preference['scheme_type'] ?? '')) {
-                continue;
-            }
-            if ((string) ($scheme['kop_code'] ?? '') !== (string) ($preference['kop_code'] ?? '')) {
-                continue;
-            }
-            if ((int) ($scheme['months'] ?? 0) !== (int) ($preference['months'] ?? 0)) {
-                continue;
-            }
-            $candidates[] = $scheme;
-        }
-        if ($candidates === []) {
+        if (!empty($preference['scheme_user_override'])) {
             return null;
         }
 
-        $wantFilter = (int) ($preference['filter_id'] ?? 0);
-        foreach ($candidates as $scheme) {
-            if ((int) ($scheme['filter_id'] ?? -1) === $wantFilter) {
-                $key = (string) ($scheme['key'] ?? '');
-
-                return $key !== '' ? $key : null;
-            }
-        }
-
-        $key = (string) ($candidates[0]['key'] ?? '');
-
-        return $key !== '' ? $key : null;
+        return FinancingSchemeIdentity::resolveCheckoutSchemeKey($schemes, $preference);
     }
 
     /**

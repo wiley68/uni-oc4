@@ -58,8 +58,12 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $preferredSchemeKey = $this->resolveBuyPreferenceSchemeKey($presenter);
         if ($preferredSchemeKey !== null) {
             $presenter['buy_preference_scheme_key'] = $preferredSchemeKey;
-            if (isset($presenter['offers']['standard']) && is_array($presenter['offers']['standard'])) {
-                $presenter['offers']['standard']['preferred_scheme_key'] = $preferredSchemeKey;
+            // Keep both offer buckets aligned so JS preferred_scheme_key fallback cannot
+            // override an exact Product Buy match with the automatic PreferredOffer default.
+            foreach (['standard', 'promo'] as $offerType) {
+                if (isset($presenter['offers'][$offerType]) && is_array($presenter['offers'][$offerType])) {
+                    $presenter['offers'][$offerType]['preferred_scheme_key'] = $preferredSchemeKey;
+                }
             }
         }
 
@@ -98,6 +102,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         );
         $calculateUrl = $this->url->link(
             'extension/mt_uni_credit/payment/mt_uni_credit.calculate',
+            'language=' . $language,
+            true
+        );
+        $schemeOverrideUrl = $this->url->link(
+            'extension/mt_uni_credit/payment/mt_uni_credit.markBuySchemeOverride',
             'language=' . $language,
             true
         );
@@ -152,6 +161,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'issue_url'            => $issueUrl,
             'confirm_url'          => $confirmUrl,
             'calculate_url'        => $calculateUrl,
+            'scheme_override_url'  => $schemeOverrideUrl,
             'csrf_token'           => $csrfToken,
             'fonts_href'           => ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_fonts.css'),
             'product_css_href'     => ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'),
@@ -409,25 +419,52 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         $schemes = [];
+        $seen = [];
         foreach (['standard', 'promo'] as $type) {
             $list = $presenter['offers'][$type]['schemes'] ?? null;
             if (!is_array($list)) {
                 continue;
             }
             foreach ($list as $scheme) {
-                if (is_array($scheme)) {
-                    $schemes[] = $scheme;
+                if (!is_array($scheme)) {
+                    continue;
                 }
+                $key = (string) ($scheme['key'] ?? '');
+                if ($key !== '' && isset($seen[$key])) {
+                    continue;
+                }
+                if ($key !== '') {
+                    $seen[$key] = true;
+                }
+                $schemes[] = $scheme;
             }
         }
 
         $key = ProductBuyCheckoutPreference::resolveSchemeKey($schemes, $preference);
         if ($key === null) {
-            // Stale scheme for current cart — do not force it; keep payment prefer if still useful.
+            // Stale / overridden — do not force; keep payment prefer if still useful.
             return null;
         }
 
+        ProductBuyCheckoutPreference::markSchemeMatched($this->session->data, $key);
+
         return $key;
+    }
+
+    /**
+     * Customer changed UniCredit scheme in Checkout UI — stop re-applying Product Buy preference.
+     */
+    public function markBuySchemeOverride(): void
+    {
+        $this->respondJson(function (): array {
+            $this->assertPostWithCsrf();
+            ProductBuyCheckoutPreference::markSchemeUserOverride($this->session->data);
+
+            return [
+                'success' => true,
+                'step'    => 'buy_scheme_override',
+            ];
+        });
     }
 
     private function assertPostWithCsrf(): void

@@ -43,6 +43,7 @@ final class Phase11CProductBuyCheckoutHandoffTest extends TestCase
         self::assertSame(6, $loaded['months']);
         self::assertSame(2, $loaded['filter_id']);
         self::assertTrue($loaded['prefer_payment']);
+        self::assertNotSame('', $loaded['scheme_key']);
         self::assertArrayNotHasKey('redirect_url', $loaded);
         self::assertArrayNotHasKey('monthly_installment', $loaded);
     }

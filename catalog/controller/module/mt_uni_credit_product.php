@@ -171,6 +171,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             $kopCode = trim((string) ($this->request->post['kop_code'] ?? ''));
             $months = (int) ($this->request->post['months'] ?? 0);
             $filterId = (int) ($this->request->post['filter_id'] ?? 0);
+            $schemeKey = trim((string) ($this->request->post['scheme_key'] ?? ''));
             $firstInstallment = (float) ($this->request->post['first_installment'] ?? 0);
 
             if ($productId <= 0 || $schemeType === '' || $kopCode === '' || $months <= 0) {
@@ -191,6 +192,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 'kop_code'          => $kopCode,
                 'months'            => $months,
                 'filter_id'         => $filterId,
+                'scheme_key'        => $schemeKey,
                 'first_installment' => $firstInstallment,
             ]);
 
