@@ -139,14 +139,42 @@ final class FinancingPresentationRepository
     public function findBankStatusLabel(int $storeId, int $orderId): string
     {
         $map = $this->batchBankStatusLabels($storeId, [$orderId]);
-        if (($map[$orderId] ?? '') !== '') {
-            return $map[$orderId];
-        }
-        if ($storeId !== 0) {
-            $map = $this->batchBankStatusLabels(0, [$orderId]);
-        }
 
         return $map[$orderId] ?? '';
+    }
+
+    /**
+     * Resolve bank-status labels for admin/list rows using each row's own store_id.
+     * Colliding numeric order_id values across stores stay isolated.
+     *
+     * @param list<array<string, mixed>> $orders
+     * @return list<string> labels aligned with $orders indexes
+     */
+    public function bankStatusLabelsForOrders(array $orders, int $fallbackStoreId): array
+    {
+        $labels = array_fill(0, count($orders), '');
+        $grouped = [];
+        foreach ($orders as $index => $order) {
+            if (!is_array($order)) {
+                continue;
+            }
+            $orderId = (int) ($order['order_id'] ?? 0);
+            if ($orderId <= 0) {
+                continue;
+            }
+            $storeId = array_key_exists('store_id', $order)
+                ? (int) $order['store_id']
+                : $fallbackStoreId;
+            $grouped[$storeId][$index] = $orderId;
+        }
+        foreach ($grouped as $storeId => $indexToOrderId) {
+            $map = $this->batchBankStatusLabels((int) $storeId, array_values($indexToOrderId));
+            foreach ($indexToOrderId as $index => $orderId) {
+                $labels[$index] = $map[$orderId] ?? '';
+            }
+        }
+
+        return $labels;
     }
 
     private function decode(string $json): ?FinancingPresentationSnapshot

@@ -20,28 +20,23 @@ class MtUniCreditAdminOrder extends \Opencart\System\Engine\Controller
         if (($data['orders'] ?? null) === null || !is_array($data['orders']) || $data['orders'] === []) {
             return;
         }
-        $ids = [];
+        $hasOrder = false;
         foreach ($data['orders'] as $order) {
-            $id = (int) ($order['order_id'] ?? 0);
-            if ($id > 0) {
-                $ids[] = $id;
+            if ((int) ($order['order_id'] ?? 0) > 0) {
+                $hasOrder = true;
+                break;
             }
         }
-        if ($ids === []) {
+        if (!$hasOrder) {
             return;
         }
         try {
             $db = new OpenCartDbConnection($this->db, DB_PREFIX);
             $repo = new FinancingPresentationRepository($db);
-            $storeId = (int) ($this->config->get('config_store_id') ?? 0);
-            $labels = $repo->batchBankStatusLabels($storeId, $ids);
-            // Also resolve statuses for attempts that may be store_id=0 while admin filter uses another store.
-            if ($storeId !== 0) {
-                $labels += $repo->batchBankStatusLabels(0, $ids);
-            }
+            $fallbackStoreId = (int) ($this->config->get('config_store_id') ?? 0);
+            $labels = $repo->bankStatusLabelsForOrders($data['orders'], $fallbackStoreId);
             foreach ($data['orders'] as $index => $order) {
-                $id = (int) ($order['order_id'] ?? 0);
-                $data['orders'][$index]['mt_uni_credit_bank_status'] = $labels[$id] ?? '';
+                $data['orders'][$index]['mt_uni_credit_bank_status'] = $labels[$index] ?? '';
             }
         } catch (\Throwable $exception) {
             error_log('mt_uni_credit: admin order list enrichment failed class=' . $exception::class);
