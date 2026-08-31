@@ -14,13 +14,13 @@ use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOperationIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSubmissionIssuer;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Phase 10A integration — Product submit creates one visible local order.
- *
- * @group integration
  */
+#[Group('integration')]
 final class Phase10AProductOrderCreationIntegrationTest extends TestCase
 {
     private FinancingAttemptRepository $attempts;

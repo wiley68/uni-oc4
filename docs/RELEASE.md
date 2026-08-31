@@ -47,3 +47,5 @@ Before first production release, schema changes use uninstall/reinstall. Do not 
 Phase 11A adds idempotent `smartucf_*` columns through `PersistenceSchemaInstaller::installAll()`. Phase 11B adds `process2_state` / `process2_sensitive_enc` / `process2_mail_sent` the same way. Neither changes the frozen module version.
 
 Phase 12B does **not** add upgrade scripts. Presentation retention, Thank You identity, and event retired-code cleanup are runtime/install-sync behavior on the existing schema.
+
+Draft operator-facing notes: `docs/RELEASE-NOTES-v2.0.2.md`. Tagging / packaging / GitHub release are **out of scope** until independent final audit approval.

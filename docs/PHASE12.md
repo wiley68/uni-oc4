@@ -6,7 +6,7 @@ Release-candidate preparation. Module version remains **2.0.2**. No upgrade scri
 
 Read-only audit of `01d2f9acbbf098361395e2b89b5f50e0760548f6`. Operator manual matrix was already green. STOP GATE 12A **PASS**.
 
-## 12B hardening (this cycle)
+## 12B hardening
 
 | ID          | Severity | Status                                                            |
 | ----------- | -------- | ----------------------------------------------------------------- |
@@ -21,17 +21,44 @@ Read-only audit of `01d2f9acbbf098361395e2b89b5f50e0760548f6`. Operator manual m
 | F1          | MEDIUM   | Deferred — reserved unused attempt states documented, not deleted |
 | F3          | LOW      | Deferred — no server-side redirect defect found                   |
 
-## Operator impact after 12B
+## 12C regression validation
 
-Required before treating storefront as re-validated:
+Baseline: `1fdd89a00d2f5e8a30b12c97bcdc2e4236cfcf16`
+
+| Check                              | Result                                                       |
+| ---------------------------------- | ------------------------------------------------------------ |
+| Full PHPUnit                       | 745 tests, 11232 assertions, **0 failures**, 2 skipped, 0 PHPUnit deprecations |
+| Targeted release-critical (serial) | 84 tests, **0 failures**                                                       |
+| PHP 8.2 lint                       | PASS                                                                           |
+| `node --check` JS                  | PASS; no console/trace remnants                                                |
+| DB-backed                          | Available; green when run without concurrent suite pollution                   |
+| Install / uninstall policy         | Events sync via `managedEventCodes`; tables not DROPped                        |
+| Version                            | 2.0.2                                                                          |
+
+STOP GATE 12C **PASS**.
+
+## 12D release readiness
+
+| Check               | Result                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| Dead code / traces  | Production clean; F1 reserved states retained                                      |
+| Secrets             | PEM/passphrase gitignored; `config/environment.php` tracked CP host only           |
+| Package layout      | `admin/` `catalog/` `system/` `install.json` (+ `config/`); vendor **not** bundled |
+| Docs                | ALIGNED; release notes draft in `docs/RELEASE-NOTES-v2.0.2.md`                     |
+| PHPUnit deprecation | Fixed — `@group` → `#[Group]` attribute; suite reports 0 PHPUnit deprecations      |
+
+## Operator impact (required — not Cursor-PASS)
 
 ```text
-A. Logged Thank You legitimate order
-B. Guest Thank You legitimate order
-C. Direct Thank You URL with arbitrary order_id → no foreign financing info
-D. Product Buy → Checkout → shipping → UniCredit + exact scheme
-E. Admin Save → EventRegistry sync
-F. Multistore presentation if staging fixture available
+A. Logged Thank You legitimate order          [required]
+B. Guest Thank You legitimate order           [required]
+C. Direct Thank You URL arbitrary order_id    [required]
+D. Product Buy 12m→4m handoff                 [required]
+E. Admin Save → EventRegistry sync            [required]
+F. Multistore presentation if fixture exists  [recommended]
+01–09 P1/P2 matrix                            [already-green-unaffected by 12B semantics]
 ```
 
-Lifecycle matrix 01–09 is unchanged in production semantics (P1/P2/CP/bank status/calculator were not modified).
+## Release Candidate decision
+
+**READY WITH ACCEPTED RISKS** — see Phase 12D report accepted-risks section.
