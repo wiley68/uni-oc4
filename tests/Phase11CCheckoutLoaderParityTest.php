@@ -67,7 +67,7 @@ final class Phase11CCheckoutLoaderParityTest extends TestCase
 
         self::assertStringContainsString('redirectTerminal = true', $js);
         self::assertStringContainsString('window.location.assign(json.redirect)', $js);
-        self::assertStringContainsString('window.location.assign(json.redirect_url)', $js);
+        self::assertStringContainsString('window.location.assign(json.redirect_url || json.redirect)', $js);
         self::assertMatchesRegularExpression(
             '/if\s*\(\s*!redirectTerminal\s*\)\s*\{[\s\S]*?setProcessing\(false\)/',
             $js

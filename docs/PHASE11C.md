@@ -118,3 +118,24 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CSmartUcfDebugJournalTest.php`
 
 Module version remains **2.0.2**.
+
+## Checkout Process 1 success → Thank You (Remediation 06)
+
+**Problem:** Checkout Process 1 SmartUCF success left the customer on Checkout showing both:
+
+- generic error „Заявката не може да бъде обработена.“
+- green success „Поръчката е изпратена към системата за финансиране.“
+
+Bank/CP state was already `bank_sent_process1`.
+
+**Root cause:** Checkout returned SmartUCF bank `redirect_url`. JS showed the success banner first, then failed `navigateIfTrusted` and rendered the generic error — no Thank You navigation.
+
+**Fix:**
+
+- Checkout-only enrichment replaces bank URL with local `checkout/success` (`terminal`, `continuation=thank_you`).
+- Product/Cart keep bank application redirect unchanged.
+- Checkout JS navigates terminal Thank You **before** any in-page success/error UI; loader stays on via `redirectTerminal`.
+
+**Tests:** `tests/Phase11CCheckoutProcess1SuccessTest.php`
+
+Module version remains **2.0.2**.
