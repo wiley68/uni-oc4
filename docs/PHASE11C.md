@@ -82,4 +82,21 @@ Checkout payment used incomplete `[data-mtuc-processing]` markup (title/text onl
 
 **Tests:** `tests/Phase11CNoShippingCheckoutTest.php`
 
+## SmartUCF definite failure → Thank You (Remediation 04)
+
+**Problem:** Process 1 definite SmartUCF rejection left Product/Cart/Checkout popup open with in-modal error and retry.
+
+**Reference:** PS9 checkout + Woo redirect to Thank You with failure presentation; `bank_send_failed_smartucf`.
+
+**Fix:**
+
+- `PostControlPanelLifecycleService` returns `step=smartucf_terminal_failed` + Thank You URL for non-retryable `remote_reject` only.
+- `FinancingTerminalNavigationSupport` stashes `mt_uni_credit_success_order_id` for Product/Cart/Checkout.
+- Shared `MtUniCreditRedirect.navigateTerminalThankYou()` — loader stays on until navigation.
+- `FinancingLeasingPresenter::SMARTUCF_TERMINAL_FAILURE_MESSAGE` on Thank You (PS9 tpl wording).
+
+Retryable pre-send, outcome unknown, and CP failures remain interactive.
+
+**Tests:** `tests/Phase11CSmartUcfTerminalFailureTest.php`
+
 Module version remains **2.0.2**.

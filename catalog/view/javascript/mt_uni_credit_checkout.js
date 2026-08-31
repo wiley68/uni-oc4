@@ -588,6 +588,13 @@
 
         // Confirm must not share abort with issue/calculate.
         const json = await postJson(state.confirm_url, payload, {});
+        if (
+          window.MtUniCreditRedirect &&
+          window.MtUniCreditRedirect.navigateTerminalThankYou(json.redirect_url)
+        ) {
+          redirectTerminal = true;
+          return;
+        }
         if (json.success) {
           const success = root.querySelector("[data-mtuc-success]");
           const successMessage = root.querySelector(

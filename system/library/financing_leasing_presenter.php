@@ -13,6 +13,11 @@ final class FinancingLeasingPresenter
     public const ADMIN_TITLE = 'УниКредит — кредитна заявка';
     public const PROCESS2_MESSAGE = 'Очаквайте контакт за потвърждаване на направената от Вас заявка.';
 
+    /** PS9 order_confirmation_smartucf_failure.tpl — customer-safe terminal Process 1 failure. */
+    public const SMARTUCF_TERMINAL_FAILURE_MESSAGE =
+    'Поръчката Ви е регистрирана успешно в магазина, но заявката за финансиране не беше приета/стартирана успешно от банковата система. '
+        . 'Не изпращайте поръчката повторно. При необходимост търговецът ще се свърже с Вас.';
+
     public const LABEL_BANK_STATUS = 'Статус към банката';
     public const LABEL_CP_INTERNAL_ID = 'КП поръчка (ID)';
     public const LABEL_CP_SHOP_ORDER_ID = 'КП shop order_id';
@@ -82,6 +87,11 @@ final class FinancingLeasingPresenter
             if ($audience === FinancingPresentationAudience::CUSTOMER) {
                 $rows[] = ['label' => self::LABEL_MESSAGE, 'value' => self::PROCESS2_MESSAGE];
             }
+        } elseif (
+            $audience === FinancingPresentationAudience::CUSTOMER
+            && $status === BankStatus::LABEL_SEND_FAILED_SMARTUCF
+        ) {
+            $rows[] = ['label' => self::LABEL_MESSAGE, 'value' => self::SMARTUCF_TERMINAL_FAILURE_MESSAGE];
         }
 
         return $rows;

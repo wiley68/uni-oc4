@@ -1,10 +1,11 @@
 (() => {
-  'use strict';
+  "use strict";
 
-  const ROOT_ID = 'mt-uni-credit-product-root';
-  const MODAL_ID = 'mt-uni-credit-product-modal';
-  const BOOTSTRAP_ID = 'mt-uni-credit-bootstrap';
-  const TRIGGER_SELECTOR = '.mt-uni-credit-product-calculator__button[data-offer-type]';
+  const ROOT_ID = "mt-uni-credit-product-root";
+  const MODAL_ID = "mt-uni-credit-product-modal";
+  const BOOTSTRAP_ID = "mt-uni-credit-bootstrap";
+  const TRIGGER_SELECTOR =
+    ".mt-uni-credit-product-calculator__button[data-offer-type]";
 
   function init() {
     const bootstrapEl = document.getElementById(BOOTSTRAP_ID);
@@ -12,14 +13,14 @@
     if (!bootstrapEl || !root) {
       return;
     }
-    if (root.dataset.mtucBound === '1') {
+    if (root.dataset.mtucBound === "1") {
       return;
     }
-    root.dataset.mtucBound = '1';
+    root.dataset.mtucBound = "1";
 
     let state;
     try {
-      state = JSON.parse(bootstrapEl.textContent || '{}');
+      state = JSON.parse(bootstrapEl.textContent || "{}");
     } catch (error) {
       return;
     }
@@ -29,8 +30,11 @@
       return;
     }
 
-    const calculator = root.querySelector('.mt-uni-credit-product-calculator__calculator');
-    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const calculator = root.querySelector(
+      ".mt-uni-credit-product-calculator__calculator",
+    );
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
     /**
      * Live financing form — never cache at init.
@@ -38,16 +42,20 @@
      * an init-time getElementById is permanently null even after modal→body move.
      */
     function activeProductFinancingForm() {
-      return modal.querySelector('#mt-uni-credit-product-form')
-        || document.getElementById('mt-uni-credit-product-form');
+      return (
+        modal.querySelector("#mt-uni-credit-product-form") ||
+        document.getElementById("mt-uni-credit-product-form")
+      );
     }
 
     let sequence = 0;
     let abortController = null;
     let lastTrigger = null;
-    let selectedOfferType = Object.keys(state.calculator?.offers || {})[0] || 'standard';
-    let selectedSchemeKey = state.calculator?.offers?.[selectedOfferType]?.preferred_scheme_key || '';
-    let submissionToken = '';
+    let selectedOfferType =
+      Object.keys(state.calculator?.offers || {})[0] || "standard";
+    let selectedSchemeKey =
+      state.calculator?.offers?.[selectedOfferType]?.preferred_scheme_key || "";
+    let submissionToken = "";
     let lastCalculation = null;
     let currentStep = 1;
     let calcBusy = false;
@@ -62,15 +70,18 @@
     applyRootLayoutFromData(root, state);
 
     function applyRootLayoutFromData(element, bootstrap) {
-      const width = element.getAttribute('data-mtuc-button-width');
-      const height = element.getAttribute('data-mtuc-button-height');
-      const topSpacing = element.getAttribute('data-mtuc-top-spacing')
-        || (bootstrap.button_top_spacing > 0 ? String(bootstrap.button_top_spacing) : '');
+      const width = element.getAttribute("data-mtuc-button-width");
+      const height = element.getAttribute("data-mtuc-button-height");
+      const topSpacing =
+        element.getAttribute("data-mtuc-top-spacing") ||
+        (bootstrap.button_top_spacing > 0
+          ? String(bootstrap.button_top_spacing)
+          : "");
       if (width) {
-        element.style.setProperty('--mtuc-button-width', `${width}px`);
+        element.style.setProperty("--mtuc-button-width", `${width}px`);
       }
       if (height) {
-        element.style.setProperty('--mtuc-button-height', `${height}px`);
+        element.style.setProperty("--mtuc-button-height", `${height}px`);
       }
       if (topSpacing) {
         element.style.marginTop = `${topSpacing}px`;
@@ -82,47 +93,58 @@
      * Jet (mt_jet_credit) binds [name=quantity] + [id^=input-option] — proven on OC4.1.0.3.
      */
     function productRootEl() {
-      return document.getElementById('product') || document.getElementById('form-product');
+      return (
+        document.getElementById("product") ||
+        document.getElementById("form-product")
+      );
     }
 
     function productFormEl() {
-      return document.getElementById('form-product') || document.getElementById('product');
+      return (
+        document.getElementById("form-product") ||
+        document.getElementById("product")
+      );
     }
 
     function isQuantityControl(element) {
       if (!element || !element.getAttribute) {
         return false;
       }
-      return element.id === 'input-quantity' || element.getAttribute('name') === 'quantity';
+      return (
+        element.id === "input-quantity" ||
+        element.getAttribute("name") === "quantity"
+      );
     }
 
     function isOptionControl(element) {
       if (!element || !element.getAttribute) {
         return false;
       }
-      const id = element.id || '';
-      const name = element.getAttribute('name') || '';
+      const id = element.id || "";
+      const name = element.getAttribute("name") || "";
       // Jet contract: ids start with input-option (select, radio, checkbox, wrappers).
-      if (id.indexOf('input-option') === 0) {
+      if (id.indexOf("input-option") === 0) {
         return true;
       }
       // Name contract from OC4 product.twig: option[product_option_id] / option[id][]
-      return name.indexOf('option[') === 0;
+      return name.indexOf("option[") === 0;
     }
 
     /** Popup/root UniCredit controls must never trigger native Product calculator refresh. */
     function isInsideUniCreditUi(element) {
-      if (!element || typeof element.closest !== 'function') {
+      if (!element || typeof element.closest !== "function") {
         return false;
       }
-      return !!(element.closest('#mt-uni-credit-product-modal')
-        || element.closest('#mt-uni-credit-product-root')
-        || (modal && modal.contains(element))
-        || (root && root.contains(element)));
+      return !!(
+        element.closest("#mt-uni-credit-product-modal") ||
+        element.closest("#mt-uni-credit-product-root") ||
+        (modal && modal.contains(element)) ||
+        (root && root.contains(element))
+      );
     }
 
     function recalcTriggerReason(element) {
-      return isQuantityControl(element) ? 'quantity change' : 'option change';
+      return isQuantityControl(element) ? "quantity change" : "option change";
     }
 
     function productOptions() {
@@ -133,29 +155,29 @@
       }
       // Jet-parity field set under #product / #form-product.
       const fields = root.querySelectorAll(
-        "input[type='text'][name], input[type='hidden'][name], input[type='radio'][name]:checked, input[type='checkbox'][name]:checked, input[type='date'][name], input[type='time'][name], input[type='datetime-local'][name], select[name], textarea[name]"
+        "input[type='text'][name], input[type='hidden'][name], input[type='radio'][name]:checked, input[type='checkbox'][name]:checked, input[type='date'][name], input[type='time'][name], input[type='datetime-local'][name], select[name], textarea[name]",
       );
       fields.forEach((element) => {
-        const name = element.getAttribute('name') || '';
+        const name = element.getAttribute("name") || "";
         const match = name.match(/^option\[(\d+)](\[\])?$/);
         if (!match) {
           return;
         }
         const id = match[1];
-        if (element.type === 'checkbox' || match[2] === '[]') {
+        if (element.type === "checkbox" || match[2] === "[]") {
           options[id] = options[id] || [];
-          if (element.type === 'checkbox' && !element.checked) {
+          if (element.type === "checkbox" && !element.checked) {
             return;
           }
-          if (String(element.value) !== '') {
+          if (String(element.value) !== "") {
             options[id].push(element.value);
           }
           return;
         }
-        if (element.type === 'radio' && !element.checked) {
+        if (element.type === "radio" && !element.checked) {
           return;
         }
-        if (String(element.value) !== '') {
+        if (String(element.value) !== "") {
           options[id] = element.value;
         }
       });
@@ -163,8 +185,10 @@
     }
 
     function requiredOptionsMessage() {
-      return (state.i18n && state.i18n.error_required_options)
-        || 'Моля, изберете задължителните опции на продукта.';
+      return (
+        (state.i18n && state.i18n.error_required_options) ||
+        "Моля, изберете задължителните опции на продукта."
+      );
     }
 
     /**
@@ -177,14 +201,14 @@
       if (!form) {
         return null;
       }
-      const blocks = form.querySelectorAll('.mb-3.required, .required');
+      const blocks = form.querySelectorAll(".mb-3.required, .required");
       for (let i = 0; i < blocks.length; i += 1) {
         const block = blocks[i];
-        const candidates = block.querySelectorAll('select, textarea, input');
+        const candidates = block.querySelectorAll("select, textarea, input");
         const optionFields = [];
         candidates.forEach((field) => {
-          const name = field.getAttribute('name') || '';
-          if (name.indexOf('option[') === 0) {
+          const name = field.getAttribute("name") || "";
+          if (name.indexOf("option[") === 0) {
             optionFields.push(field);
           }
         });
@@ -192,12 +216,23 @@
           continue;
         }
         const first = optionFields[0];
-        const name = first.getAttribute('name') || '';
-        const type = (first.getAttribute('type') || first.tagName || '').toLowerCase();
-        if (type === 'radio' || name.indexOf('[]') !== -1 || type === 'checkbox') {
+        const name = first.getAttribute("name") || "";
+        const type = (
+          first.getAttribute("type") ||
+          first.tagName ||
+          ""
+        ).toLowerCase();
+        if (
+          type === "radio" ||
+          name.indexOf("[]") !== -1 ||
+          type === "checkbox"
+        ) {
           let checked = 0;
           optionFields.forEach((field) => {
-            if ((field.type === 'radio' || field.type === 'checkbox') && field.checked) {
+            if (
+              (field.type === "radio" || field.type === "checkbox") &&
+              field.checked
+            ) {
               checked += 1;
             }
           });
@@ -206,24 +241,27 @@
           }
           continue;
         }
-        if (type === 'file') {
-          let fileValue = '';
+        if (type === "file") {
+          let fileValue = "";
           optionFields.forEach((field) => {
-            if (field.type === 'hidden' && String(field.value || '').trim() !== '') {
-              fileValue = String(field.value || '').trim();
+            if (
+              field.type === "hidden" &&
+              String(field.value || "").trim() !== ""
+            ) {
+              fileValue = String(field.value || "").trim();
             }
           });
-          if (fileValue === '') {
+          if (fileValue === "") {
             return block;
           }
           continue;
         }
         let filled = false;
         optionFields.forEach((field) => {
-          if (field.type === 'hidden') {
+          if (field.type === "hidden") {
             return;
           }
-          if (String(field.value || '').trim() !== '') {
+          if (String(field.value || "").trim() !== "") {
             filled = true;
           }
         });
@@ -239,7 +277,7 @@
     }
 
     function entryErrorEl() {
-      return root.querySelector('[data-mtuc-entry-error]');
+      return root.querySelector("[data-mtuc-entry-error]");
     }
 
     function showEntryError(message) {
@@ -256,7 +294,7 @@
       if (!el) {
         return;
       }
-      el.textContent = '';
+      el.textContent = "";
       el.hidden = true;
     }
 
@@ -265,20 +303,20 @@
       if (!block) {
         return;
       }
-      if (typeof block.scrollIntoView === 'function') {
-        block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (typeof block.scrollIntoView === "function") {
+        block.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      const candidates = block.querySelectorAll('select, textarea, input');
+      const candidates = block.querySelectorAll("select, textarea, input");
       for (let i = 0; i < candidates.length; i += 1) {
         const field = candidates[i];
-        const name = field.getAttribute('name') || '';
-        if (name.indexOf('option[') !== 0) {
+        const name = field.getAttribute("name") || "";
+        if (name.indexOf("option[") !== 0) {
           continue;
         }
-        if (field.type === 'hidden') {
+        if (field.type === "hidden") {
           continue;
         }
-        if (typeof field.focus === 'function') {
+        if (typeof field.focus === "function") {
           field.focus();
         }
         break;
@@ -289,18 +327,20 @@
       if (!json || json.success) {
         return false;
       }
-      if (json.error_code === 'missing_required_option') {
+      if (json.error_code === "missing_required_option") {
         return true;
       }
-      const message = String(json.message || '');
-      return message.indexOf('задължителните опции') !== -1
-        || message.indexOf('Missing required product option') !== -1
-        || message.indexOf('Invalid product option') !== -1
-        || message.indexOf('required product option') !== -1;
+      const message = String(json.message || "");
+      return (
+        message.indexOf("задължителните опции") !== -1 ||
+        message.indexOf("Missing required product option") !== -1 ||
+        message.indexOf("Invalid product option") !== -1 ||
+        message.indexOf("required product option") !== -1
+      );
     }
 
     function handleMissingRequiredOptions() {
-      submissionToken = '';
+      submissionToken = "";
       lastCalculation = null;
       showEntryError(requiredOptionsMessage());
       if (modal && !modal.hidden) {
@@ -315,79 +355,83 @@
      */
     function resetFirstInstallmentForSchemeChange() {
       lastCalculation = null;
-      submissionToken = '';
+      submissionToken = "";
       const first = firstInput();
       if (first) {
-        first.value = '0';
-        first.removeAttribute('readonly');
-        first.removeAttribute('disabled');
+        first.value = "0";
+        first.removeAttribute("readonly");
+        first.removeAttribute("disabled");
       }
-      const firstRow = modal.querySelector('[data-mtuc-first-row]');
+      const firstRow = modal.querySelector("[data-mtuc-first-row]");
       if (firstRow) {
         firstRow.hidden = false;
       }
       const apply = applyBtn();
       if (apply) {
         apply.disabled = true;
-        apply.setAttribute('aria-disabled', 'true');
+        apply.setAttribute("aria-disabled", "true");
       }
       const submit = submitBtn();
       if (submit) {
         submit.disabled = true;
-        submit.setAttribute('aria-disabled', 'true');
+        submit.setAttribute("aria-disabled", "true");
       }
       if (popupErrorEl()) {
-        popupErrorEl().textContent = '';
+        popupErrorEl().textContent = "";
       }
     }
 
     function quantityValue() {
-      const qty = document.querySelector('#input-quantity, input[name="quantity"]');
+      const qty = document.querySelector(
+        '#input-quantity, input[name="quantity"]',
+      );
       const parsed = qty ? parseInt(qty.value, 10) : 1;
       return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
     }
 
     function bindProductRecalculationListeners() {
       // Proven Jet pattern: direct listeners on quantity + input-option* controls.
-      const quantityNodes = document.querySelectorAll('#input-quantity, input[name="quantity"]');
+      const quantityNodes = document.querySelectorAll(
+        '#input-quantity, input[name="quantity"]',
+      );
       quantityNodes.forEach((node, index) => {
         if (index > 0) {
           return;
         }
-        node.addEventListener('change', () => {
+        node.addEventListener("change", () => {
           if (isInsideUniCreditUi(node)) {
             return;
           }
-          scheduleRefreshCalculator('quantity change');
+          scheduleRefreshCalculator("quantity change");
         });
-        node.addEventListener('input', () => {
+        node.addEventListener("input", () => {
           if (isInsideUniCreditUi(node)) {
             return;
           }
-          scheduleRefreshCalculator('quantity change');
+          scheduleRefreshCalculator("quantity change");
         });
       });
 
       const optionNodes = document.querySelectorAll('[id^="input-option"]');
       optionNodes.forEach((node) => {
-        node.addEventListener('change', (event) => {
+        node.addEventListener("change", (event) => {
           const target = event.target;
           if (isInsideUniCreditUi(target) || isInsideUniCreditUi(node)) {
             return;
           }
           if (target && isOptionControl(target)) {
-            scheduleRefreshCalculator('option change');
+            scheduleRefreshCalculator("option change");
             return;
           }
           // Wrapper div (#input-option-N) receives bubbled radio/checkbox change.
           if (node !== target && isOptionControl(node)) {
-            scheduleRefreshCalculator('option change');
+            scheduleRefreshCalculator("option change");
           }
         });
       });
 
       // Document-level backup (survives late DOM quirks; Jet-equivalent selectors).
-      document.addEventListener('change', (event) => {
+      document.addEventListener("change", (event) => {
         const target = event.target;
         if (!target) {
           return;
@@ -397,14 +441,14 @@
           return;
         }
         if (isQuantityControl(target)) {
-          scheduleRefreshCalculator('quantity change');
+          scheduleRefreshCalculator("quantity change");
           return;
         }
         if (isOptionControl(target)) {
           if (requiredProductOptionsSatisfied()) {
             clearEntryError();
           }
-          scheduleRefreshCalculator('option change');
+          scheduleRefreshCalculator("option change");
         }
       });
     }
@@ -441,31 +485,35 @@
         return null;
       }
       const schemes = offer.schemes || [];
-      return schemes.find((scheme) => scheme.key === selectedSchemeKey) || schemes[0] || null;
+      return (
+        schemes.find((scheme) => scheme.key === selectedSchemeKey) ||
+        schemes[0] ||
+        null
+      );
     }
 
     function schemeSelect() {
-      return modal.querySelector('[data-mtuc-schemes]');
+      return modal.querySelector("[data-mtuc-schemes]");
     }
 
     function firstInput() {
-      return modal.querySelector('[data-mtuc-first]');
+      return modal.querySelector("[data-mtuc-first]");
     }
 
     function applyBtn() {
-      return modal.querySelector('[data-mtuc-apply]');
+      return modal.querySelector("[data-mtuc-apply]");
     }
 
     function submitBtn() {
-      return modal.querySelector('[data-mtuc-submit]');
+      return modal.querySelector("[data-mtuc-submit]");
     }
 
     function processingEl() {
-      return modal.querySelector('[data-mtuc-processing]');
+      return modal.querySelector("[data-mtuc-processing]");
     }
 
     function dialogEl() {
-      return modal.querySelector('.mt-uni-credit-product-calculator__dialog');
+      return modal.querySelector(".mt-uni-credit-product-calculator__dialog");
     }
 
     function stepEl(step) {
@@ -477,7 +525,7 @@
     }
 
     function popupErrorEl() {
-      return modal.querySelector('[data-mtuc-popup-error]');
+      return modal.querySelector("[data-mtuc-popup-error]");
     }
 
     function fieldError(name) {
@@ -485,40 +533,42 @@
     }
 
     function clearFieldErrors() {
-      modal.querySelectorAll('[data-mtuc-field-error]').forEach((el) => {
-        el.textContent = '';
+      modal.querySelectorAll("[data-mtuc-field-error]").forEach((el) => {
+        el.textContent = "";
       });
-      const submitError = modal.querySelector('[data-mtuc-submit-error]');
+      const submitError = modal.querySelector("[data-mtuc-submit-error]");
       if (submitError) {
-        submitError.textContent = '';
+        submitError.textContent = "";
       }
       if (popupErrorEl()) {
-        popupErrorEl().textContent = '';
+        popupErrorEl().textContent = "";
       }
       const financingForm = activeProductFinancingForm();
       if (financingForm) {
-        financingForm.querySelectorAll('.mt-uni-credit-product-calculator__customer-input').forEach((input) => {
-          input.setAttribute('aria-invalid', 'false');
-        });
+        financingForm
+          .querySelectorAll(".mt-uni-credit-product-calculator__customer-input")
+          .forEach((input) => {
+            input.setAttribute("aria-invalid", "false");
+          });
       }
     }
 
     function showFieldErrors(errors) {
-      if (!errors || typeof errors !== 'object') {
+      if (!errors || typeof errors !== "object") {
         return;
       }
       Object.entries(errors).forEach(([key, message]) => {
         const aliases = {
-          firstname: 'firstname',
-          first_name: 'firstname',
-          lastname: 'lastname',
-          last_name: 'lastname',
-          telephone: 'phone',
-          phone: 'phone',
-          address_1: 'address',
-          address: 'address',
-          email: 'email',
-          consents: 'consent',
+          firstname: "firstname",
+          first_name: "firstname",
+          lastname: "lastname",
+          last_name: "lastname",
+          telephone: "phone",
+          phone: "phone",
+          address_1: "address",
+          address: "address",
+          email: "email",
+          consents: "consent",
         };
         const field = aliases[key] || key;
         const target = fieldError(field) || fieldError(key);
@@ -527,7 +577,7 @@
         }
         const input = customerField(field);
         if (input) {
-          input.setAttribute('aria-invalid', message ? 'true' : 'false');
+          input.setAttribute("aria-invalid", message ? "true" : "false");
         }
       });
     }
@@ -546,24 +596,26 @@
     }
 
     function isNonEmpty(value) {
-      return String(value || '').trim() !== '';
+      return String(value || "").trim() !== "";
     }
 
     function sanitizePhoneValue(value) {
-      return String(value || '')
-        .split('')
+      return String(value || "")
+        .split("")
         .filter((char) => PHONE_ALLOWED_PATTERN.test(char))
-        .join('');
+        .join("");
     }
 
     function isValidPhone(value) {
-      const phone = String(value || '').trim();
-      return phone !== '' && PHONE_VALID_PATTERN.test(phone) && /\d/.test(phone);
+      const phone = String(value || "").trim();
+      return (
+        phone !== "" && PHONE_VALID_PATTERN.test(phone) && /\d/.test(phone)
+      );
     }
 
     function isValidEmail(value) {
-      const email = String(value || '').trim();
-      return email !== '' && EMAIL_VALID_PATTERN.test(email);
+      const email = String(value || "").trim();
+      return email !== "" && EMAIL_VALID_PATTERN.test(email);
     }
 
     /** EGN: 10 digits; first 8 form a valid YYYYMMDD calendar date (PHP checkdate parity). */
@@ -575,9 +627,11 @@
       const month = parseInt(digits.slice(4, 6), 10);
       const day = parseInt(digits.slice(6, 8), 10);
       const date = new Date(year, month - 1, day);
-      return date.getFullYear() === year
-        && date.getMonth() === month - 1
-        && date.getDate() === day;
+      return (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+      );
     }
 
     function consentCheckboxes() {
@@ -585,7 +639,7 @@
       if (!scope) {
         return [];
       }
-      return scope.querySelectorAll('[data-mtuc-consent-checkbox]');
+      return scope.querySelectorAll("[data-mtuc-consent-checkbox]");
     }
 
     function areMandatoryConsentsChecked() {
@@ -613,7 +667,10 @@
       }
       if (!selectedOffer()) {
         const offerTypes = Object.keys(state.calculator?.offers || {});
-        if (offerTypes.length > 0 && offerTypes.indexOf(selectedOfferType) === -1) {
+        if (
+          offerTypes.length > 0 &&
+          offerTypes.indexOf(selectedOfferType) === -1
+        ) {
           selectedOfferType = offerTypes[0];
         }
       }
@@ -628,22 +685,22 @@
     }
 
     function invalidateIssuedSelection(reason) {
-      submissionToken = '';
+      submissionToken = "";
       lastCalculation = null;
       const apply = applyBtn();
       if (apply) {
         apply.disabled = true;
-        apply.setAttribute('aria-disabled', 'true');
+        apply.setAttribute("aria-disabled", "true");
       }
       const submit = submitBtn();
       if (submit) {
         submit.disabled = true;
-        submit.setAttribute('aria-disabled', 'true');
-        submit.classList.add('is-disabled');
+        submit.setAttribute("aria-disabled", "true");
+        submit.classList.add("is-disabled");
       }
       if (!modal.hidden && currentStep === 2) {
         updateSubmitState(false);
-        const submitError = modal.querySelector('[data-mtuc-submit-error]');
+        const submitError = modal.querySelector("[data-mtuc-submit-error]");
         if (submitError && reason) {
           submitError.textContent = reason;
         }
@@ -657,45 +714,46 @@
      */
     function getStep2FieldErrors() {
       const errors = {};
-      if (!isNonEmpty(customerField('firstname')?.value)) {
-        errors.firstname = 'Полето е задължително.';
+      if (!isNonEmpty(customerField("firstname")?.value)) {
+        errors.firstname = "Полето е задължително.";
       }
-      if (!isNonEmpty(customerField('lastname')?.value)) {
-        errors.lastname = 'Полето е задължително.';
+      if (!isNonEmpty(customerField("lastname")?.value)) {
+        errors.lastname = "Полето е задължително.";
       }
-      if (!isNonEmpty(customerField('address')?.value)) {
-        errors.address = 'Полето е задължително.';
+      if (!isNonEmpty(customerField("address")?.value)) {
+        errors.address = "Полето е задължително.";
       }
-      const phone = customerField('phone')?.value;
+      const phone = customerField("phone")?.value;
       if (!isNonEmpty(phone)) {
-        errors.phone = 'Полето е задължително.';
+        errors.phone = "Полето е задължително.";
       } else if (!isValidPhone(phone)) {
-        errors.phone = 'Въведете валиден телефонен номер.';
+        errors.phone = "Въведете валиден телефонен номер.";
       }
-      const email = customerField('email')?.value;
+      const email = customerField("email")?.value;
       if (!isNonEmpty(email)) {
-        errors.email = 'Полето е задължително.';
+        errors.email = "Полето е задължително.";
       } else if (!isValidEmail(email)) {
-        errors.email = 'Въведете валиден e-mail адрес.';
+        errors.email = "Въведете валиден e-mail адрес.";
       }
 
       // Process 2 only when rendered (never require hidden Process 2 fields in Process 1).
-      const egnField = customerField('egn');
+      const egnField = customerField("egn");
       if (egnField) {
-        const egn = String(egnField.value || '').replace(/\D/g, '');
-        if (egn === '') {
-          errors.egn = 'Полето е задължително.';
+        const egn = String(egnField.value || "").replace(/\D/g, "");
+        if (egn === "") {
+          errors.egn = "Полето е задължително.";
         } else if (!isValidEgn(egn)) {
-          errors.egn = 'ЕГН трябва да съдържа 10 цифри. Първите 8 трябва да са валидна дата във формат ГГГГММДД.';
+          errors.egn =
+            "ЕГН трябва да съдържа 10 цифри. Първите 8 трябва да са валидна дата във формат ГГГГММДД.";
         }
       }
-      const phone2Field = customerField('phone2');
+      const phone2Field = customerField("phone2");
       if (phone2Field) {
         const phone2 = phone2Field.value;
         if (!isNonEmpty(phone2)) {
-          errors.phone2 = 'Полето е задължително.';
+          errors.phone2 = "Полето е задължително.";
         } else if (!isValidPhone(phone2)) {
-          errors.phone2 = 'Въведете валиден телефонен номер.';
+          errors.phone2 = "Въведете валиден телефонен номер.";
         }
       }
       return errors;
@@ -704,7 +762,11 @@
     function isStep2FormValid() {
       const errors = getStep2FieldErrors();
       const fieldsOk = Object.keys(errors).length === 0;
-      return fieldsOk && areMandatoryConsentsChecked() && hasAuthoritativeCalculation();
+      return (
+        fieldsOk &&
+        areMandatoryConsentsChecked() &&
+        hasAuthoritativeCalculation()
+      );
     }
 
     function updateSubmitState(showErrors) {
@@ -716,8 +778,8 @@
       const submit = submitBtn();
       if (submit) {
         submit.disabled = !valid;
-        submit.setAttribute('aria-disabled', valid ? 'false' : 'true');
-        submit.classList.toggle('is-disabled', !valid);
+        submit.setAttribute("aria-disabled", valid ? "false" : "true");
+        submit.classList.toggle("is-disabled", !valid);
       }
       return valid;
     }
@@ -728,33 +790,38 @@
         return;
       }
       // PS/Woo: any Step 2 field input/change re-evaluates readiness (incl. prefilled values on edit).
-      scope.addEventListener('input', (event) => {
+      scope.addEventListener("input", (event) => {
         const target = event.target;
         if (!target || !target.getAttribute) {
           return;
         }
-        const name = target.getAttribute('name') || '';
-        if (name === 'phone' || name === 'phone2') {
+        const name = target.getAttribute("name") || "";
+        if (name === "phone" || name === "phone2") {
           const sanitized = sanitizePhoneValue(target.value);
           if (target.value !== sanitized) {
             target.value = sanitized;
           }
         }
-        if (name || target.matches('[data-mtuc-consent-checkbox]')) {
+        if (name || target.matches("[data-mtuc-consent-checkbox]")) {
           updateSubmitState(false);
         }
       });
-      scope.addEventListener('change', (event) => {
+      scope.addEventListener("change", (event) => {
         const target = event.target;
         if (!target || !target.getAttribute) {
           return;
         }
-        if (target.getAttribute('name') || target.matches('[data-mtuc-consent-checkbox]')) {
+        if (
+          target.getAttribute("name") ||
+          target.matches("[data-mtuc-consent-checkbox]")
+        ) {
           updateSubmitState(false);
         }
       });
-      scope.addEventListener('mousedown', (event) => {
-        const consentLink = event.target.closest('.mt-uni-credit-product-calculator__consent-label a');
+      scope.addEventListener("mousedown", (event) => {
+        const consentLink = event.target.closest(
+          ".mt-uni-credit-product-calculator__consent-label a",
+        );
         if (consentLink) {
           event.stopPropagation();
         }
@@ -767,18 +834,21 @@
         panel.hidden = !active;
       }
       if (dialogEl()) {
-        dialogEl().style.opacity = active ? '0.45' : '';
-        dialogEl().style.pointerEvents = active ? 'none' : '';
+        dialogEl().style.opacity = active ? "0.45" : "";
+        dialogEl().style.pointerEvents = active ? "none" : "";
       }
     }
 
     function setStep(step) {
       currentStep = step;
-      modal.querySelectorAll('[data-mtuc-step]').forEach((el) => {
-        const stepNum = parseInt(el.getAttribute('data-mtuc-step'), 10);
+      modal.querySelectorAll("[data-mtuc-step]").forEach((el) => {
+        const stepNum = parseInt(el.getAttribute("data-mtuc-step"), 10);
         const active = stepNum === step;
         el.hidden = !active;
-        el.classList.toggle('mt-uni-credit-product-calculator__step--active', active);
+        el.classList.toggle(
+          "mt-uni-credit-product-calculator__step--active",
+          active,
+        );
       });
     }
 
@@ -790,7 +860,7 @@
       }
       select.replaceChildren();
       (offer.schemes || []).forEach((scheme) => {
-        const option = document.createElement('option');
+        const option = document.createElement("option");
         option.value = scheme.key;
         // Woo/PS contract: "{months} месеца" or "{months} месеца - {promo/description}".
         let label = `${scheme.months} месеца`;
@@ -812,12 +882,27 @@
       }
       lastCalculation = calculation;
       const map = {
-        price: calculation.price_display?.primary || calculation.price_display?.secondary || calculation.price,
-        financed_amount: calculation.financed_amount_display?.primary || calculation.financed_amount,
-        monthly_installment: calculation.monthly_installment_display?.primary || calculation.monthly_installment,
-        total_payable: calculation.total_payable_display?.primary || calculation.total_payable,
-        glp: calculation.glp_display != null ? `${calculation.glp_display}%` : calculation.glp,
-        gpr: calculation.gpr_display != null ? `${calculation.gpr_display}%` : calculation.gpr,
+        price:
+          calculation.price_display?.primary ||
+          calculation.price_display?.secondary ||
+          calculation.price,
+        financed_amount:
+          calculation.financed_amount_display?.primary ||
+          calculation.financed_amount,
+        monthly_installment:
+          calculation.monthly_installment_display?.primary ||
+          calculation.monthly_installment,
+        total_payable:
+          calculation.total_payable_display?.primary ||
+          calculation.total_payable,
+        glp:
+          calculation.glp_display != null
+            ? `${calculation.glp_display}%`
+            : calculation.glp,
+        gpr:
+          calculation.gpr_display != null
+            ? `${calculation.gpr_display}%`
+            : calculation.gpr,
       };
       Object.entries(map).forEach(([key, value]) => {
         const el = displayValue(key);
@@ -826,17 +911,17 @@
         }
       });
 
-      const firstRow = modal.querySelector('[data-mtuc-first-row]');
+      const firstRow = modal.querySelector("[data-mtuc-first-row]");
       const first = firstInput();
       if (first) {
         first.value = String(calculation.first_installment ?? 0);
         if (calculation.first_installment_locked) {
-          first.setAttribute('readonly', 'readonly');
+          first.setAttribute("readonly", "readonly");
           // Keep enabled so value remains reliably readable for submit payload (readonly is enough UX lock).
-          first.removeAttribute('disabled');
+          first.removeAttribute("disabled");
         } else {
-          first.removeAttribute('readonly');
-          first.removeAttribute('disabled');
+          first.removeAttribute("readonly");
+          first.removeAttribute("disabled");
         }
       }
       if (firstRow) {
@@ -846,7 +931,7 @@
       const apply = applyBtn();
       if (apply) {
         apply.disabled = false;
-        apply.setAttribute('aria-disabled', 'false');
+        apply.setAttribute("aria-disabled", "false");
       }
       if (currentStep === 2) {
         updateSubmitState(false);
@@ -857,47 +942,51 @@
       if (!calculator || !data || !data.offers) {
         return;
       }
-      const offersWrap = calculator.querySelector('.mt-uni-credit-product-calculator__buttons');
+      const offersWrap = calculator.querySelector(
+        ".mt-uni-credit-product-calculator__buttons",
+      );
       if (!offersWrap) {
         return;
       }
       const dark = !!data.dark_button;
-      const logoUrl = dark ? (state.logo_alternative_url || '') : (state.logo_standard_url || '');
+      const logoUrl = dark
+        ? state.logo_alternative_url || ""
+        : state.logo_standard_url || "";
       const fragment = document.createDocumentFragment();
       Object.keys(data.offers).forEach((offerType) => {
         const offer = data.offers[offerType];
-        const button = document.createElement('button');
-        button.type = 'button';
+        const button = document.createElement("button");
+        button.type = "button";
         button.className = `mt-uni-credit-product-calculator__button mt-uni-credit-product-calculator__button--${offerType}`;
         button.dataset.offerType = offerType;
-        button.dataset.preferredKey = offer.preferred_scheme_key || '';
-        button.setAttribute('aria-haspopup', 'dialog');
-        button.setAttribute('aria-controls', MODAL_ID);
+        button.dataset.preferredKey = offer.preferred_scheme_key || "";
+        button.setAttribute("aria-haspopup", "dialog");
+        button.setAttribute("aria-controls", MODAL_ID);
 
-        const content = document.createElement('span');
-        content.className = 'mt-uni-credit-product-calculator__button-content';
-        const title = document.createElement('span');
-        title.className = 'mt-uni-credit-product-calculator__button-title';
-        title.textContent = 'Купи на изплащане';
-        const price = document.createElement('span');
-        price.className = 'mt-uni-credit-product-calculator__button-price';
-        price.textContent = offer.installment_label || '';
+        const content = document.createElement("span");
+        content.className = "mt-uni-credit-product-calculator__button-content";
+        const title = document.createElement("span");
+        title.className = "mt-uni-credit-product-calculator__button-title";
+        title.textContent = "Купи на изплащане";
+        const price = document.createElement("span");
+        price.className = "mt-uni-credit-product-calculator__button-price";
+        price.textContent = offer.installment_label || "";
         content.appendChild(title);
         content.appendChild(price);
         button.appendChild(content);
 
-        if (offerType === 'promo') {
-          const badge = document.createElement('span');
-          badge.className = 'mt-uni-credit-product-calculator__badge';
-          badge.setAttribute('aria-hidden', 'true');
-          badge.textContent = '0%';
+        if (offerType === "promo") {
+          const badge = document.createElement("span");
+          badge.className = "mt-uni-credit-product-calculator__badge";
+          badge.setAttribute("aria-hidden", "true");
+          badge.textContent = "0%";
           button.appendChild(badge);
         } else {
-          const logoWrap = document.createElement('span');
-          logoWrap.className = 'mt-uni-credit-product-calculator__logo';
-          const img = document.createElement('img');
+          const logoWrap = document.createElement("span");
+          logoWrap.className = "mt-uni-credit-product-calculator__logo";
+          const img = document.createElement("img");
           img.src = logoUrl;
-          img.alt = 'UniCredit';
+          img.alt = "UniCredit";
           logoWrap.appendChild(img);
           button.appendChild(logoWrap);
         }
@@ -912,9 +1001,10 @@
       }
       state.calculator = data;
       if (!data.offers?.[selectedOfferType]) {
-        selectedOfferType = Object.keys(data.offers || {})[0] || 'standard';
+        selectedOfferType = Object.keys(data.offers || {})[0] || "standard";
       }
-      const preferred = data.offers?.[selectedOfferType]?.preferred_scheme_key || '';
+      const preferred =
+        data.offers?.[selectedOfferType]?.preferred_scheme_key || "";
       if (preferred) {
         selectedSchemeKey = preferred;
       }
@@ -925,9 +1015,9 @@
       renderOfferButtons(data);
       applyRootLayoutFromData(root, state);
       // Calculator rebuild invalidates issued financing context. Step 2 must not stay submit-ready.
-      invalidateIssuedSelection('');
+      invalidateIssuedSelection("");
       syncBootstrap();
-      calculator.setAttribute('aria-busy', 'false');
+      calculator.setAttribute("aria-busy", "false");
     }
 
     let refreshTimer = null;
@@ -946,10 +1036,12 @@
       const opts = options || {};
       const body = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
           Object.entries(value).forEach(([nestedKey, nestedValue]) => {
             if (Array.isArray(nestedValue)) {
-              nestedValue.forEach((item) => body.append(`${key}[${nestedKey}][]`, item));
+              nestedValue.forEach((item) =>
+                body.append(`${key}[${nestedKey}][]`, item),
+              );
             } else {
               body.append(`${key}[${nestedKey}]`, nestedValue);
             }
@@ -964,10 +1056,10 @@
       });
 
       const fetchOptions = {
-        method: 'POST',
+        method: "POST",
         body,
-        credentials: 'same-origin',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
       };
       // Submit must not share refresh abort signal — otherwise a Product AJAX refresh aborts Изпрати silently.
       if (opts.abort !== false && abortController) {
@@ -985,7 +1077,7 @@
       }
       abortController = new AbortController();
       if (calculator) {
-        calculator.setAttribute('aria-busy', 'true');
+        calculator.setAttribute("aria-busy", "true");
       }
       const qty = quantityValue();
       const options = productOptions();
@@ -1000,7 +1092,11 @@
         if (currentSequence !== sequence) {
           return;
         }
-        if (!json.success && (json.error_code === 'missing_csrf' || json.error_code === 'invalid_csrf')) {
+        if (
+          !json.success &&
+          (json.error_code === "missing_csrf" ||
+            json.error_code === "invalid_csrf")
+        ) {
         }
         if (json.success && json.calculator) {
           renderCalculator(json.calculator);
@@ -1019,26 +1115,40 @@
             }
           }
         } else if (calculator) {
-          calculator.setAttribute('aria-busy', 'false');
+          calculator.setAttribute("aria-busy", "false");
         }
       } catch (error) {
-        if (error.name !== 'AbortError' && calculator) {
-          calculator.setAttribute('aria-busy', 'false');
+        if (error.name !== "AbortError" && calculator) {
+          calculator.setAttribute("aria-busy", "false");
         }
       }
     }
 
     function resolveFirstInstallmentAmount(scheme) {
       const first = firstInput();
-      const locked = !!(lastCalculation && lastCalculation.first_installment_locked);
-      if (locked && lastCalculation && lastCalculation.first_installment != null) {
-        return parseFloat(String(lastCalculation.first_installment).replace(',', '.')) || 0;
+      const locked = !!(
+        lastCalculation && lastCalculation.first_installment_locked
+      );
+      if (
+        locked &&
+        lastCalculation &&
+        lastCalculation.first_installment != null
+      ) {
+        return (
+          parseFloat(
+            String(lastCalculation.first_installment).replace(",", "."),
+          ) || 0
+        );
       }
       if (first) {
-        return parseFloat(String(first.value).replace(',', '.')) || 0;
+        return parseFloat(String(first.value).replace(",", ".")) || 0;
       }
       if (lastCalculation && lastCalculation.first_installment != null) {
-        return parseFloat(String(lastCalculation.first_installment).replace(',', '.')) || 0;
+        return (
+          parseFloat(
+            String(lastCalculation.first_installment).replace(",", "."),
+          ) || 0
+        );
       }
       return scheme.first_installment || 0;
     }
@@ -1094,14 +1204,18 @@
       const apply = applyBtn();
       if (apply) {
         apply.disabled = true;
-        apply.setAttribute('aria-disabled', 'true');
+        apply.setAttribute("aria-disabled", "true");
       }
 
       let ok = false;
       try {
-        const json = await postJson(state.issue_url, buildSelectionPayload(scheme), { abort: allowAbort });
+        const json = await postJson(
+          state.issue_url,
+          buildSelectionPayload(scheme),
+          { abort: allowAbort },
+        );
         if (json.success) {
-          const token = String(json.submission_token || '');
+          const token = String(json.submission_token || "");
           if (!token) {
             ok = false;
           } else {
@@ -1115,13 +1229,15 @@
           ok = false;
         } else {
           if (popupErrorEl()) {
-            popupErrorEl().textContent = json.message || 'Неуспешно изчисление.';
+            popupErrorEl().textContent =
+              json.message || "Неуспешно изчисление.";
           }
           ok = false;
         }
       } catch (error) {
-        if (error && error.name !== 'AbortError' && popupErrorEl()) {
-          popupErrorEl().textContent = 'Неуспешно изчисление. Моля, опитайте отново.';
+        if (error && error.name !== "AbortError" && popupErrorEl()) {
+          popupErrorEl().textContent =
+            "Неуспешно изчисление. Моля, опитайте отново.";
         }
         ok = false;
       } finally {
@@ -1138,13 +1254,15 @@
       if (!modal || modal.hidden) {
         return;
       }
-      const focusables = [...modal.querySelectorAll(focusableSelector)].filter((el) => !el.hasAttribute('disabled'));
+      const focusables = [...modal.querySelectorAll(focusableSelector)].filter(
+        (el) => !el.hasAttribute("disabled"),
+      );
       if (focusables.length === 0) {
         return;
       }
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
-      if (event.key === 'Tab') {
+      if (event.key === "Tab") {
         if (event.shiftKey && document.activeElement === first) {
           event.preventDefault();
           last.focus();
@@ -1153,22 +1271,22 @@
           first.focus();
         }
       }
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         closeModal();
       }
     }
 
     function setBackgroundInert(inert) {
-      document.querySelectorAll('body > *').forEach((element) => {
+      document.querySelectorAll("body > *").forEach((element) => {
         if (element === modal || element.contains(modal)) {
           return;
         }
         if (inert) {
-          element.setAttribute('aria-hidden', 'true');
-          element.setAttribute('inert', '');
+          element.setAttribute("aria-hidden", "true");
+          element.setAttribute("inert", "");
         } else {
-          element.removeAttribute('aria-hidden');
-          element.removeAttribute('inert');
+          element.removeAttribute("aria-hidden");
+          element.removeAttribute("inert");
         }
       });
     }
@@ -1183,17 +1301,17 @@
         document.body.appendChild(modal);
       }
       modal.hidden = false;
-      modal.removeAttribute('inert');
-      modal.setAttribute('aria-hidden', 'false');
+      modal.removeAttribute("inert");
+      modal.setAttribute("aria-hidden", "false");
       setBackgroundInert(true);
-      document.addEventListener('keydown', trapFocus);
+      document.addEventListener("keydown", trapFocus);
       setStep(1);
       clearFieldErrors();
       populateSchemeSelect();
       const apply = applyBtn();
       if (apply) {
         apply.disabled = true;
-        apply.setAttribute('aria-disabled', 'true');
+        apply.setAttribute("aria-disabled", "true");
       }
       dialogEl()?.focus();
       await recalculateSelection();
@@ -1206,9 +1324,9 @@
         firstInstallmentTimer = null;
       }
       modal.hidden = true;
-      modal.setAttribute('aria-hidden', 'true');
+      modal.setAttribute("aria-hidden", "true");
       setBackgroundInert(false);
-      document.removeEventListener('keydown', trapFocus);
+      document.removeEventListener("keydown", trapFocus);
       setProcessing(false);
       if (modalHomeParent && modal.parentElement === document.body) {
         if (modalHomeNext && modalHomeNext.parentElement === modalHomeParent) {
@@ -1217,30 +1335,32 @@
           modalHomeParent.appendChild(modal);
         }
       }
-      if (lastTrigger && typeof lastTrigger.focus === 'function') {
+      if (lastTrigger && typeof lastTrigger.focus === "function") {
         lastTrigger.focus();
       }
     }
 
     function secondaryActionUsesNativeAddToCart() {
-      return (state.product_button_action || 'add_to_cart') !== 'buy';
+      return (state.product_button_action || "add_to_cart") !== "buy";
     }
 
     function isCheckoutCartAddUrl(url) {
-      const normalized = String(url || '').replace(/&amp;/g, '&');
-      return normalized.indexOf('route=checkout/cart.add') !== -1
-        || /\/checkout\/cart\.add(?:\?|$)/.test(normalized);
+      const normalized = String(url || "").replace(/&amp;/g, "&");
+      return (
+        normalized.indexOf("route=checkout/cart.add") !== -1 ||
+        /\/checkout\/cart\.add(?:\?|$)/.test(normalized)
+      );
     }
 
     function parseAjaxJson(xhr) {
       if (!xhr) {
         return null;
       }
-      if (xhr.responseJSON && typeof xhr.responseJSON === 'object') {
+      if (xhr.responseJSON && typeof xhr.responseJSON === "object") {
         return xhr.responseJSON;
       }
       try {
-        return JSON.parse(xhr.responseText || '');
+        return JSON.parse(xhr.responseText || "");
       } catch (error) {
         return null;
       }
@@ -1248,8 +1368,8 @@
 
     function unbindNativeCartAddObserver() {
       const $ = window.jQuery;
-      if ($ && typeof $.fn !== 'undefined') {
-        $(document).off('ajaxSuccess.mtUniCreditCart');
+      if ($ && typeof $.fn !== "undefined") {
+        $(document).off("ajaxSuccess.mtUniCreditCart");
       }
       awaitingNativeCartAdd = false;
     }
@@ -1260,7 +1380,7 @@
      */
     function bindNativeCartAddSuccessCloser() {
       const $ = window.jQuery;
-      if (!$ || typeof $.fn === 'undefined') {
+      if (!$ || typeof $.fn === "undefined") {
         return false;
       }
 
@@ -1280,7 +1400,7 @@
       };
 
       // OpenCart product.twig uses $.ajax success with json.success | json.error.
-      $(document).on('ajaxSuccess.mtUniCreditCart', handleCartAjax);
+      $(document).on("ajaxSuccess.mtUniCreditCart", handleCartAjax);
       return true;
     }
 
@@ -1289,7 +1409,7 @@
         if (awaitingNativeCartAdd) {
           return;
         }
-        const cartBtn = document.querySelector('#button-cart');
+        const cartBtn = document.querySelector("#button-cart");
         if (!cartBtn) {
           return;
         }
@@ -1298,14 +1418,15 @@
         // Native #form-product submit handler owns the cart request; we only observe completion.
         return;
       }
-      const checkoutUrl = state.checkout_url || root.getAttribute('data-checkout-url') || '';
+      const checkoutUrl =
+        state.checkout_url || root.getAttribute("data-checkout-url") || "";
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
       }
     }
 
     async function submitForm(event) {
-      if (event && typeof event.preventDefault === 'function') {
+      if (event && typeof event.preventDefault === "function") {
         event.preventDefault();
       }
       if (submitBusy) {
@@ -1313,7 +1434,7 @@
       }
       const activeForm = activeProductFinancingForm();
       const button = submitBtn();
-      const submitError = modal.querySelector('[data-mtuc-submit-error]');
+      const submitError = modal.querySelector("[data-mtuc-submit-error]");
       const initialHasContext = hasAuthoritativeCalculation();
       syncSelectedSchemeFromDom();
 
@@ -1323,11 +1444,15 @@
           populateSchemeSelect();
           syncSelectedSchemeFromDom();
           // force + no abort: must not silently return on calcBusy / refresh abort.
-          const recovered = await recalculateSelection({ force: true, abort: false });
+          const recovered = await recalculateSelection({
+            force: true,
+            abort: false,
+          });
           if (!recovered) {
             updateSubmitState(false);
             if (submitError) {
-              submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
+              submitError.textContent =
+                "Моля, изберете схема и изчакайте изчислението преди изпращане.";
             }
             return;
           }
@@ -1346,7 +1471,8 @@
         updateSubmitState(false);
         if (submitError) {
           // Internal reason: schemePresent ? 'submit_missing_context' : 'submit_missing_scheme'
-          submitError.textContent = 'Моля, изберете схема и изчакайте изчислението преди изпращане.';
+          submitError.textContent =
+            "Моля, изберете схема и изчакайте изчислението преди изпращане.";
         }
         return;
       }
@@ -1354,7 +1480,8 @@
         updateSubmitState(false);
         if (submitError) {
           // Internal reason: !activeFormPresent ? 'submit_missing_form' : 'submit_missing_button'
-          submitError.textContent = 'Заявката не може да бъде обработена. Моля, опитайте отново.';
+          submitError.textContent =
+            "Заявката не може да бъде обработена. Моля, опитайте отново.";
         }
         return;
       }
@@ -1363,7 +1490,7 @@
       }
       submitBusy = true;
       redirectTerminal = false;
-      button.setAttribute('aria-busy', 'true');
+      button.setAttribute("aria-busy", "true");
       button.disabled = true;
       clearFieldErrors();
       setProcessing(true);
@@ -1375,27 +1502,44 @@
         formData.forEach((value, key) => {
           payload[key] = value;
         });
-        activeForm.querySelectorAll('input[name="consent[]"]:checked').forEach((input, index) => {
-          payload[`consent[${index}]`] = input.value;
-        });
+        activeForm
+          .querySelectorAll('input[name="consent[]"]:checked')
+          .forEach((input, index) => {
+            payload[`consent[${index}]`] = input.value;
+          });
 
-        const json = await postJson(state.submit_url, payload, { abort: false });
+        const json = await postJson(state.submit_url, payload, {
+          abort: false,
+        });
+        if (
+          window.MtUniCreditRedirect &&
+          window.MtUniCreditRedirect.navigateTerminalThankYou(json.redirect_url)
+        ) {
+          redirectTerminal = true;
+          return;
+        }
         if (json.success) {
-          if (json.step === 'process2_prepared' && json.redirect_url) {
+          if (json.step === "process2_prepared" && json.redirect_url) {
             redirectTerminal = true;
             window.location.assign(json.redirect_url);
             return;
           }
-          if (json.redirect_url
-            && window.MtUniCreditRedirect
-            && window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)) {
+          if (
+            json.redirect_url &&
+            window.MtUniCreditRedirect &&
+            window.MtUniCreditRedirect.navigateIfTrusted(json.redirect_url)
+          ) {
             // Terminal: keep loader until navigation unloads the page.
             redirectTerminal = true;
             return;
           }
-          const successMessage = modal.querySelector('[data-mtuc-success-message]');
+          const successMessage = modal.querySelector(
+            "[data-mtuc-success-message]",
+          );
           if (successMessage) {
-            successMessage.textContent = json.message || 'Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.';
+            successMessage.textContent =
+              json.message ||
+              "Локалната поръчка е подготвена. Следващата стъпка ще бъде финансирането.";
           }
           setStep(3);
         } else {
@@ -1403,25 +1547,25 @@
           if (submitError && json.message) {
             submitError.textContent = json.message;
           } else if (submitError && !json.message) {
-            submitError.textContent = 'Заявката не може да бъде обработена.';
+            submitError.textContent = "Заявката не може да бъде обработена.";
           }
           updateSubmitState(false);
         }
       } catch (error) {
         if (submitError) {
-          submitError.textContent = 'Заявката не може да бъде обработена.';
+          submitError.textContent = "Заявката не може да бъде обработена.";
         }
         updateSubmitState(false);
       } finally {
         if (!redirectTerminal) {
-          button.setAttribute('aria-busy', 'false');
+          button.setAttribute("aria-busy", "false");
           submitBusy = false;
           setProcessing(false);
         }
       }
     }
 
-    root.addEventListener('click', (event) => {
+    root.addEventListener("click", (event) => {
       const trigger = event.target.closest(TRIGGER_SELECTOR);
       if (!trigger || !root.contains(trigger)) {
         return;
@@ -1438,56 +1582,58 @@
       openModal(trigger);
     });
 
-    modal.addEventListener('click', (event) => {
-      const dismiss = event.target.closest('[data-mtuc-dismiss]');
+    modal.addEventListener("click", (event) => {
+      const dismiss = event.target.closest("[data-mtuc-dismiss]");
       if (dismiss) {
         event.preventDefault();
         closeModal();
         return;
       }
-      const back = event.target.closest('[data-mtuc-back]');
+      const back = event.target.closest("[data-mtuc-back]");
       if (back) {
         event.preventDefault();
         setStep(1);
         return;
       }
-      const secondary = event.target.closest('[data-mtuc-secondary]');
+      const secondary = event.target.closest("[data-mtuc-secondary]");
       if (secondary) {
         event.preventDefault();
         triggerSecondaryAction();
         return;
       }
-      const apply = event.target.closest('[data-mtuc-apply]');
+      const apply = event.target.closest("[data-mtuc-apply]");
       if (apply) {
         event.preventDefault();
         if (!apply.disabled && hasAuthoritativeCalculation()) {
           setStep(2);
           updateSubmitState(false);
-          activeProductFinancingForm()?.querySelector('input, select, textarea')?.focus();
+          activeProductFinancingForm()
+            ?.querySelector("input, select, textarea")
+            ?.focus();
         }
         return;
       }
-      const submit = event.target.closest('[data-mtuc-submit]');
+      const submit = event.target.closest("[data-mtuc-submit]");
       if (submit) {
         event.preventDefault();
         submitForm(event);
       }
     });
 
-    schemeSelect()?.addEventListener('change', () => {
+    schemeSelect()?.addEventListener("change", () => {
       selectedSchemeKey = schemeSelect().value;
       resetFirstInstallmentForSchemeChange();
       recalculateSelection();
     });
 
-    firstInput()?.addEventListener('input', () => {
+    firstInput()?.addEventListener("input", () => {
       if (firstInstallmentTimer) {
         clearTimeout(firstInstallmentTimer);
       }
       firstInstallmentTimer = setTimeout(() => recalculateSelection(), 400);
     });
 
-    activeProductFinancingForm()?.addEventListener('submit', submitForm);
+    activeProductFinancingForm()?.addEventListener("submit", submitForm);
 
     bindProductRecalculationListeners();
     bindStep2ReadinessListeners();
@@ -1496,8 +1642,8 @@
     updateSubmitState(false);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }

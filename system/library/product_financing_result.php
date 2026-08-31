@@ -17,8 +17,7 @@ final class ProductFinancingResult
         public ?string $errorCode = null,
         public ?string $redirectUrl = null,
         public bool $bankSubmitted = false
-    ) {
-    }
+    ) {}
 
     /** @return array<string, mixed> */
     public function toArray(): array
@@ -44,6 +43,10 @@ final class ProductFinancingResult
         }
         if ($this->replay) {
             $payload['replay'] = true;
+        }
+        if ($this->step === FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED) {
+            $payload['terminal'] = true;
+            $payload['bank_failure_known'] = true;
         }
 
         return $payload;

@@ -65,10 +65,24 @@ final class Phase11AFinalizationRemediationTest extends TestCase
         }
     }
 
+    public function testTerminalSmartUcfFailureKeepsLoaderUntilThankYouNavigation(): void
+    {
+        foreach ([$this->productJs(), $this->cartJs(), $this->checkoutJs()] as $js) {
+            self::assertStringContainsString('navigateTerminalThankYou', $js);
+            self::assertMatchesRegularExpression(
+                '/navigateTerminalThankYou[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+                $js
+            );
+        }
+    }
+
     public function testFailurePathStillClearsLoader(): void
     {
         foreach ([$this->productJs(), $this->cartJs()] as $js) {
-            self::assertStringContainsString("submitError.textContent = 'Заявката не може да бъде обработена.'", $js);
+            self::assertMatchesRegularExpression(
+                '/submitError\.textContent = ["\']Заявката не може да бъде обработена\./',
+                $js
+            );
             self::assertMatchesRegularExpression(
                 '/} catch \(error\) \{[\s\S]*?updateSubmitState\(false\);[\s\S]*?\} finally \{[\s\S]*?if \(!redirectTerminal\)/',
                 $js

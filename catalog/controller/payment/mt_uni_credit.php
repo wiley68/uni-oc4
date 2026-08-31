@@ -314,6 +314,23 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 ];
             }
 
+            if (\Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::isSmartUcfTerminalFailure($result)) {
+                $payload = $result->toArray();
+                $thankYouUrl = $this->url->link(
+                    'checkout/success',
+                    'language=' . $this->config->get('config_language'),
+                    true
+                );
+                $payload = \Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::enrichTerminalPayload(
+                    $payload,
+                    $result,
+                    $thankYouUrl,
+                    $this->session->data
+                );
+
+                return $payload;
+            }
+
             $orderStatusId = (int) $this->config->get('payment_mt_uni_credit_order_status_id');
             if ($orderStatusId > 0) {
                 $this->load->model('checkout/order');
@@ -323,11 +340,18 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             $this->session->data['mt_uni_credit_checkout_success'] = $this->language->get('text_success_financing');
 
             $payload = $result->toArray();
-            $payload['redirect'] = $payload['redirect_url'] ?? $this->url->link(
-                    'checkout/success',
-                    'language=' . $this->config->get('config_language'),
-                    true
-                );
+            $thankYouUrl = $this->url->link(
+                'checkout/success',
+                'language=' . $this->config->get('config_language'),
+                true
+            );
+            $payload = \Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::enrichTerminalPayload(
+                $payload,
+                $result,
+                $thankYouUrl,
+                $this->session->data
+            );
+            $payload['redirect'] = $payload['redirect_url'] ?? $thankYouUrl;
 
             return $payload;
         });

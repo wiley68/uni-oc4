@@ -20,6 +20,7 @@ use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilde
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAddressData;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptState;
+use Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingCustomerData;
 use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
@@ -293,9 +294,14 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
 
         try {
             $result = $this->submitCheckout($service, $orders, $transport, false);
+            if ($result->step === FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED) {
+                self::assertFalse($result->success);
+                self::assertSame(1, $transport->countOrderCreates());
+                return;
+            }
             self::assertTrue($result->success);
         } catch (ProductFinancingFlowException $exception) {
-            // Test env lacks SmartUCF mTLS; CP create must still succeed for Process 1.
+            // Retryable SmartUCF pre-send in test env without mTLS.
             if ($exception->errorCode() !== 'smartucf_submit_failed') {
                 throw $exception;
             }
@@ -367,7 +373,11 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         $orderId = $orders->lastOrderId();
         try {
             $result = $this->submitCheckout($service, $orders, $transport, false, null, $orderId, true);
-            self::assertTrue($result->success);
+            if ($result->step === FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED) {
+                self::assertFalse($result->success);
+            } else {
+                self::assertTrue($result->success);
+            }
         } catch (ProductFinancingFlowException $exception) {
             if ($exception->errorCode() !== 'smartucf_submit_failed') {
                 throw $exception;

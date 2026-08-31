@@ -10,8 +10,7 @@ final class PostControlPanelLifecycleService
         private SmartUcfSessionCoordinator $coordinator,
         private ?ProcessTwoLifecycleCoordinator $process2Coordinator = null,
         private ?string $successRedirectUrl = null
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $shop
@@ -82,6 +81,32 @@ final class PostControlPanelLifecycleService
                 SmartUcfLifecycleStates::OUTCOME_UNKNOWN,
                 $cpOrderId,
                 'smartucf_outcome_unknown'
+            );
+        }
+
+        if ($result->isFailed()) {
+            if (
+                !$result->isRetryable()
+                && $result->errorClass() === SmartUcfFailureClassification::CLASS_REMOTE_REJECT
+            ) {
+                return new ProductFinancingResult(
+                    false,
+                    FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED,
+                    $localOrderId,
+                    FinancingLeasingPresenter::SMARTUCF_TERMINAL_FAILURE_MESSAGE,
+                    $cpReplay,
+                    SmartUcfLifecycleStates::FAILED,
+                    $cpOrderId,
+                    BankStatus::SEND_FAILED_SMARTUCF,
+                    (string) ($this->successRedirectUrl ?? ''),
+                    false
+                );
+            }
+
+            throw new ProductFinancingFlowException(
+                'smartucf_submit_failed',
+                $result->customerMessage() !== '' ? $result->customerMessage() : SmartUcfSessionCoordinator::CUSTOMER_FAILED,
+                []
             );
         }
 
