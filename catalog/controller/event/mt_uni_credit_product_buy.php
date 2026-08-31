@@ -3,10 +3,16 @@
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Event;
 
 use Opencart\System\Library\Extension\MtUniCredit\ModuleAssetVersion;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
+use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
 
 /**
  * Product „Купи“ → Checkout preference: payment preselect + cleanup across OC4 rerenders.
+ *
+ * OC4 JSON endpoints (payment_method.getMethods, shipping_method.save) return void and write
+ * the body via Response::setOutput(). Controller /after $output is therefore null — hooks must
+ * read/write $this->response, not the unused $output argument.
  */
 class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
 {
@@ -30,15 +36,16 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
      * (native payment modal checks #input-payment-code / first radio).
      *
      * @param array<int, mixed> $args
-     * @param mixed             $output JSON response body from payment_method.getMethods
+     * @param mixed             $output Unused for OC4 JSON controllers (void return); body is in Response.
      */
     public function onPaymentMethodsAfter(string &$route, array &$args, mixed &$output): void
     {
-        if (!is_string($output) || $output === '') {
+        $raw = $this->readJsonResponseBody($output);
+        if ($raw === null) {
             return;
         }
 
-        $json = json_decode($output, true);
+        $json = json_decode($raw, true);
         if (!is_array($json) || empty($json['payment_methods']) || !is_array($json['payment_methods'])) {
             return;
         }
@@ -49,7 +56,7 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
             $json,
             $storeId
         );
-        $output = json_encode($json);
+        $this->writeJsonResponseBody($json, $output);
     }
 
     /**
@@ -58,15 +65,16 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
      * Annotate response so handoff JS can clear stale non-UniCredit #input-payment-code.
      *
      * @param array<int, mixed> $args
-     * @param mixed             $output JSON response body from shipping_method.save
+     * @param mixed             $output Unused for OC4 JSON controllers (void return); body is in Response.
      */
     public function onShippingMethodSaveAfter(string &$route, array &$args, mixed &$output): void
     {
-        if (!is_string($output) || $output === '') {
+        $raw = $this->readJsonResponseBody($output);
+        if ($raw === null) {
             return;
         }
 
-        $json = json_decode($output, true);
+        $json = json_decode($raw, true);
         if (!is_array($json) || empty($json['success'])) {
             return;
         }
@@ -80,11 +88,11 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
         // Intent survives; native payment_methods are empty until getMethods.
         // Signal Checkout UI to clear payment display so first-radio / getMethods path can re-apply.
         $json[ProductBuyCheckoutPreference::JSON_PREFERRED_PAYMENT_KEY] = [
-            'code'   => (string) ($preference['payment_code'] ?? \Opencart\System\Library\Extension\MtUniCredit\ModuleConstants::PAYMENT_OPTION_CODE),
-            'name'   => \Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity::DISPLAY_NAME,
+            'code'    => (string) ($preference['payment_code'] ?? ModuleConstants::PAYMENT_OPTION_CODE),
+            'name'    => PaymentIdentity::DISPLAY_NAME,
             'pending' => true,
         ];
-        $output = json_encode($json);
+        $this->writeJsonResponseBody($json, $output);
     }
 
     /**
@@ -107,5 +115,34 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
     public function onCheckoutSuccessBefore(string &$route, array &$args): void
     {
         ProductBuyCheckoutPreference::clear($this->session->data);
+    }
+
+    /**
+     * OC4 catalog JSON endpoints put the body on Response and return void — $output is null.
+     */
+    private function readJsonResponseBody(mixed $output): ?string
+    {
+        $raw = $this->response->getOutput();
+        if (is_string($raw) && $raw !== '') {
+            return $raw;
+        }
+        if (is_string($output) && $output !== '') {
+            return $output;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     */
+    private function writeJsonResponseBody(array $json, mixed &$output): void
+    {
+        $encoded = json_encode($json);
+        if ($encoded === false) {
+            return;
+        }
+        $this->response->setOutput($encoded);
+        $output = $encoded;
     }
 }

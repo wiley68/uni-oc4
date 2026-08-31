@@ -244,14 +244,14 @@ Module version remains **2.0.2**.
 
 **Problem:** After Product „Купи“ with an explicit non-default scheme (e.g. 4m), Checkout shipping selection reset native `payment_method`. Payment modal then selected the first listed method (PB Personal Finance). After manually choosing UniCredit, scheme fell back to Product/Checkout default (12m promo) instead of the Buy-time 4m selection.
 
-**Proven causes:**
+**Proven causes (09C design):**
 
 1. **Payment:** OC4 `shipping_method.save` unsets `session.payment_method` + `payment_methods`. Modal radios use `#input-payment-code` or first method — Product Buy intent was not re-applied into discovery order / DOM before modal render.
 2. **Scheme:** Product `syncSelectedSchemeFromDom()` could resolve via current offer bucket only and overwrite the DOM-selected key with that bucket's `schemes[0]` (initial 12m promo) before stash.
 
 **DSK lesson used:** keep preferred-payment intent separate from native `payment_method`; re-apply after shipping save / getMethods. **Not copied:** setTimeout/setInterval polling, generic ajaxSuccess, console diagnostics.
 
-**Fix:**
+**Fix (09C):**
 
 - Preference stores `payment_code` + `payment_user_overridden`; `enrichPaymentMethodsResponse()` applies UniCredit, reorders it first, annotates JSON.
 - Events: `shipping_method.save/after`, `checkout/before` handoff JS (`dataFilter` on getMethods/shipping.save — no polling).
@@ -259,5 +259,23 @@ Module version remains **2.0.2**.
 - `markSchemeMatched` remains informational (rerenders may destroy early panels).
 
 **Tests:** `tests/Phase11CProductBuyCheckoutRerenderHandoffTest.php`
+
+Module version remains **2.0.2**.
+
+## Product Buy handoff — real storefront wiring (Remediation 09D)
+
+**Problem:** 09C tests green; real storefront still selected PB after shipping and 12m promo in UniCredit.
+
+**Runtime wiring audit:**
+
+- Deployed HEAD contained 09C files; `oc_event` had all 09C hooks active (no duplicates).
+- OC4 triggers match (`catalog/` stripped → `controller/checkout/….save/after`).
+- Asset URLs use `?ver=<filemtime>`.
+
+**Proven first FAIL:** OC4 `payment_method.getMethods` and `shipping_method.save` are `void` and write JSON only via `Response::setOutput()`. Controller `/after` `$output` is **null**. 09C hooks early-returned on `!is_string($output)` — enrichment/`applyPaymentIfAvailable` never ran on the live response.
+
+**Smallest fix:** Event callbacks read/write `$this->response->getOutput()` / `setOutput()` (still sync `$output` when present).
+
+**Tests:** wiring assertions in `Phase11CProductBuyCheckoutRerenderHandoffTest` (`testPaymentHooksReadResponseOutputNotVoidControllerReturn`, asset mtime).
 
 Module version remains **2.0.2**.

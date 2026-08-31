@@ -11,6 +11,7 @@ use Opencart\System\Library\Extension\MtUniCredit\CartSchemeResolver;
 use Opencart\System\Library\Extension\MtUniCredit\CurrencyGate;
 use Opencart\System\Library\Extension\MtUniCredit\EventRegistry;
 use Opencart\System\Library\Extension\MtUniCredit\InstallmentLabelFormatter;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleAssetVersion;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
@@ -419,6 +420,41 @@ final class Phase11CProductBuyCheckoutRerenderHandoffTest extends TestCase
         self::assertStringNotContainsString('setTimeout', $js);
         self::assertStringNotContainsString('setInterval', $js);
         self::assertStringNotContainsString('console.', $js);
+    }
+
+    public function testPaymentHooksReadResponseOutputNotVoidControllerReturn(): void
+    {
+        // OC4 payment_method.getMethods / shipping_method.save return void and write JSON
+        // via Response::setOutput — /after $output is null. Hooks must use response get/setOutput.
+        $coreGetMethods = (string) file_get_contents(
+            '/var/www/open40.avalonbg.com/catalog/controller/checkout/payment_method.php'
+        );
+        self::assertMatchesRegularExpression(
+            '/function getMethods\(\): void[\s\S]*?response->setOutput\(json_encode\(\$json\)\)/s',
+            $coreGetMethods
+        );
+
+        $event = (string) file_get_contents(
+            dirname(__DIR__) . '/catalog/controller/event/mt_uni_credit_product_buy.php'
+        );
+        self::assertStringContainsString('response->getOutput()', $event);
+        self::assertStringContainsString('response->setOutput(', $event);
+        self::assertStringContainsString('readJsonResponseBody', $event);
+        self::assertStringContainsString('writeJsonResponseBody', $event);
+        self::assertStringContainsString('Unused for OC4 JSON controllers', $event);
+    }
+
+    public function testAssetHrefUsesFilemtimeNotOnlyModuleVersion(): void
+    {
+        $product = ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_product.js');
+        $handoff = ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_checkout_handoff.js');
+        self::assertStringContainsString('mt_uni_credit_product.js?ver=', $product);
+        self::assertStringContainsString('mt_uni_credit_checkout_handoff.js?ver=', $handoff);
+        self::assertDoesNotMatchRegularExpression('/\?ver=2\.0\.2$/', $product);
+        self::assertDoesNotMatchRegularExpression('/\?ver=2\.0\.2$/', $handoff);
+        self::assertStringContainsString('findSchemeAcrossOffers', (string) file_get_contents(
+            dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js'
+        ));
     }
 
     public function testProductJsDoesNotOverwriteDomSelectionWithOfferDefault(): void
