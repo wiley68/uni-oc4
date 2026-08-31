@@ -279,3 +279,30 @@ Module version remains **2.0.2**.
 **Tests:** wiring assertions in `Phase11CProductBuyCheckoutRerenderHandoffTest` (`testPaymentHooksReadResponseOutputNotVoidControllerReturn`, asset mtime).
 
 Module version remains **2.0.2**.
+
+## Product Buy — real browser Network proof (Remediation 09E) — IN PROGRESS
+
+**STOP rule:** No further matcher/preference/payment business fixes until DevTools Network proves which hooks and assets execute.
+
+**09D classification:** Valid defect (void `$output` / Response get-set) found and fixed, but **not proven** as the decisive storefront root cause (operator still FAIL after 09D).
+
+**Temporary diagnostics (trace mode only):**
+
+1. Open Product with `?mtuc_trace=1` (propagates via session + stash → Checkout `mtuc_trace=1`).
+2. Build marker: `window.__MTUC_HANDOFF_BUILD === "09E-dd3c0d8-trace1"`.
+3. Network JSON field `_mtuc_trace` / header `X-Mtuc-Trace` on:
+   - Product `stashBuyPreference` → `PRODUCT_BUY_STASH_EXECUTED` (expect `months=4`)
+   - Checkout document → `CHECKOUT_HANDOFF_INTENT_PRESENT`
+   - `shipping_method.save` → `shipping_method.save/after`
+   - `payment_method.getMethods` → order before/after + `payment_after`
+4. Console: `window.__MTUC_LAST_TRACE` (proves browser received mutated JSON).
+5. Checkpoint: `window.__MTUC_fetchCheckpoint()` → native session payment code.
+6. Remove all `_mtuc_trace` / `09e_trace` / `__MTUC_*` after gate is green.
+
+**Event order evidence (live `oc_event`):** UniCredit is the only extension with `shipping_method.save/after` and `payment_method.getMethods/after`. Jet/PB (`mt_jet_credit`, label „ПБ Лични Финанси“) has product/cart hooks only — **no** competing payment after-hook that overwrites Response.
+
+**OC4 lifecycle:** `Action::execute` → controller `setOutput` → framework `/after` events → `$response->output()`. Mutating Response in `/after` **is** supported; no later core overwrite.
+
+**Tests:** `tests/Phase11CProductBuyHandoffTrace09ETest.php`
+
+Module version remains **2.0.2**.

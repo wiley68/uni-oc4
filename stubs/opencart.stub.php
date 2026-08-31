@@ -260,6 +260,11 @@ namespace Opencart\System\Library {
 
         public function setOutput(string $output): void {}
 
+        public function getOutput(): string
+        {
+            return '';
+        }
+
         public function redirect(string $url): void {}
     }
 

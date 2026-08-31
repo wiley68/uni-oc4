@@ -6,13 +6,18 @@
  * payment onto those fields before the native getMethods success handler builds the modal.
  *
  * Deterministic: jQuery dataFilter on the specific OC4 routes only — no polling.
+ *
+ * TEMPORARY 09E: when response contains _mtuc_trace, expose window.__MTUC_LAST_TRACE
+ * (proves browser received mutated JSON, not only PHP Response mutation).
  */
 (() => {
   "use strict";
 
   const PREFERRED_KEY = "mt_uni_credit_preferred_payment";
+  const TRACE_KEY = "_mtuc_trace";
   const GET_METHODS_RE = /route=checkout\/payment_method\.getMethods/;
   const SHIPPING_SAVE_RE = /route=checkout\/shipping_method\.save/;
+  const BUILD = "09E-dd3c0d8-trace1";
 
   function applyPreferredToDom(preferred) {
     if (!preferred || typeof preferred !== "object") {
@@ -44,6 +49,13 @@
     }
     try {
       const json = JSON.parse(raw);
+      if (json && json[TRACE_KEY]) {
+        window.__MTUC_LAST_TRACE = json[TRACE_KEY];
+        window.__MTUC_HANDOFF_BUILD = BUILD;
+        if (json[TRACE_KEY].hook) {
+          window.__MTUC_LAST_TRACE_HOOK = json[TRACE_KEY].hook;
+        }
+      }
       return json && json[PREFERRED_KEY] ? json[PREFERRED_KEY] : null;
     } catch (e) {
       return null;

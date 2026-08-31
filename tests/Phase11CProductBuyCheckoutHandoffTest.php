@@ -197,7 +197,7 @@ final class Phase11CProductBuyCheckoutHandoffTest extends TestCase
             '/function stashBuyPreference\(\): void\s*\{[\s\S]*?buy_preference_stashed[\s\S]*?\n    \}/',
             $src
         );
-        if (preg_match('/function stashBuyPreference\(\): void\s*\{([\s\S]*?)\n    private function cartContainsProduct/', $src, $m)) {
+        if (preg_match('/function stashBuyPreference\(\): void\s*\{([\s\S]*?)\n    (?:public|private) function /', $src, $m)) {
             $body = $m[1];
             self::assertStringNotContainsString('SmartUcf', $body);
             self::assertStringNotContainsString('createSubmissionService', $body);

@@ -7,6 +7,7 @@ use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductActorBinding;
 use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
+use Opencart\System\Library\Extension\MtUniCredit\ProductBuyHandoffTrace;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOperationIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
@@ -165,6 +166,11 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
     {
         $this->respondJson(function (): array {
             $this->assertPostWithCsrf();
+            ProductBuyHandoffTrace::captureRequest(
+                $this->session->data,
+                $this->request->get ?? [],
+                $this->request->post ?? []
+            );
 
             $productId = (int) ($this->request->post['product_id'] ?? 0);
             $schemeType = trim((string) ($this->request->post['scheme_type'] ?? ''));
@@ -199,16 +205,72 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             // Tentative payment preselect; getMethods after-hook revalidates availability.
             $this->session->data['payment_method'] = PaymentIdentity::paymentMethod();
 
-            $checkoutUrl = $this->url->link(
-                'checkout/checkout',
-                'language=' . $this->config->get('config_language'),
-                true
-            );
+            $checkoutQuery = 'language=' . $this->config->get('config_language');
+            if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
+                $checkoutQuery .= '&mtuc_trace=1';
+            }
+            $checkoutUrl = $this->url->link('checkout/checkout', $checkoutQuery, true);
 
-            return [
+            $payload = [
                 'success'      => true,
                 'step'         => 'buy_preference_stashed',
                 'checkout_url' => $checkoutUrl,
+            ];
+
+            if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
+                $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
+                $payload[ProductBuyHandoffTrace::JSON_KEY] = ProductBuyHandoffTrace::wrap(
+                    $this->session->data,
+                    'PRODUCT_BUY_STASH_EXECUTED',
+                    ProductBuyHandoffTrace::preferenceSnapshot($pref)
+                );
+                $this->response->addHeader(
+                    'X-Mtuc-Trace: PRODUCT_BUY_STASH_EXECUTED;months=' . (int) ($pref['months'] ?? 0)
+                        . ';prefer_payment=' . (!empty($pref['prefer_payment']) ? '1' : '0')
+                        . ';payment_code=' . (string) ($pref['payment_code'] ?? '')
+                        . ';scheme_key=' . (string) ($pref['scheme_key'] ?? '')
+                );
+            }
+
+            return $payload;
+        });
+    }
+
+    /**
+     * TEMPORARY 09E: native session payment + preference checkpoint (trace mode only).
+     * Visible in DevTools Network — no PII.
+     */
+    public function handoffTrace(): void
+    {
+        $this->respondJson(function (): array {
+            ProductBuyHandoffTrace::captureRequest(
+                $this->session->data,
+                $this->request->get ?? [],
+                $this->request->post ?? []
+            );
+            if (!ProductBuyHandoffTrace::isEnabled($this->session->data)) {
+                return [
+                    'success' => false,
+                    'error'   => 'trace_disabled',
+                ];
+            }
+
+            $storeId = (int) $this->config->get('config_store_id');
+            $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
+            $native = $this->session->data['payment_method'] ?? null;
+
+            return [
+                'success' => true,
+                ProductBuyHandoffTrace::JSON_KEY => ProductBuyHandoffTrace::wrap(
+                    $this->session->data,
+                    'HANDOFF_TRACE_CHECKPOINT',
+                    [
+                        'native_payment_code' => is_array($native) ? (string) ($native['code'] ?? '') : '',
+                        'payment_methods_count' => is_array($this->session->data['payment_methods'] ?? null)
+                            ? count($this->session->data['payment_methods'])
+                            : 0,
+                    ] + ProductBuyHandoffTrace::preferenceSnapshot($pref)
+                ),
             ];
         });
     }
