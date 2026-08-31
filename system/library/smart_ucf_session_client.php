@@ -154,6 +154,14 @@ final class SmartUcfSessionClient
 
     private function detectFailureKind(string $raw, int $httpCode): string
     {
+        // Structured SmartUCF business rejection (errorCode set, no session) is definite —
+        // do not treat Bulgarian/English "already exists" wording as ambiguous duplicate.
+        if ($this->hasStructuredBusinessError($raw)) {
+            return ($httpCode === 0 || $httpCode >= 500)
+                ? SmartUcfSessionException::KIND_TRANSPORT
+                : SmartUcfSessionException::KIND_REMOTE;
+        }
+
         $value = strtolower($raw);
         if ((str_contains($value, 'duplicate') && str_contains($value, 'order'))
             || str_contains($value, 'already exists') || str_contains($value, 'съществува')
@@ -164,6 +172,18 @@ final class SmartUcfSessionClient
         return ($httpCode === 0 || $httpCode >= 500)
             ? SmartUcfSessionException::KIND_TRANSPORT
             : SmartUcfSessionException::KIND_REMOTE;
+    }
+
+    private function hasStructuredBusinessError(string $raw): bool
+    {
+        $decoded = json_decode($raw);
+        if (!is_object($decoded) || !property_exists($decoded, 'errorCode')) {
+            return false;
+        }
+
+        $code = $decoded->errorCode;
+
+        return $code !== null && $code !== '' && !(is_string($code) && trim($code) === '');
     }
 
     /** @param array<string, mixed> $shop */

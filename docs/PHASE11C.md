@@ -145,3 +145,19 @@ Checkout P2 SUCCESS  → local Thank You
 **Tests:** `tests/Phase11CCheckoutProcess1SuccessTest.php`
 
 Module version remains **2.0.2**.
+
+## Checkout P1 definite SmartUCF reject — local/CP parity (Remediation 07)
+
+**Problem:** SmartUCF business reject (`errorCode=121`, `sucfOnlineSessionID=null`, text with „съществува“) was classified as ambiguous `duplicate_order_no` / `outcome_unknown`. Local bank status could remain wrong / not `bank_send_failed_smartucf`; customer stayed on Checkout instead of terminal Thank You. CP already showed failure.
+
+**Root cause:** `looksLikeDuplicate()` / `detectFailureKind()` treated „съществува“ wording as ambiguous duplicate **even when** a structured `errorCode` proved a conclusive business rejection (including HTTP 200).
+
+**Fix:**
+
+- Structured `errorCode` (non-null) + no session → `remote_reject` / FAILED (not `outcome_unknown`).
+- `bank_send_failed_smartucf` local + CP; terminal Thank You (Remediation 04 path).
+- Checkout: non-success non-terminal results no longer call `addHistory` or invent Thank You `redirect`.
+
+**Tests:** `tests/Phase11CSmartUcfBusinessRejectTest.php`
+
+Module version remains **2.0.2**.

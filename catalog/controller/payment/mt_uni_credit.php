@@ -331,6 +331,12 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 return $payload;
             }
 
+            // Non-terminal failure / outcome_unknown: keep customer on Checkout (interactive).
+            // Do not rewrite OC order status or invent a Thank You redirect.
+            if (!$result->success) {
+                return $result->toArray();
+            }
+
             $orderStatusId = (int) $this->config->get('payment_mt_uni_credit_order_status_id');
             if ($orderStatusId > 0) {
                 $this->load->model('checkout/order');
