@@ -523,6 +523,48 @@
       }
     }
 
+    /**
+     * Terminal local Thank You (Process 2 + SmartUCF definite reject).
+     * Prefer shared redirect helper; fall back to local checkout/success assign
+     * when AJAX panel loaded checkout.js before redirect.js.
+     */
+    function navigateCheckoutTerminalThankYou(json) {
+      if (!json) {
+        return false;
+      }
+      const isTerminalThankYou =
+        json.terminal === true ||
+        json.step === "smartucf_terminal_failed" ||
+        (json.success && json.step === "process2_prepared");
+      if (!isTerminalThankYou) {
+        return false;
+      }
+      const url = json.redirect_url || json.redirect || "";
+      if (
+        window.MtUniCreditRedirect &&
+        window.MtUniCreditRedirect.navigateTerminalThankYou(url)
+      ) {
+        return true;
+      }
+      try {
+        const parsed = new URL(String(url || ""), window.location.href);
+        if (parsed.origin !== window.location.origin) {
+          return false;
+        }
+        const route = new URLSearchParams(parsed.search).get("route") || "";
+        if (
+          route === "checkout/success" ||
+          /\/checkout\/success/i.test(parsed.pathname || "")
+        ) {
+          window.location.assign(String(url));
+          return true;
+        }
+      } catch (error) {
+        return false;
+      }
+      return false;
+    }
+
     async function confirmPayment(event) {
       if (event && typeof event.preventDefault === "function") {
         event.preventDefault();
@@ -588,19 +630,12 @@
 
         // Confirm must not share abort with issue/calculate.
         const json = await postJson(state.confirm_url, payload, {});
-        if (
-          window.MtUniCreditRedirect &&
-          window.MtUniCreditRedirect.navigateTerminalThankYou(json.redirect_url)
-        ) {
+        // Terminal Thank You (P2 success / SmartUCF definite reject) BEFORE banners / setProcessing(false).
+        if (navigateCheckoutTerminalThankYou(json)) {
           redirectTerminal = true;
           return;
         }
         if (json.success) {
-          if (json.step === "process2_prepared" && json.redirect_url) {
-            redirectTerminal = true;
-            window.location.assign(json.redirect_url);
-            return;
-          }
           if (
             json.redirect_url &&
             window.MtUniCreditRedirect &&

@@ -185,10 +185,17 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
         $cart = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_cart.js');
 
         foreach ([$checkout, $product, $cart] as $js) {
-            self::assertMatchesRegularExpression(
-                '/navigateTerminalThankYou\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
-                $js
-            );
+            if (str_contains($js, 'navigateCheckoutTerminalThankYou')) {
+                self::assertMatchesRegularExpression(
+                    '/navigateCheckoutTerminalThankYou\(json\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+                    $js
+                );
+            } else {
+                self::assertMatchesRegularExpression(
+                    '/navigateTerminalThankYou\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+                    $js
+                );
+            }
             self::assertMatchesRegularExpression(
                 '/navigateIfTrusted\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
                 $js

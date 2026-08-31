@@ -138,14 +138,38 @@
     link.href = href;
     document.head.appendChild(link);
   }
+  function ensureScript(href, onload) {
+    if (!href) {
+      if (typeof onload === 'function') {
+        onload();
+      }
+      return;
+    }
+    var selector = 'script[src="' + String(href).replace(/"/g, '\\"') + '"]';
+    var existing = document.querySelector(selector);
+    if (existing) {
+      if (typeof onload === 'function') {
+        if (window.MtUniCreditRedirect || !String(href).match(/mt_uni_credit_redirect/)) {
+          onload();
+        } else {
+          existing.addEventListener('load', onload);
+        }
+      }
+      return;
+    }
+    var script = document.createElement('script');
+    script.src = href;
+    if (typeof onload === 'function') {
+      script.addEventListener('load', onload);
+    }
+    document.head.appendChild(script);
+  }
   ensureLink(state.fonts_href);
   ensureLink(state.product_css_href);
   ensureLink(state.checkout_css_href);
-  if (state.script_href && !document.querySelector('script[src="' + String(state.script_href).replace(/"/g, '\\"') + '"]')) {
-    var script = document.createElement('script');
-    script.src = state.script_href;
-    script.defer = true;
-    document.head.appendChild(script);
-  }
+  // Load shared redirect helper before checkout.js (AJAX payment panel).
+  ensureScript(state.redirect_script_href, function () {
+    ensureScript(state.script_href);
+  });
 })();
 </script>

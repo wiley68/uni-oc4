@@ -244,10 +244,10 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
         self::assertMatchesRegularExpression(
-            '/navigateTerminalThankYou\(json\.redirect_url\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+            '/navigateCheckoutTerminalThankYou\(json\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
             $js
         );
-        $thankYouPos = strpos($js, 'navigateTerminalThankYou(json.redirect_url)');
+        $thankYouPos = strpos($js, 'navigateCheckoutTerminalThankYou(json)');
         $errorPos = strpos($js, 'Заявката не може да бъде обработена.');
         self::assertNotFalse($thankYouPos);
         self::assertNotFalse($errorPos);
@@ -255,13 +255,19 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
         self::assertSame('2.0.2', ModuleConstants::VERSION);
     }
 
-    public function testCheckoutControllerDoesNotAddHistoryForNonSuccess(): void
+    public function testCheckoutControllerAppliesStatusOnlyForTerminalOrSuccess(): void
     {
         $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
-        self::assertStringContainsString('if (!$result->success)', $src);
+        // Non-terminal failure still returns early without inventing Thank You / without success banner path.
         self::assertMatchesRegularExpression(
-            '/isSmartUcfTerminalFailure\(\$result\)[\s\S]*?return \$payload;[\s\S]*?if\s*\(\s*!\$result->success\s*\)/',
+            '/if\s*\(\s*!\$result->success\s*\)\s*\{\s*return\s+\$result->toArray\(\);/s',
             $src
         );
+        // Terminal reject applies UniCredit commerce status (Remediation 08).
+        self::assertMatchesRegularExpression(
+            '/isSmartUcfTerminalFailure[\s\S]*?applyCheckoutUniCreditOrderStatus/s',
+            $src
+        );
+        self::assertSame('2.0.2', ModuleConstants::VERSION);
     }
 }

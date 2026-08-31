@@ -283,7 +283,7 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         self::assertStringContainsString('navigateTerminalThankYou', $redirect);
         self::assertStringContainsString('checkout/success', $redirect);
 
-        foreach (['mt_uni_credit_product.js', 'mt_uni_credit_cart.js', 'mt_uni_credit_checkout.js'] as $file) {
+        foreach (['mt_uni_credit_product.js', 'mt_uni_credit_cart.js'] as $file) {
             $js = (string) file_get_contents($root . '/catalog/view/javascript/' . $file);
             self::assertStringContainsString('navigateTerminalThankYou', $js, $file);
             self::assertMatchesRegularExpression(
@@ -291,6 +291,13 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
                 $js
             );
         }
+        $checkoutJs = (string) file_get_contents($root . '/catalog/view/javascript/mt_uni_credit_checkout.js');
+        self::assertStringContainsString('navigateCheckoutTerminalThankYou', $checkoutJs);
+        self::assertStringContainsString('navigateTerminalThankYou', $checkoutJs);
+        self::assertMatchesRegularExpression(
+            '/navigateCheckoutTerminalThankYou\(json\)[\s\S]*?redirectTerminal\s*=\s*true[\s\S]*?return;/',
+            $checkoutJs
+        );
     }
 
     public function testKnownFailureReplayDoesNotCallSmartUcfAgain(): void

@@ -147,6 +147,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'fonts_href'           => ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_fonts.css'),
             'product_css_href'     => ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_product.css'),
             'checkout_css_href'    => ModuleAssetVersion::href('catalog/view/stylesheet/mt_uni_credit_checkout.css'),
+            // redirect.js first: Checkout confirm HTML is AJAX-injected; document->addScript
+            // alone does not guarantee MtUniCreditRedirect on the parent page.
+            'redirect_script_href' => ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_redirect.js'),
             'script_href'          => ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_checkout.js'),
             'i18n'                 => [
                 'order_changed' => (string) $this->language->get('error_order_changed'),
@@ -315,6 +318,10 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             }
 
             if (\Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::isSmartUcfTerminalFailure($result)) {
+                // Native editOrder() voids the draft first. Bank reject must not leave commerce
+                // at Voided/0 — apply the same UniCredit payment status used on success / Product/Cart.
+                $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
+
                 $payload = $result->toArray();
                 $thankYouUrl = $this->url->link(
                     'checkout/success',
@@ -327,6 +334,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                     $thankYouUrl,
                     $this->session->data
                 );
+                // OC-style `redirect` + redirect_url: Checkout AJAX may lack MtUniCreditRedirect;
+                // success already relied on `redirect` fallback — terminal reject needs the same.
+                $payload['redirect'] = $payload['redirect_url'] ?? $thankYouUrl;
 
                 return $payload;
             }
@@ -337,11 +347,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 return $result->toArray();
             }
 
-            $orderStatusId = (int) $this->config->get('payment_mt_uni_credit_order_status_id');
-            if ($orderStatusId > 0) {
-                $this->load->model('checkout/order');
-                $this->model_checkout_order->addHistory((int) $order['order_id'], $orderStatusId);
-            }
+            $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
 
             $this->session->data['mt_uni_credit_checkout_success'] = $this->language->get('text_success_financing');
 
@@ -361,6 +367,23 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
 
             return $payload;
         });
+    }
+
+    /**
+     * Move Checkout draft off Voided/0 onto configured UniCredit payment order status.
+     * Does not imply bank/payment success — bank state lives in order bank status / CP.
+     */
+    private function applyCheckoutUniCreditOrderStatus(int $orderId): void
+    {
+        $orderStatusId = (int) $this->config->get(
+            \Opencart\System\Library\Extension\MtUniCredit\ModuleConstants::PAYMENT_ORDER_STATUS_SETTING
+        );
+        if ($orderId <= 0 || $orderStatusId <= 0) {
+            return;
+        }
+
+        $this->load->model('checkout/order');
+        $this->model_checkout_order->addHistory($orderId, $orderStatusId);
     }
 
     private function assertPostWithCsrf(): void

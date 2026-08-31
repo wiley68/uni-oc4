@@ -161,3 +161,23 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CSmartUcfBusinessRejectTest.php`
 
 Module version remains **2.0.2**.
+
+## Checkout P1 definite reject — visible commerce + Thank You (Remediation 08)
+
+**Problem:** Logged Checkout Process 1 + SmartUCF definite reject left the customer on Checkout with the safe failure message, while the local OpenCart order stayed **Voided / Пропуснати поръчки** (`order_status_id` from `editOrder` void). Bank status and CP were already correct (`bank_send_failed_smartucf`).
+
+**Root causes:**
+
+1. **Commerce Voided:** Native `editOrder()` voids the draft. Remediation 07 returned terminal failure **before** `addHistory(payment_mt_uni_credit_order_status_id)`, so the order never left Voided. Product/Cart reject already had visible status from materialization `ensureInterimVisibleStatus`.
+2. **Stay on Checkout:** Payment HTML is AJAX-injected and only bootstrapped `mt_uni_credit_checkout.js` — **`mt_uni_credit_redirect.js` was not loaded**. P1 success still navigated via `json.redirect` fallback; terminal reject relied solely on `MtUniCreditRedirect.navigateTerminalThankYou` → fell through to inline error.
+
+**Fix:**
+
+- Terminal reject: `applyCheckoutUniCreditOrderStatus()` → same `payment_mt_uni_credit_order_status_id` as success / Product/Cart interim (not payment-complete semantics).
+- Enrich Thank You `redirect_url` + OC-style `redirect`; stash `order_id` / `mt_uni_credit_success_order_id`.
+- Bootstrap loads `redirect.js` before `checkout.js`; JS `navigateCheckoutTerminalThankYou` before banners / `setProcessing(false)`, with local `checkout/success` fallback.
+- Stale-cart void path (`CheckoutSessionOrderGuard`) unchanged.
+
+**Tests:** `tests/Phase11CCheckoutProcess1RejectTest.php`
+
+Module version remains **2.0.2**.

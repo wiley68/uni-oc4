@@ -19,6 +19,9 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  * After CP failure before native success, Checkout may apply store
  * {@see config_order_status_id} (neutral Pending) so Admin does not hide the order.
  * That failure-visible status must also remain Checkout reuse-eligible for same-cart CP retry.
+ * After definite SmartUCF reject (CP already created), Checkout confirm applies
+ * {@see ModuleConstants::PAYMENT_ORDER_STATUS_SETTING} via addHistory so the order
+ * leaves Voided/0 — bank failure must not void the commerce order.
  * The payment-method status is NOT treated as a Checkout reuse key (avoids expanding reuse
  * to Processing mid-lifecycle).
  */
@@ -28,8 +31,7 @@ final class FinancingOrderStatusPolicy
         private int $productCartOrderStatusId,
         private int $voidStatusId = 0,
         private int $checkoutFailureVisibleStatusId = 0
-    ) {
-    }
+    ) {}
 
     /**
      * Resolve Product/Cart post-materialization status from the payment method setting.
