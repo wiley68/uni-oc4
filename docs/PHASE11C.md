@@ -201,7 +201,9 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Product Buy exact scheme preselection (Remediation 09A)
+## Product Buy exact scheme preselection (Remediation 09A) — intermediate
+
+**Status:** Intermediate attempt. Matcher/tests green ≠ storefront PASS (see 09F).
 
 **Problem:** After Rem 09, Product „Купи“ correctly added to cart, opened Checkout, and preselected UniCredit payment — but Checkout still showed the **automatic PreferredOffer default** instead of the Product-selected scheme (e.g. 12m / promo).
 
@@ -223,7 +225,9 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Product Buy scheme runtime trace + server-selected Checkout fix (Remediation 09B)
+## Product Buy scheme runtime trace + server-selected Checkout fix (Remediation 09B) — intermediate
+
+**Status:** Intermediate attempt. Category E JS/server-selected work retained where still useful; storefront still failed until 09F.
 
 **Problem:** Rem 09A matcher/tests passed, but live Checkout still showed PreferredOffer default after Product „Купи“ with a non-default scheme.
 
@@ -240,7 +244,9 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Product Buy handoff across native Checkout rerenders (Remediation 09C)
+## Product Buy handoff across native Checkout rerenders (Remediation 09C) — intermediate
+
+**Status:** Intermediate attempt. Reorder/annotate + handoff JS retained; simulated PASS ≠ storefront PASS until 09F.
 
 **Problem:** After Product „Купи“ with an explicit non-default scheme (e.g. 4m), Checkout shipping selection reset native `payment_method`. Payment modal then selected the first listed method (PB Personal Finance). After manually choosing UniCredit, scheme fell back to Product/Checkout default (12m promo) instead of the Buy-time 4m selection.
 
@@ -262,7 +268,9 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Product Buy handoff — real storefront wiring (Remediation 09D)
+## Product Buy handoff — real storefront wiring (Remediation 09D) — intermediate
+
+**Status:** Intermediate. Valid OC4 Response get/setOutput defect fixed and kept; **not** the decisive storefront root cause (operator still FAIL until 09F).
 
 **Problem:** 09C tests green; real storefront still selected PB after shipping and 12m promo in UniCredit.
 
@@ -280,47 +288,40 @@ Module version remains **2.0.2**.
 
 Module version remains **2.0.2**.
 
-## Product Buy — real browser Network proof (Remediation 09E) — IN PROGRESS
+Module version remains **2.0.2**.
 
-**STOP rule:** No further matcher/preference/payment business fixes until DevTools Network proves which hooks and assets execute.
+## Product Buy — diagnostic investigation (Remediation 09E)
 
-**09D classification:** Valid defect (void `$output` / Response get-set) found and fixed, but **not proven** as the decisive storefront root cause (operator still FAIL after 09D).
+**Purpose:** Temporary `?mtuc_trace=1` Network markers to prove which hooks/assets execute on the real storefront. Intermediate 09A–09D findings remained unproven as the decisive storefront root cause while tests stayed green.
 
-**Temporary diagnostics (trace mode only):**
-
-1. Open Product with `?mtuc_trace=1` (propagates via session + stash → Checkout `mtuc_trace=1`).
-2. Build marker: `window.__MTUC_HANDOFF_BUILD === "09E-dd3c0d8-trace1"`.
-3. Network JSON field `_mtuc_trace` / header `X-Mtuc-Trace` on:
-   - Product `stashBuyPreference` → `PRODUCT_BUY_STASH_EXECUTED` (expect `months=4`)
-   - Checkout document → `CHECKOUT_HANDOFF_INTENT_PRESENT`
-   - `shipping_method.save` → `shipping_method.save/after`
-   - `payment_method.getMethods` → order before/after + `payment_after`
-4. Console: `window.__MTUC_LAST_TRACE` (proves browser received mutated JSON).
-5. Checkpoint: `window.__MTUC_fetchCheckpoint()` → native session payment code.
-6. Remove all `_mtuc_trace` / `09e_trace` / `__MTUC_*` after gate is green.
-
-**Event order evidence (live `oc_event`):** UniCredit is the only extension with `shipping_method.save/after` and `payment_method.getMethods/after`. Jet/PB (`mt_jet_credit`, label „ПБ Лични Финанси“) has product/cart hooks only — **no** competing payment after-hook that overwrites Response.
-
-**OC4 lifecycle:** `Action::execute` → controller `setOutput` → framework `/after` events → `$response->output()`. Mutating Response in `/after` **is** supported; no later core overwrite.
-
-**Tests:** `tests/Phase11CProductBuyHandoffTrace09ETest.php`
+**Outcome:** Browser Network proved Product stash wrote `months=4` correctly, then `shipping_method.save/after` saw `preference_present=false` — preference disappeared **between** stash and shipping. All temporary `_mtuc_trace` / `X-Mtuc-Trace` / `__MTUC_*` / `product_buy_handoff_trace.php` / `mt_uni_credit_09e_trace.js` scaffolding was **removed** after the 09F operator gate.
 
 Module version remains **2.0.2**.
 
-## Product Buy preference lifetime — session race (Remediation 09F)
+## Product Buy preference lifetime — session race (Remediation 09F) — FINAL
 
-**Proven FIRST FAIL (real browser):** stash response `preference_present=true months=4`, but `shipping_method.save/after` showed `early_exit=no_preference`. Trace survived because Checkout URL re-enabled `mtuc_trace=1`; preference did not.
+**Operator gate:** PASS (UniCredit auto-selected after shipping; exact 4m scheme selected).
 
-**Root cause:** native `product.twig` cart.add success starts `#cart.load(common/cart.info)` before Product Buy stash. OC4 DB session adaptor `REPLACE`s the whole blob — concurrent `cart.info` that started before stash can close after stash and wipe `mt_uni_credit_product_buy_preference`.
+**Proven root cause (not scheme matcher / payment ordering / store_id=0 / TTL / explicit `clear()`):**
 
-**Smallest fix:**
+Native `product.twig` `cart.add` success starts `#cart.load(common/cart.info)`. With OC4 DB-backed sessions, concurrent requests may read an older session blob and later `REPLACE` the complete session row. A `cart.info` request started before Product Buy preference stash could finish after stash and overwrite the newly-added `mt_uni_credit_product_buy_preference`.
 
-1. JS: `stashAfterCartInfoSettles()` — stash only after `common/cart.info` settles (last writer wins).
-2. Stash sets signed HttpOnly handoff cookie `mtuc_pb_handoff` + early `session->close()`.
-3. Checkout/shipping hooks restore preference from cookie when session key missing.
-4. `clearIfPaymentChangedAway()` ignores empty/null native payment (not a user override).
+**Final request ordering:**
 
-**Diagnostics kept** (`?mtuc_trace=1`, build `09F-288473b-trace1`) until shipping survival is operator-proven.
+```text
+cart.add success
+→ common/cart.info settles
+→ stashBuyPreference (last session writer) + handoff cookie + session.close()
+→ Checkout redirect
+→ shipping / getMethods restore cookie if session key missing
+```
+
+**Production fix retained:**
+
+1. JS `stashAfterCartInfoSettles()` — stash only after `common/cart.info` settles.
+2. Signed HttpOnly cookie `mtuc_pb_handoff` (scheme identity only; TTL 1800s; Secure/SameSite=Lax; store-scoped HMAC) — kept because it protects the same last-writer-wins class against other legitimate concurrent writers.
+3. Early `session->close()` after stash to shrink the race window.
+4. `clearIfPaymentChangedAway()` ignores empty/null native payment; clears only on explicit non-UniCredit save.
 
 **Tests:** `tests/Phase11CProductBuyPreferenceLifetime09FTest.php`
 

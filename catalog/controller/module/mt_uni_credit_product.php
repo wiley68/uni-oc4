@@ -7,7 +7,6 @@ use Opencart\System\Library\Extension\MtUniCredit\LockOwnerTokenGenerator;
 use Opencart\System\Library\Extension\MtUniCredit\PaymentIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductActorBinding;
 use Opencart\System\Library\Extension\MtUniCredit\ProductBuyCheckoutPreference;
-use Opencart\System\Library\Extension\MtUniCredit\ProductBuyHandoffTrace;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOperationIdentity;
 use Opencart\System\Library\Extension\MtUniCredit\ProductOptionNormalizer;
@@ -166,11 +165,6 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
     {
         $this->respondJson(function (): array {
             $this->assertPostWithCsrf();
-            ProductBuyHandoffTrace::captureRequest(
-                $this->session->data,
-                $this->request->get ?? [],
-                $this->request->post ?? []
-            );
 
             $productId = (int) ($this->request->post['product_id'] ?? 0);
             $schemeType = trim((string) ($this->request->post['scheme_type'] ?? ''));
@@ -205,6 +199,8 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             // Tentative payment preselect; getMethods after-hook revalidates availability.
             $this->session->data['payment_method'] = PaymentIdentity::paymentMethod();
 
+            // Belt-and-suspenders against OC4 DB session last-writer-wins races (e.g. concurrent
+            // common/cart.info). Cookie carries only scheme identity — no PII / bank data.
             $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
             if (is_array($pref)) {
                 $cookieValue = ProductBuyCheckoutPreference::buildHandoffCookieValue($pref);
@@ -219,86 +215,22 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 }
             }
 
-            // Flush session immediately so concurrent common/cart.info is less likely to win
-            // a last-write race against this stash (theme starts cart.info in cart.add success).
+            // Flush session immediately so a concurrent request started earlier is less likely
+            // to REPLACE the row without this preference.
             /** @var \Opencart\System\Library\Session $session */
             $session = $this->session;
             $session->close();
 
-            $checkoutQuery = 'language=' . $this->config->get('config_language');
-            if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
-                $checkoutQuery .= '&mtuc_trace=1';
-            }
-            $checkoutUrl = $this->url->link('checkout/checkout', $checkoutQuery, true);
+            $checkoutUrl = $this->url->link(
+                'checkout/checkout',
+                'language=' . $this->config->get('config_language'),
+                true
+            );
 
-            $payload = [
+            return [
                 'success'      => true,
                 'step'         => 'buy_preference_stashed',
                 'checkout_url' => $checkoutUrl,
-            ];
-
-            if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
-                $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
-                    $this->session->data,
-                    $storeId,
-                    $this->session->getId()
-                );
-                $payload[ProductBuyHandoffTrace::JSON_KEY] = ProductBuyHandoffTrace::wrap(
-                    $this->session->data,
-                    'PRODUCT_BUY_STASH_EXECUTED',
-                    $lifetime + [
-                        'checkpoint'     => 'stashBuyPreference',
-                        'handoff_cookie' => is_array($pref),
-                    ]
-                );
-                $this->response->addHeader(
-                    'X-Mtuc-Trace: PRODUCT_BUY_STASH_EXECUTED;months=' . (int) ($lifetime['months'] ?? 0)
-                        . ';prefer_payment=' . (!empty($lifetime['prefer_payment']) ? '1' : '0')
-                        . ';payment_code=' . (string) ($lifetime['payment_code'] ?? '')
-                        . ';scheme_key=' . (string) ($lifetime['scheme_key'] ?? '')
-                        . ';session_fp=' . (string) ($lifetime['session_fingerprint'] ?? '')
-                );
-            }
-
-            return $payload;
-        });
-    }
-
-    /**
-     * TEMPORARY 09E: native session payment + preference checkpoint (trace mode only).
-     * Visible in DevTools Network — no PII.
-     */
-    public function handoffTrace(): void
-    {
-        $this->respondJson(function (): array {
-            ProductBuyHandoffTrace::captureRequest(
-                $this->session->data,
-                $this->request->get ?? [],
-                $this->request->post ?? []
-            );
-            if (!ProductBuyHandoffTrace::isEnabled($this->session->data)) {
-                return [
-                    'success' => false,
-                    'error'   => 'trace_disabled',
-                ];
-            }
-
-            $storeId = (int) $this->config->get('config_store_id');
-            $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
-            $native = $this->session->data['payment_method'] ?? null;
-
-            return [
-                'success' => true,
-                ProductBuyHandoffTrace::JSON_KEY => ProductBuyHandoffTrace::wrap(
-                    $this->session->data,
-                    'HANDOFF_TRACE_CHECKPOINT',
-                    [
-                        'native_payment_code' => is_array($native) ? (string) ($native['code'] ?? '') : '',
-                        'payment_methods_count' => is_array($this->session->data['payment_methods'] ?? null)
-                            ? count($this->session->data['payment_methods'])
-                            : 0,
-                    ] + ProductBuyHandoffTrace::preferenceSnapshot($pref)
-                ),
             ];
         });
     }

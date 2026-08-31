@@ -6,17 +6,6 @@
   const BOOTSTRAP_ID = "mt-uni-credit-bootstrap";
   const TRIGGER_SELECTOR =
     ".mt-uni-credit-product-calculator__button[data-offer-type]";
-  const MTUC_TRACE_BUILD = "09F-288473b-trace1";
-
-  function mtucTraceEnabled() {
-    try {
-      return /[?&]mtuc_trace=1(?:&|$)/.test(
-        String(window.location.search || ""),
-      );
-    } catch (e) {
-      return false;
-    }
-  }
 
   function init() {
     const bootstrapEl = document.getElementById(BOOTSTRAP_ID);
@@ -29,10 +18,6 @@
     }
     root.dataset.mtucBound = "1";
 
-    if (mtucTraceEnabled()) {
-      window.__MTUC_PRODUCT_BUILD = MTUC_TRACE_BUILD;
-      window.__MTUC_TRACE_ON = true;
-    }
     let state;
     try {
       state = JSON.parse(bootstrapEl.textContent || "{}");
@@ -1530,9 +1515,6 @@
         Object.keys(payload).forEach((key) => {
           body.append(key, String(payload[key] ?? ""));
         });
-        if (mtucTraceEnabled()) {
-          body.append("mtuc_trace", "1");
-        }
         const response = await fetch(stashUrl, {
           method: "POST",
           headers: {
@@ -1543,10 +1525,6 @@
           credentials: "same-origin",
         });
         const json = await response.json().catch(() => null);
-        if (mtucTraceEnabled() && json && json._mtuc_trace) {
-          window.__MTUC_LAST_STASH_TRACE = json._mtuc_trace;
-          window.__MTUC_PRODUCT_BUILD = MTUC_TRACE_BUILD;
-        }
         const checkoutUrl =
           (json && json.checkout_url) || fallbackCheckout || "";
         if (json && json.success && checkoutUrl) {
