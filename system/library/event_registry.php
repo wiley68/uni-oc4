@@ -268,4 +268,28 @@ final class EventRegistry
     {
         return str_starts_with($code, ModuleConstants::MODULE_SETTING_CODE . '_');
     }
+
+    /**
+     * Historic UniCredit event codes removed from {@see definitions()} but that may
+     * still exist in oc_event after renames (Admin Save must purge them).
+     *
+     * @return list<string>
+     */
+    public static function retiredEventCodes(): array
+    {
+        $prefix = ModuleConstants::MODULE_SETTING_CODE . '_';
+
+        return [
+            $prefix . 'after_checkout_success',
+            $prefix . 'before_shipping_method_save_buy',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function managedEventCodes(): array
+    {
+        return array_values(array_unique(array_merge(self::eventCodes(), self::retiredEventCodes())));
+    }
 }

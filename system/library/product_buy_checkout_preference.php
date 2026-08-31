@@ -156,6 +156,9 @@ final class ProductBuyCheckoutPreference
      */
     public static function buildHandoffCookieValue(array $preference, ?string $secretOverride = null): string
     {
+        if (!self::canUseHandoffSecret($secretOverride)) {
+            return '';
+        }
         $payload = [
             'v'                   => 1,
             'store_id'            => (int) ($preference['store_id'] ?? 0),
@@ -183,6 +186,9 @@ final class ProductBuyCheckoutPreference
      */
     public static function parseHandoffCookieValue(string $raw, int $storeId, ?string $secretOverride = null): ?array
     {
+        if (!self::canUseHandoffSecret($secretOverride)) {
+            return null;
+        }
         $raw = trim($raw);
         if ($raw === '' || !str_contains($raw, '.')) {
             return null;
@@ -259,19 +265,37 @@ final class ProductBuyCheckoutPreference
 
     private static function handoffSecret(?string $secretOverride): string
     {
-        try {
-            $provider = new ModuleEncryptionKeyProvider();
-
+        if ($secretOverride !== null && $secretOverride !== '') {
             return hash_hkdf(
                 'sha256',
-                $provider->resolveDerivedKey($secretOverride),
+                (new ModuleEncryptionKeyProvider())->resolveDerivedKey($secretOverride),
                 32,
                 self::HANDOFF_COOKIE_INFO
             );
-        } catch (\Throwable) {
-            $fallback = $secretOverride ?? ModuleEncryptionKeyProvider::testSecretInput();
+        }
 
-            return hash_hkdf('sha256', $fallback, 32, self::HANDOFF_COOKIE_INFO);
+        $provider = new ModuleEncryptionKeyProvider();
+
+        return hash_hkdf(
+            'sha256',
+            $provider->resolveDerivedKey(null),
+            32,
+            self::HANDOFF_COOKIE_INFO
+        );
+    }
+
+    private static function canUseHandoffSecret(?string $secretOverride): bool
+    {
+        if ($secretOverride !== null && $secretOverride !== '') {
+            return true;
+        }
+
+        try {
+            (new ModuleEncryptionKeyProvider())->resolveSecretInput();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
         }
     }
 

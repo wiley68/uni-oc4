@@ -87,7 +87,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     {
         $this->load->model('setting/event');
 
-        foreach (EventRegistry::eventCodes() as $code) {
+        foreach (EventRegistry::managedEventCodes() as $code) {
             $this->model_setting_event->deleteEventByCode($code);
         }
 
@@ -128,7 +128,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     {
         $this->load->model('setting/event');
 
-        foreach (EventRegistry::eventCodes() as $code) {
+        foreach (EventRegistry::managedEventCodes() as $code) {
             $this->model_setting_event->deleteEventByCode($code);
         }
     }

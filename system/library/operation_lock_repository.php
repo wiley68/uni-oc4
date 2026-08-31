@@ -41,6 +41,8 @@ final class OperationLockRepository
         );
 
         if ($this->db->countAffected() === 1) {
+            $this->pruneExpiredIfDue();
+
             return true;
         }
 
@@ -56,7 +58,17 @@ final class OperationLockRepository
                AND `expires_at` <= '" . $nowSql . "'"
         );
 
-        return $this->db->countAffected() === 1;
+        $acquired = $this->db->countAffected() === 1;
+        if ($acquired) {
+            $this->pruneExpiredIfDue();
+        }
+
+        return $acquired;
+    }
+
+    private function pruneExpiredIfDue(): void
+    {
+        $this->deleteExpiredBatch(10);
     }
 
     public function release(int $storeId, string $entryPoint, string $operationKeyHash, string $ownerToken): bool

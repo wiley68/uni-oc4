@@ -190,6 +190,12 @@ final class ShopCacheRepository
                 `expires_at` = VALUES(`expires_at`),
                 `updated_at` = VALUES(`updated_at`)"
         );
+        $this->pruneExpiredIfDue();
+    }
+
+    private function pruneExpiredIfDue(): void
+    {
+        $this->deleteExpiredBatch(10);
     }
 
     public function deleteScoped(int $storeId, string $unicid): bool

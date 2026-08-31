@@ -54,7 +54,13 @@ final class ApiNonceRepository
             throw new PersistenceException('Nonce claim failed.', 0, $exception);
         }
 
-        return $this->db->countAffected() === 1;
+        if ($this->db->countAffected() === 1) {
+            $this->pruneExpiredIfDue();
+
+            return true;
+        }
+
+        return false;
     }
 
     public function deleteExpiredBatch(int $limit = SecurityConstants::CLEANUP_DEFAULT_BATCH_SIZE): int
@@ -69,6 +75,11 @@ final class ApiNonceRepository
         );
 
         return $this->db->countAffected();
+    }
+
+    private function pruneExpiredIfDue(): void
+    {
+        $this->deleteExpiredBatch(10);
     }
 
     public static function hashNonce(string $nonce): string
