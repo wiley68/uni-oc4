@@ -109,9 +109,11 @@ Shared layers reused: Phase 5 calculator/CartContext/resolver; Phase 6 materiali
 
 ## Presentation and retention (Phase 12)
 
-Leasing presentation is loaded by `(store_id, order_id)` only — no cross-store order_id fallback.
+Leasing presentation and bank-status labels are loaded by exact `(store_id, order_id)` only — no cross-store order_id fallback (including no nonzero→store-0 bank-status retry). Admin order list enriches each row with that row's own `store_id`.
 
-`leasing_presentation_json` is retained from attempt `created_at` for 183 days, then NULLed in a bounded batch. Process 2 ciphertext retention (180 days from `updated_at`) is separate.
+`leasing_presentation_json` is retained from attempt `created_at` for 183 days, then NULLed in a bounded batch. Process 2 ciphertext retention (180 days from `updated_at`) is separate. Process 2 encryption is fail-closed when the deployment secret is missing.
+
+Diagnostic journal retention is 3 months with bounded DELETE batches and `idx_mt_uni_credit_diag_created`.
 
 Thank You uses session order identity; Product Buy cookie is fail-closed without a real installation secret.
 

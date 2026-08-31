@@ -48,4 +48,6 @@ Phase 11A adds idempotent `smartucf_*` columns through `PersistenceSchemaInstall
 
 Phase 12B does **not** add upgrade scripts. Presentation retention, Thank You identity, and event retired-code cleanup are runtime/install-sync behavior on the existing schema.
 
+Final Audit Remediation 01 likewise adds no upgrade scripts: Process 2 encryption fail-closed, exact store-scoped bank status, and bounded diagnostic prune (+ idempotent `created_at` index ensure) stay on install/reinstall / `PersistenceSchemaInstaller::installAll()`.
+
 Draft operator-facing notes: `docs/RELEASE-NOTES-v2.0.2.md`. Tagging / packaging / GitHub release are **out of scope** until independent final audit approval.

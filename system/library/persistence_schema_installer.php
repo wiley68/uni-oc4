@@ -65,6 +65,25 @@ final class PersistenceSchemaInstaller
                 // Concurrent installer or restricted metadata access; retry remains idempotent.
             }
         }
+
+        $this->ensureDiagnosticCreatedAtIndex();
+    }
+
+    private function ensureDiagnosticCreatedAtIndex(): void
+    {
+        $table = $this->db->getPrefix() . PersistenceTableNames::DIAGNOSTIC_DEBUG_LOG;
+        $indexName = 'idx_mt_uni_credit_diag_created';
+        try {
+            $result = $this->db->query(
+                "SHOW INDEX FROM `{$table}` WHERE Key_name = '" . $this->db->escape($indexName) . "'"
+            );
+            if (is_object($result) && (int) ($result->num_rows ?? 0) > 0) {
+                return;
+            }
+            $this->db->query("ALTER TABLE `{$table}` ADD KEY `{$indexName}` (`created_at`)");
+        } catch (\Throwable $exception) {
+            // Table missing mid-install or duplicate index race — CREATE path includes the key.
+        }
     }
 
     /**
@@ -196,7 +215,8 @@ final class PersistenceSchemaInstaller
                 `summary_json` LONGTEXT NULL,
                 `created_at` DATETIME NOT NULL,
                 PRIMARY KEY (`diagnostic_debug_log_id`),
-                KEY `idx_mt_uni_credit_diag_store_order` (`store_id`, `order_id`)
+                KEY `idx_mt_uni_credit_diag_store_order` (`store_id`, `order_id`),
+                KEY `idx_mt_uni_credit_diag_created` (`created_at`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         ];
     }

@@ -30,9 +30,13 @@ Frozen `cp_payload` on the attempt row is required for idempotent recovery. Do n
 
 Process 2 EGN/phone2 live only in `process2_sensitive_enc` (encrypted). Never log them. Customer leasing email must not contain EGN. Retention redacts sensitive ciphertext after 180 days.
 
+Process 2 encryption is **fail-closed**: if the deployment encryption secret cannot be resolved, sensitive fields are not persisted, Process 2 handoff does not claim `bank_sent_process2`, and no plaintext EGN/phone2 is written. Tests may inject an explicit secret; production never falls back to a predictable test value.
+
 Leasing presentation JSON (`leasing_presentation_json`) is redacted after **183 days (~6 months)** from attempt `created_at`. Bounded batch cleanup runs on presentation persist. Attempt rows and operational identifiers remain.
 
-Diagnostic debug retrieval redacts EGN, contact fields, tokens, and key material before returning to CP.
+Bank-status presentation (Thank You, mail, admin list/detail) resolves **exact** `(store_id, order_id)` only. There is no fallback from a nonzero store to `store_id = 0` for the same numeric order id (`store_id = 0` remains valid when it is the actual store).
+
+Diagnostic debug retrieval redacts EGN, contact fields, tokens, and key material before returning to CP. Diagnostic journal retention remains **3 months**; prune deletes in bounded batches (default 100) and uses `idx_mt_uni_credit_diag_created` on `created_at`.
 
 Thank You identity is session-only (`mt_uni_credit_success_order_id`, then native `session.order_id`). GET `order_id` is never trusted. Logged customers additionally require matching `oc_order.customer_id` + `store_id`. Missing session context renders native Thank You without UniCredit leasing.
 

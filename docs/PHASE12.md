@@ -25,8 +25,8 @@ Read-only audit of `01d2f9acbbf098361395e2b89b5f50e0760548f6`. Operator manual m
 
 Baseline: `1fdd89a00d2f5e8a30b12c97bcdc2e4236cfcf16`
 
-| Check                              | Result                                                       |
-| ---------------------------------- | ------------------------------------------------------------ |
+| Check                              | Result                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
 | Full PHPUnit                       | 745 tests, 11232 assertions, **0 failures**, 2 skipped, 0 PHPUnit deprecations |
 | Targeted release-critical (serial) | 84 tests, **0 failures**                                                       |
 | PHP 8.2 lint                       | PASS                                                                           |
@@ -62,3 +62,13 @@ F. Multistore presentation if fixture exists  [recommended]
 ## Release Candidate decision
 
 **READY WITH ACCEPTED RISKS** — see Phase 12D report accepted-risks section.
+
+## Final Audit Remediation 01
+
+| ID   | Severity | Status                                                                         |
+| ---- | -------- | ------------------------------------------------------------------------------ |
+| F-01 | HIGH     | Fixed — Process 2 encryption fail-closed (no `testSecretInput()` fallback)     |
+| F-02 | MEDIUM   | Fixed — bank-status exact `(store_id, order_id)`; admin list uses row store_id |
+| F-03 | LOW      | Fixed — diagnostic prune batch ≤100 + `idx_mt_uni_credit_diag_created`         |
+
+Version remains **2.0.2**. No upgrade scripts / tag / package / deploy in this remediation.

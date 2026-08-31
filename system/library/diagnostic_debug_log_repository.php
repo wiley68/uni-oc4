@@ -141,19 +141,23 @@ class DiagnosticDebugLogRepository
         return (int) ($result->row['total'] ?? 0);
     }
 
-    public function pruneOld(?\DateTimeImmutable $now = null): bool
+    public function pruneOld(?\DateTimeImmutable $now = null, ?int $limit = null): int
     {
+        $limit = max(1, min(1000, $limit ?? SecurityConstants::CLEANUP_DEFAULT_BATCH_SIZE));
         $cutoff = self::retentionCutoff($now);
         $table = $this->db->getPrefix() . PersistenceTableNames::DIAGNOSTIC_DEBUG_LOG;
         try {
             $this->db->query(
-                "DELETE FROM `{$table}` WHERE `created_at` < '" . $this->db->escape($cutoff) . "'"
+                "DELETE FROM `{$table}`
+                 WHERE `created_at` < '" . $this->db->escape($cutoff) . "'
+                 ORDER BY `created_at` ASC
+                 LIMIT " . (int) $limit
             );
         } catch (\Throwable $exception) {
-            return false;
+            return 0;
         }
 
-        return true;
+        return $this->db->countAffected();
     }
 
     public static function retentionCutoff(?\DateTimeImmutable $now = null): string
