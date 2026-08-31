@@ -165,12 +165,13 @@ namespace Opencart\System\Engine {
 
         public function __construct(Registry $registry) {}
 
-        public function __get(string $key): object
+        /** @return mixed registry service; concrete type comes from @property */
+        public function __get(string $key): mixed
         {
-            return new \stdClass();
+            return null;
         }
 
-        public function __set(string $key, object $value): void {}
+        public function __set(string $key, mixed $value): void {}
     }
 
     /**
@@ -188,12 +189,13 @@ namespace Opencart\System\Engine {
 
         public function __construct(Registry $registry) {}
 
-        public function __get(string $key): object
+        /** @return mixed registry service; concrete type comes from @property */
+        public function __get(string $key): mixed
         {
-            return new \stdClass();
+            return null;
         }
 
-        public function __set(string $key, object $value): void {}
+        public function __set(string $key, mixed $value): void {}
     }
 }
 
@@ -277,6 +279,15 @@ namespace Opencart\System\Library {
         {
             return '';
         }
+
+        public function start(string $session_id = ''): string
+        {
+            return '';
+        }
+
+        public function close(): void {}
+
+        public function destroy(): void {}
     }
 
     class Url

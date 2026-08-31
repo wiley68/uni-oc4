@@ -6,7 +6,7 @@
   const BOOTSTRAP_ID = "mt-uni-credit-bootstrap";
   const TRIGGER_SELECTOR =
     ".mt-uni-credit-product-calculator__button[data-offer-type]";
-  const MTUC_TRACE_BUILD = "09E-dd3c0d8-trace1";
+  const MTUC_TRACE_BUILD = "09F-288473b-trace1";
 
   function mtucTraceEnabled() {
     try {
@@ -1396,6 +1396,47 @@
       return (state.product_button_action || "add_to_cart") !== "buy";
     }
 
+    function isCommonCartInfoUrl(url) {
+      const normalized = String(url || "").replace(/&amp;/g, "&");
+      return (
+        normalized.indexOf("route=common/cart.info") !== -1 ||
+        /\/common\/cart\.info(?:\?|$)/.test(normalized)
+      );
+    }
+
+    /**
+     * Native product.twig cart.add success starts `#cart`.load(common/cart.info) BEFORE
+     * our ajaxSuccess runs. OC4 DB sessions REPLACE the whole blob — if cart.info closes
+     * after stash, the Product Buy preference is wiped. Stash only after cart.info settles
+     * so this request is the last session writer.
+     */
+    function stashAfterCartInfoSettles(scheme) {
+      const $ = window.jQuery;
+      if (!$ || typeof $.fn === "undefined") {
+        stashBuyPreferenceAndGoCheckout(scheme);
+        return;
+      }
+      let finished = false;
+      const run = function () {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        $(document).off(".mtUniCreditBuyHandoff");
+        stashBuyPreferenceAndGoCheckout(scheme);
+      };
+      $(document).on(
+        "ajaxSuccess.mtUniCreditBuyHandoff ajaxError.mtUniCreditBuyHandoff",
+        function (_event, _xhr, settings) {
+          if (isCommonCartInfoUrl(settings && settings.url)) {
+            run();
+          }
+        },
+      );
+      // Failsafe only: theme without cart.info must not hang Buy forever.
+      window.setTimeout(run, 2000);
+    }
+
     function isCheckoutCartAddUrl(url) {
       const normalized = String(url || "").replace(/&amp;/g, "&");
       return (
@@ -1545,7 +1586,7 @@
         unbindNativeCartAddObserver();
         const json = parseAjaxJson(xhr);
         if (json && json.success) {
-          stashBuyPreferenceAndGoCheckout(scheme);
+          stashAfterCartInfoSettles(scheme);
           return;
         }
         // Native option/stock validation — stay on Product; no preference / no redirect.

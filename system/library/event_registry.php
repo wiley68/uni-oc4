@@ -162,6 +162,15 @@ final class EventRegistry
                 'sort_order'  => 0,
             ],
             [
+                'code'        => ModuleConstants::MODULE_SETTING_CODE . '_before_shipping_method_save_buy',
+                'description' => 'Product Buy: lifetime checkpoint before shipping_method.save',
+                'trigger'     => 'catalog/controller/checkout/shipping_method.save/before',
+                'controller'  => 'extension/mt_uni_credit/event/mt_uni_credit_product_buy',
+                'method'      => 'onShippingMethodSaveBefore',
+                'status'      => true,
+                'sort_order'  => 0,
+            ],
+            [
                 'code'        => ModuleConstants::MODULE_SETTING_CODE . '_after_payment_method_save',
                 'description' => 'Product Buy: clear preference when payment leaves UniCredit',
                 'trigger'     => 'catalog/controller/checkout/payment_method.save/after',

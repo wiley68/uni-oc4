@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * TEMPORARY Phase 11C Remediation 09E browser/runtime proof.
+ * TEMPORARY Phase 11C Remediation 09E/09F browser/runtime proof.
  *
  * Enable with ?mtuc_trace=1 or POST mtuc_trace=1 (stored in session for the handoff TTL).
  * Emits only non-PII booleans/codes/keys into JSON _mtuc_trace fields / X-Mtuc-Trace headers.
@@ -16,7 +16,7 @@ final class ProductBuyHandoffTrace
 {
     public const SESSION_KEY = 'mt_uni_credit_09e_trace';
 
-    public const BUILD = '09E-dd3c0d8-trace1';
+    public const BUILD = '09F-288473b-trace1';
 
     public const JSON_KEY = '_mtuc_trace';
 
@@ -86,6 +86,49 @@ final class ProductBuyHandoffTrace
         $sessionData[self::SESSION_KEY] = $raw;
 
         return $seq;
+    }
+
+    /**
+     * Safe non-reversible session continuity marker (not the raw session id).
+     */
+    public static function sessionFingerprint(string $sessionId): string
+    {
+        if ($sessionId === '') {
+            return '';
+        }
+
+        return substr(hash('sha256', $sessionId), 0, 8);
+    }
+
+    /**
+     * Lifetime checkpoint fields for preference survival tracing.
+     *
+     * @param array<string, mixed> $sessionData
+     * @return array<string, mixed>
+     */
+    public static function lifetimeCheckpoint(array $sessionData, int $storeId, string $sessionId = ''): array
+    {
+        $inspected = ProductBuyCheckoutPreference::inspect($sessionData, $storeId);
+        $snap = self::preferenceSnapshot(
+            !empty($inspected['preference_present']) && isset($sessionData[ProductBuyCheckoutPreference::SESSION_KEY])
+                && is_array($sessionData[ProductBuyCheckoutPreference::SESSION_KEY])
+                ? $sessionData[ProductBuyCheckoutPreference::SESSION_KEY]
+                : null
+        );
+
+        return $snap + [
+            'store_id'              => $inspected['store_id'] ?? null,
+            'expected_store_id'     => $storeId,
+            'created_at'            => (int) ($inspected['created_at'] ?? 0),
+            'expires_at'            => (int) ($inspected['expires_at'] ?? 0),
+            'flow'                  => (string) ($inspected['flow'] ?? ''),
+            'source'                => (string) ($inspected['source'] ?? ''),
+            'raw_present'           => !empty($inspected['raw_present']),
+            'clear_reason'          => (string) ($inspected['clear_reason'] ?? ''),
+            'session_fingerprint'   => self::sessionFingerprint($sessionId),
+            'session_key'           => ProductBuyCheckoutPreference::SESSION_KEY,
+            'restored_from_cookie'  => !empty($sessionData[ProductBuyCheckoutPreference::SESSION_KEY]['restored_from_cookie']),
+        ];
     }
 
     /**

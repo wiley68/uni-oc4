@@ -15,7 +15,9 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductBuyHandoffTrace;
  * the body via Response::setOutput(). Controller /after $output is therefore null — hooks must
  * read/write $this->response, not the unused $output argument.
  *
- * TEMPORARY 09E: ProductBuyHandoffTrace markers when mtuc_trace=1 is active in session.
+ * TEMPORARY 09E/09F: ProductBuyHandoffTrace markers when mtuc_trace=1 is active.
+ *
+ * getMethods / shipping_method.save $output arg is Unused for OC4 JSON controllers (void return).
  */
 class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
 {
@@ -32,39 +34,44 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
             $this->request->post ?? []
         );
 
+        $storeId = (int) $this->config->get('config_store_id');
+        $restored = $this->restoreHandoffCookieIfNeeded($storeId);
+
         $this->document->addScript(
             ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_checkout_handoff.js'),
             'footer'
         );
 
         if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
-            $storeId = (int) $this->config->get('config_store_id');
-            $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
-            $snap = ProductBuyHandoffTrace::preferenceSnapshot($pref);
-            $native = (string) ($this->session->data['payment_method']['code'] ?? '');
+            $checkpoint = ProductBuyHandoffTrace::lifetimeCheckpoint(
+                $this->session->data,
+                $storeId,
+                $this->session->getId()
+            );
+            $checkpoint['restored_now'] = $restored;
+            $checkpoint['checkpoint'] = 'checkout/checkout/before';
             $this->response->addHeader(
                 'X-Mtuc-Trace: CHECKOUT_HANDOFF_INTENT_PRESENT;prefer_payment='
-                    . (!empty($snap['prefer_payment']) ? '1' : '0')
-                    . ';payment_code=' . (string) ($snap['payment_code'] ?? '')
-                    . ';scheme_key=' . (string) ($snap['scheme_key'] ?? '')
-                    . ';months=' . (int) $snap['months']
-                    . ';native_payment=' . $native
+                    . (!empty($checkpoint['prefer_payment']) ? '1' : '0')
+                    . ';payment_code=' . (string) ($checkpoint['payment_code'] ?? '')
+                    . ';scheme_key=' . (string) ($checkpoint['scheme_key'] ?? '')
+                    . ';months=' . (int) ($checkpoint['months'] ?? 0)
+                    . ';preference_present=' . (!empty($checkpoint['preference_present']) ? '1' : '0')
+                    . ';session_fp=' . (string) ($checkpoint['session_fingerprint'] ?? '')
+                    . ';restored=' . ($restored ? '1' : '0')
                     . ';build=' . ProductBuyHandoffTrace::BUILD
             );
-            // Trace-only asset: exposes window.__MTUC_* for Console proof (no PII).
             $this->document->addScript(
                 ModuleAssetVersion::href('catalog/view/javascript/mt_uni_credit_09e_trace.js')
-                    . '&intent=' . rawurlencode((string) json_encode($snap, JSON_UNESCAPED_SLASHES)),
+                    . '&intent=' . rawurlencode((string) json_encode($checkpoint, JSON_UNESCAPED_SLASHES)),
                 'footer'
             );
         }
     }
 
     /**
-     * After payment methods are discovered, prefer UniCredit when Product Buy handoff is active.
-     *
      * @param array<int, mixed> $args
-     * @param mixed             $output Unused for OC4 JSON controllers (void return); body is in Response.
+     * @param mixed             $output
      */
     public function onPaymentMethodsAfter(string &$route, array &$args, mixed &$output): void
     {
@@ -74,19 +81,26 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
             $this->request->post ?? []
         );
 
+        $storeId = (int) $this->config->get('config_store_id');
+        $this->restoreHandoffCookieIfNeeded($storeId);
+
         $traceOn = ProductBuyHandoffTrace::isEnabled($this->session->data);
         $raw = $this->readJsonResponseBody($output);
-        $storeId = (int) $this->config->get('config_store_id');
         $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
         $paymentBefore = (string) ($this->session->data['payment_method']['code'] ?? '');
+        $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
+            $this->session->data,
+            $storeId,
+            $this->session->getId()
+        );
 
         if ($raw === null) {
             if ($traceOn) {
-                // Cannot mutate missing body; header still proves hook entry.
                 $this->response->addHeader(
                     'X-Mtuc-Trace: PAYMENT_GET_METHODS_ENTER;raw_empty=1;output_type='
                         . gettype($output)
                         . ';prefer_payment=' . (!empty($pref['prefer_payment']) ? '1' : '0')
+                        . ';preference_present=' . (!empty($lifetime['preference_present']) ? '1' : '0')
                 );
             }
 
@@ -98,13 +112,13 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
             if ($traceOn) {
                 $traceJson = is_array($json) ? $json : ['parse_ok' => false];
                 $traceJson = $this->attachTrace($traceJson, 'payment_method.getMethods/after', [
-                    'hook_executed'       => true,
-                    'early_exit'          => 'no_payment_methods',
-                    'output_arg_empty'    => !is_string($output) || $output === '',
-                    'response_len'        => strlen($raw),
-                    'prefer_payment'      => !empty($pref['prefer_payment']),
-                    'payment_before'      => $paymentBefore,
-                ] + ProductBuyHandoffTrace::preferenceSnapshot($pref));
+                    'hook_executed'    => true,
+                    'early_exit'       => 'no_payment_methods',
+                    'checkpoint'       => 'payment_method.getMethods/after',
+                    'output_arg_empty' => !is_string($output) || $output === '',
+                    'response_len'     => strlen($raw),
+                    'payment_before'   => $paymentBefore,
+                ] + $lifetime);
                 $this->writeJsonResponseBody($traceJson, $output);
             }
 
@@ -120,26 +134,31 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
         $paymentAfter = (string) ($this->session->data['payment_method']['code'] ?? '');
         $orderAfter = ProductBuyHandoffTrace::paymentOrderCodes($json['payment_methods'] ?? []);
         $uniAvailable = in_array(ModuleConstants::PAYMENT_OPTION_CODE, $orderBefore, true);
+        $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
+            $this->session->data,
+            $storeId,
+            $this->session->getId()
+        );
 
         if ($traceOn) {
             $json = $this->attachTrace($json, 'payment_method.getMethods/after', [
                 'hook_executed'        => true,
-                'prefer_payment'       => !empty($pref['prefer_payment']),
+                'checkpoint'           => 'payment_method.getMethods/after',
                 'unicredit_available'  => $uniAvailable,
                 'payment_before'       => $paymentBefore,
                 'payment_after'        => $paymentAfter,
-                'scheme_months'        => (int) ($pref['months'] ?? 0),
-                'scheme_key'           => (string) ($pref['scheme_key'] ?? ''),
+                'scheme_months'        => (int) ($lifetime['months'] ?? 0),
                 'payment_order_before' => $orderBefore,
                 'payment_order_after'  => $orderAfter,
                 'output_arg_empty'     => !is_string($output) || $output === '',
                 'response_mutated'     => true,
-            ] + ProductBuyHandoffTrace::preferenceSnapshot($pref));
+            ] + $lifetime);
             $this->response->addHeader(
                 'X-Mtuc-Trace: PAYMENT_GET_METHODS_ENTER;prefer_payment='
-                    . (!empty($pref['prefer_payment']) ? '1' : '0')
+                    . (!empty($lifetime['prefer_payment']) ? '1' : '0')
                     . ';unicredit_available=' . ($uniAvailable ? '1' : '0')
                     . ';payment_after=' . $paymentAfter
+                    . ';preference_present=' . (!empty($lifetime['preference_present']) ? '1' : '0')
             );
         }
 
@@ -147,10 +166,43 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
     }
 
     /**
-     * After shipping_method.save, native OC4 unsets payment_method + payment_methods.
-     *
      * @param array<int, mixed> $args
-     * @param mixed             $output Unused for OC4 JSON controllers (void return); body is in Response.
+     */
+    public function onShippingMethodSaveBefore(string &$route, array &$args): void
+    {
+        ProductBuyHandoffTrace::captureRequest(
+            $this->session->data,
+            $this->request->get ?? [],
+            $this->request->post ?? []
+        );
+        $storeId = (int) $this->config->get('config_store_id');
+        $this->restoreHandoffCookieIfNeeded($storeId);
+
+        if (!ProductBuyHandoffTrace::isEnabled($this->session->data)) {
+            return;
+        }
+
+        $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
+            $this->session->data,
+            $storeId,
+            $this->session->getId()
+        );
+        $this->response->addHeader(
+            'X-Mtuc-Trace: SHIPPING_BEFORE_ENTER;preference_present='
+                . (!empty($lifetime['preference_present']) ? '1' : '0')
+                . ';months=' . (int) ($lifetime['months'] ?? 0)
+                . ';session_fp=' . (string) ($lifetime['session_fingerprint'] ?? '')
+                . ';clear_reason=' . (string) ($lifetime['clear_reason'] ?? '')
+        );
+        // Stash into session for after-hook correlation (no PII).
+        $this->session->data['_mtuc_trace_shipping_before'] = $lifetime + [
+            'checkpoint' => 'shipping_method.save/before',
+        ];
+    }
+
+    /**
+     * @param array<int, mixed> $args
+     * @param mixed             $output
      */
     public function onShippingMethodSaveAfter(string &$route, array &$args, mixed &$output): void
     {
@@ -160,17 +212,27 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
             $this->request->post ?? []
         );
 
+        $storeId = (int) $this->config->get('config_store_id');
+        $this->restoreHandoffCookieIfNeeded($storeId);
+
         $traceOn = ProductBuyHandoffTrace::isEnabled($this->session->data);
         $raw = $this->readJsonResponseBody($output);
-        $storeId = (int) $this->config->get('config_store_id');
         $preference = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
         $nativePayment = (string) ($this->session->data['payment_method']['code'] ?? '');
+        $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
+            $this->session->data,
+            $storeId,
+            $this->session->getId()
+        );
+        $before = $this->session->data['_mtuc_trace_shipping_before'] ?? null;
+        unset($this->session->data['_mtuc_trace_shipping_before']);
 
         if ($raw === null) {
             if ($traceOn) {
                 $this->response->addHeader(
                     'X-Mtuc-Trace: SHIPPING_AFTER_ENTER;raw_empty=1;prefer_payment='
                         . (!empty($preference['prefer_payment']) ? '1' : '0')
+                        . ';preference_present=' . (!empty($lifetime['preference_present']) ? '1' : '0')
                 );
             }
 
@@ -200,23 +262,27 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
 
         if ($traceOn) {
             $json = $this->attachTrace($json, 'shipping_method.save/after', [
-                'hook_executed'    => true,
+                'hook_executed'        => true,
                 'SHIPPING_AFTER_ENTER' => true,
-                'success'          => !empty($json['success']),
-                'annotated'        => $shouldAnnotate,
-                'native_payment'   => $nativePayment,
-                'early_exit'       => $shouldAnnotate ? '' : (
+                'checkpoint'           => 'shipping_method.save/after',
+                'success'              => !empty($json['success']),
+                'annotated'            => $shouldAnnotate,
+                'native_payment'       => $nativePayment,
+                'before_checkpoint'    => is_array($before) ? $before : null,
+                'early_exit'           => $shouldAnnotate ? '' : (
                     $preference === null ? 'no_preference' : (
                         empty($json['success']) ? 'no_success' : 'prefer_payment_false'
                     )
                 ),
-                'output_arg_empty' => !is_string($output) || $output === '',
-            ] + ProductBuyHandoffTrace::preferenceSnapshot($preference));
+                'output_arg_empty'     => !is_string($output) || $output === '',
+            ] + $lifetime);
             $this->response->addHeader(
                 'X-Mtuc-Trace: SHIPPING_AFTER_ENTER;prefer_payment='
                     . (!empty($preference['prefer_payment']) ? '1' : '0')
                     . ';months=' . (int) ($preference['months'] ?? 0)
                     . ';annotated=' . ($shouldAnnotate ? '1' : '0')
+                    . ';preference_present=' . (!empty($lifetime['preference_present']) ? '1' : '0')
+                    . ';session_fp=' . (string) ($lifetime['session_fingerprint'] ?? '')
             );
             $this->writeJsonResponseBody($json, $output);
 
@@ -234,7 +300,11 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
      */
     public function onPaymentMethodSaveAfter(string &$route, array &$args, mixed &$output): void
     {
+        $hadPreference = isset($this->session->data[ProductBuyCheckoutPreference::SESSION_KEY]);
         ProductBuyCheckoutPreference::clearIfPaymentChangedAway($this->session->data);
+        if ($hadPreference && !isset($this->session->data[ProductBuyCheckoutPreference::SESSION_KEY])) {
+            $this->expireHandoffCookie();
+        }
     }
 
     /**
@@ -244,6 +314,45 @@ class MtUniCreditProductBuy extends \Opencart\System\Engine\Controller
     {
         ProductBuyCheckoutPreference::clear($this->session->data);
         unset($this->session->data[ProductBuyHandoffTrace::SESSION_KEY]);
+        $this->expireHandoffCookie();
+    }
+
+    private function restoreHandoffCookieIfNeeded(int $storeId): bool
+    {
+        $cookieRaw = (string) ($this->request->cookie[ProductBuyCheckoutPreference::HANDOFF_COOKIE] ?? '');
+        if ($cookieRaw === '') {
+            return false;
+        }
+        $restored = ProductBuyCheckoutPreference::restoreFromHandoffCookie(
+            $this->session->data,
+            $storeId,
+            $cookieRaw
+        );
+        if ($restored) {
+            // Keep cookie until checkout success so a later session race can still recover.
+            if (
+                !isset($this->session->data['payment_method'])
+                || !PaymentIdentity::matchesStoredPayment($this->session->data['payment_method'])
+            ) {
+                $this->session->data['payment_method'] = PaymentIdentity::paymentMethod();
+            }
+        }
+
+        return $restored;
+    }
+
+    private function expireHandoffCookie(): void
+    {
+        if (!headers_sent()) {
+            setcookie(ProductBuyCheckoutPreference::HANDOFF_COOKIE, '', [
+                'expires'  => time() - 3600,
+                'path'     => (string) ($this->config->get('session_path') ?: '/'),
+                'secure'   => !empty($this->request->server['HTTPS']),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+        unset($this->request->cookie[ProductBuyCheckoutPreference::HANDOFF_COOKIE]);
     }
 
     /**

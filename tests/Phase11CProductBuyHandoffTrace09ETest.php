@@ -15,7 +15,7 @@ final class Phase11CProductBuyHandoffTrace09ETest extends TestCase
 {
     public function testTraceLibraryBuildAndJsonKey(): void
     {
-        self::assertSame('09E-dd3c0d8-trace1', ProductBuyHandoffTrace::BUILD);
+        self::assertSame('09F-288473b-trace1', ProductBuyHandoffTrace::BUILD);
         self::assertSame('_mtuc_trace', ProductBuyHandoffTrace::JSON_KEY);
     }
 
@@ -117,7 +117,7 @@ final class Phase11CProductBuyHandoffTrace09ETest extends TestCase
         $trace = (string) file_get_contents(
             dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_09e_trace.js'
         );
-        self::assertStringContainsString('09E-dd3c0d8-trace1', $product);
+        self::assertStringContainsString('09F-288473b-trace1', $product);
         self::assertStringContainsString('mtuc_trace', $product);
         self::assertStringContainsString('__MTUC_LAST_STASH_TRACE', $product);
         self::assertStringContainsString('__MTUC_LAST_TRACE', $handoff);

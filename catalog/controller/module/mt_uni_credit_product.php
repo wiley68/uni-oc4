@@ -205,6 +205,26 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             // Tentative payment preselect; getMethods after-hook revalidates availability.
             $this->session->data['payment_method'] = PaymentIdentity::paymentMethod();
 
+            $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
+            if (is_array($pref)) {
+                $cookieValue = ProductBuyCheckoutPreference::buildHandoffCookieValue($pref);
+                if ($cookieValue !== '' && !headers_sent()) {
+                    setcookie(ProductBuyCheckoutPreference::HANDOFF_COOKIE, $cookieValue, [
+                        'expires'  => time() + ProductBuyCheckoutPreference::TTL_SECONDS,
+                        'path'     => (string) ($this->config->get('session_path') ?: '/'),
+                        'secure'   => !empty($this->request->server['HTTPS']),
+                        'httponly' => true,
+                        'samesite' => 'Lax',
+                    ]);
+                }
+            }
+
+            // Flush session immediately so concurrent common/cart.info is less likely to win
+            // a last-write race against this stash (theme starts cart.info in cart.add success).
+            /** @var \Opencart\System\Library\Session $session */
+            $session = $this->session;
+            $session->close();
+
             $checkoutQuery = 'language=' . $this->config->get('config_language');
             if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
                 $checkoutQuery .= '&mtuc_trace=1';
@@ -218,17 +238,25 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             ];
 
             if (ProductBuyHandoffTrace::isEnabled($this->session->data)) {
-                $pref = ProductBuyCheckoutPreference::load($this->session->data, $storeId);
+                $lifetime = ProductBuyHandoffTrace::lifetimeCheckpoint(
+                    $this->session->data,
+                    $storeId,
+                    $this->session->getId()
+                );
                 $payload[ProductBuyHandoffTrace::JSON_KEY] = ProductBuyHandoffTrace::wrap(
                     $this->session->data,
                     'PRODUCT_BUY_STASH_EXECUTED',
-                    ProductBuyHandoffTrace::preferenceSnapshot($pref)
+                    $lifetime + [
+                        'checkpoint'     => 'stashBuyPreference',
+                        'handoff_cookie' => is_array($pref),
+                    ]
                 );
                 $this->response->addHeader(
-                    'X-Mtuc-Trace: PRODUCT_BUY_STASH_EXECUTED;months=' . (int) ($pref['months'] ?? 0)
-                        . ';prefer_payment=' . (!empty($pref['prefer_payment']) ? '1' : '0')
-                        . ';payment_code=' . (string) ($pref['payment_code'] ?? '')
-                        . ';scheme_key=' . (string) ($pref['scheme_key'] ?? '')
+                    'X-Mtuc-Trace: PRODUCT_BUY_STASH_EXECUTED;months=' . (int) ($lifetime['months'] ?? 0)
+                        . ';prefer_payment=' . (!empty($lifetime['prefer_payment']) ? '1' : '0')
+                        . ';payment_code=' . (string) ($lifetime['payment_code'] ?? '')
+                        . ';scheme_key=' . (string) ($lifetime['scheme_key'] ?? '')
+                        . ';session_fp=' . (string) ($lifetime['session_fingerprint'] ?? '')
                 );
             }
 

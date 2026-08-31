@@ -17,7 +17,7 @@
   const TRACE_KEY = "_mtuc_trace";
   const GET_METHODS_RE = /route=checkout\/payment_method\.getMethods/;
   const SHIPPING_SAVE_RE = /route=checkout\/shipping_method\.save/;
-  const BUILD = "09E-dd3c0d8-trace1";
+  const BUILD = "09F-288473b-trace1";
 
   function applyPreferredToDom(preferred) {
     if (!preferred || typeof preferred !== "object") {

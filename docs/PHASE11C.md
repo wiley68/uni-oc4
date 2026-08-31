@@ -306,3 +306,22 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CProductBuyHandoffTrace09ETest.php`
 
 Module version remains **2.0.2**.
+
+## Product Buy preference lifetime — session race (Remediation 09F)
+
+**Proven FIRST FAIL (real browser):** stash response `preference_present=true months=4`, but `shipping_method.save/after` showed `early_exit=no_preference`. Trace survived because Checkout URL re-enabled `mtuc_trace=1`; preference did not.
+
+**Root cause:** native `product.twig` cart.add success starts `#cart.load(common/cart.info)` before Product Buy stash. OC4 DB session adaptor `REPLACE`s the whole blob — concurrent `cart.info` that started before stash can close after stash and wipe `mt_uni_credit_product_buy_preference`.
+
+**Smallest fix:**
+
+1. JS: `stashAfterCartInfoSettles()` — stash only after `common/cart.info` settles (last writer wins).
+2. Stash sets signed HttpOnly handoff cookie `mtuc_pb_handoff` + early `session->close()`.
+3. Checkout/shipping hooks restore preference from cookie when session key missing.
+4. `clearIfPaymentChangedAway()` ignores empty/null native payment (not a user override).
+
+**Diagnostics kept** (`?mtuc_trace=1`, build `09F-288473b-trace1`) until shipping survival is operator-proven.
+
+**Tests:** `tests/Phase11CProductBuyPreferenceLifetime09FTest.php`
+
+Module version remains **2.0.2**.

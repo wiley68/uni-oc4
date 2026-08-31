@@ -22,6 +22,11 @@ final class ProductBuyCheckoutPreference
 
     public const JSON_PREFERRED_PAYMENT_KEY = 'mt_uni_credit_preferred_payment';
 
+    /** Short-lived handoff cookie — survives OC4 DB session last-write-wins races after cart.add. */
+    public const HANDOFF_COOKIE = 'mtuc_pb_handoff';
+
+    private const HANDOFF_COOKIE_INFO = 'mt_uni_credit/product-buy-handoff/v1';
+
     /**
      * @param array<string, mixed> $sessionData
      * @param array{
@@ -71,31 +76,203 @@ final class ProductBuyCheckoutPreference
      */
     public static function load(array &$sessionData, int $storeId): ?array
     {
+        $inspected = self::inspect($sessionData, $storeId);
+        if (!empty($inspected['preference_present']) && empty($inspected['would_clear'])) {
+            /** @var array<string, mixed> $raw */
+            $raw = $sessionData[self::SESSION_KEY];
+
+            return $raw;
+        }
+
+        if (!empty($inspected['raw_present']) && !empty($inspected['would_clear'])) {
+            self::clear($sessionData);
+        }
+
+        return null;
+    }
+
+    /**
+     * Non-mutating preference diagnostics (does not clear).
+     *
+     * @param array<string, mixed> $sessionData
+     * @return array<string, mixed>
+     */
+    public static function inspect(array $sessionData, int $storeId): array
+    {
         $raw = $sessionData[self::SESSION_KEY] ?? null;
         if (!is_array($raw)) {
-            return null;
-        }
-
-        if ((string) ($raw['flow'] ?? '') !== self::FLOW) {
-            self::clear($sessionData);
-
-            return null;
-        }
-
-        if ((int) ($raw['store_id'] ?? -1) !== $storeId) {
-            self::clear($sessionData);
-
-            return null;
+            return [
+                'raw_present'        => false,
+                'preference_present' => false,
+                'would_clear'        => false,
+                'clear_reason'       => 'key_absent',
+                'store_id'           => null,
+                'expected_store_id'  => $storeId,
+                'created_at'         => 0,
+                'expires_at'         => 0,
+                'flow'               => '',
+                'source'             => '',
+            ];
         }
 
         $createdAt = (int) ($raw['created_at'] ?? 0);
-        if ($createdAt <= 0 || (time() - $createdAt) > self::TTL_SECONDS) {
-            self::clear($sessionData);
+        $expiresAt = $createdAt > 0 ? $createdAt + self::TTL_SECONDS : 0;
+        $flow = (string) ($raw['flow'] ?? '');
+        $storedStoreId = (int) ($raw['store_id'] ?? -1);
+        $clearReason = '';
+        if ($flow !== self::FLOW) {
+            $clearReason = 'flow_mismatch';
+        } elseif ($storedStoreId !== $storeId) {
+            // Explicit int compare — store_id=0 is valid and must not use truthy checks.
+            $clearReason = 'store_mismatch';
+        } elseif ($createdAt <= 0 || (time() - $createdAt) > self::TTL_SECONDS) {
+            $clearReason = 'ttl_expired';
+        }
 
+        return [
+            'raw_present'             => true,
+            'preference_present'      => $clearReason === '',
+            'would_clear'             => $clearReason !== '',
+            'clear_reason'            => $clearReason,
+            'store_id'                => $storedStoreId,
+            'expected_store_id'       => $storeId,
+            'created_at'              => $createdAt,
+            'expires_at'              => $expiresAt,
+            'flow'                    => $flow,
+            'source'                  => (string) ($raw['source'] ?? ''),
+            'prefer_payment'          => !empty($raw['prefer_payment']),
+            'payment_code'            => (string) ($raw['payment_code'] ?? ''),
+            'scheme_key'              => (string) ($raw['scheme_key'] ?? ''),
+            'months'                  => (int) ($raw['months'] ?? 0),
+            'scheme_user_override'    => !empty($raw['scheme_user_override']),
+            'payment_user_overridden' => !empty($raw['payment_user_overridden']),
+        ];
+    }
+
+    /**
+     * Signed handoff cookie value (no PII) — backup when concurrent cart.info overwrites DB session.
+     *
+     * @param array<string, mixed> $preference
+     */
+    public static function buildHandoffCookieValue(array $preference, ?string $secretOverride = null): string
+    {
+        $payload = [
+            'v'                   => 1,
+            'store_id'            => (int) ($preference['store_id'] ?? 0),
+            'product_id'          => (int) ($preference['product_id'] ?? 0),
+            'scheme_type'         => (string) ($preference['scheme_type'] ?? ''),
+            'kop_code'            => (string) ($preference['kop_code'] ?? ''),
+            'months'              => (int) ($preference['months'] ?? 0),
+            'filter_id'           => (int) ($preference['filter_id'] ?? 0),
+            'scheme_key'          => (string) ($preference['scheme_key'] ?? ''),
+            'first_installment'   => (float) ($preference['first_installment'] ?? 0),
+            'created_at'          => (int) ($preference['created_at'] ?? time()),
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return '';
+        }
+        $body = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+        $sig = hash_hmac('sha256', $body, self::handoffSecret($secretOverride));
+
+        return $body . '.' . $sig;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function parseHandoffCookieValue(string $raw, int $storeId, ?string $secretOverride = null): ?array
+    {
+        $raw = trim($raw);
+        if ($raw === '' || !str_contains($raw, '.')) {
+            return null;
+        }
+        [$body, $sig] = explode('.', $raw, 2);
+        if ($body === '' || $sig === '') {
+            return null;
+        }
+        $expected = hash_hmac('sha256', $body, self::handoffSecret($secretOverride));
+        if (!hash_equals($expected, $sig)) {
+            return null;
+        }
+        $pad = strlen($body) % 4;
+        if ($pad > 0) {
+            $body .= str_repeat('=', 4 - $pad);
+        }
+        $json = base64_decode(strtr($body, '-_', '+/'), true);
+        if ($json === false) {
+            return null;
+        }
+        $payload = json_decode($json, true);
+        if (!is_array($payload)) {
+            return null;
+        }
+        if ((int) ($payload['store_id'] ?? -1) !== $storeId) {
+            return null;
+        }
+        $createdAt = (int) ($payload['created_at'] ?? 0);
+        if ($createdAt <= 0 || (time() - $createdAt) > self::TTL_SECONDS) {
+            return null;
+        }
+        if ((int) ($payload['product_id'] ?? 0) <= 0 || (int) ($payload['months'] ?? 0) <= 0) {
             return null;
         }
 
-        return $raw;
+        return $payload;
+    }
+
+    /**
+     * Restore session preference from handoff cookie when session key was lost (session race).
+     *
+     * @param array<string, mixed> $sessionData
+     */
+    public static function restoreFromHandoffCookie(
+        array &$sessionData,
+        int $storeId,
+        ?string $cookieRaw,
+        ?string $secretOverride = null
+    ): bool {
+        if (self::load($sessionData, $storeId) !== null) {
+            return false;
+        }
+        $payload = self::parseHandoffCookieValue((string) $cookieRaw, $storeId, $secretOverride);
+        if ($payload === null) {
+            return false;
+        }
+        self::save($sessionData, $storeId, [
+            'product_id'        => (int) $payload['product_id'],
+            'scheme_type'       => (string) $payload['scheme_type'],
+            'kop_code'          => (string) $payload['kop_code'],
+            'months'            => (int) $payload['months'],
+            'filter_id'         => (int) $payload['filter_id'],
+            'scheme_key'        => (string) $payload['scheme_key'],
+            'first_installment' => (float) $payload['first_installment'],
+        ]);
+        // Preserve original created_at so TTL is not extended by race recovery.
+        if (isset($sessionData[self::SESSION_KEY]) && is_array($sessionData[self::SESSION_KEY])) {
+            $sessionData[self::SESSION_KEY]['created_at'] = (int) $payload['created_at'];
+            $sessionData[self::SESSION_KEY]['restored_from_cookie'] = true;
+        }
+
+        return true;
+    }
+
+    private static function handoffSecret(?string $secretOverride): string
+    {
+        try {
+            $provider = new ModuleEncryptionKeyProvider();
+
+            return hash_hkdf(
+                'sha256',
+                $provider->resolveDerivedKey($secretOverride),
+                32,
+                self::HANDOFF_COOKIE_INFO
+            );
+        } catch (\Throwable) {
+            $fallback = $secretOverride ?? ModuleEncryptionKeyProvider::testSecretInput();
+
+            return hash_hkdf('sha256', $fallback, 32, self::HANDOFF_COOKIE_INFO);
+        }
     }
 
     /**
@@ -422,7 +599,7 @@ final class ProductBuyCheckoutPreference
 
     /**
      * Explicit customer payment save away from UniCredit cancels Product Buy handoff.
-     * Native shipping_method.save unset of payment_method is NOT a user override and must not call this.
+     * Native empty/unset/reset of payment_method is NOT a user override and must not clear.
      *
      * @param array<string, mixed> $sessionData
      */
@@ -431,7 +608,11 @@ final class ProductBuyCheckoutPreference
         if (!isset($sessionData[self::SESSION_KEY])) {
             return;
         }
-        if (PaymentIdentity::matchesStoredPayment($sessionData['payment_method'] ?? null)) {
+        $stored = $sessionData['payment_method'] ?? null;
+        if ($stored === null || $stored === '' || $stored === []) {
+            return;
+        }
+        if (PaymentIdentity::matchesStoredPayment($stored)) {
             return;
         }
         self::clear($sessionData);
