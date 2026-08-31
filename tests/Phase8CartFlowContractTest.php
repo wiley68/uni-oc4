@@ -181,7 +181,7 @@ final class Phase8CartFlowContractTest extends TestCase
         self::assertStringContainsString('resetFirstInstallmentForSchemeChange', $js);
         self::assertStringContainsString('invalidateOpenPopupForCartChange', $js);
         self::assertStringNotContainsString('console.log(', $js);
-        self::assertStringContainsString("replace(/&amp;/g, '&')", $js);
+        self::assertMatchesRegularExpression('/replace\(\/&amp;\/g,\s*[\'"]&[\'"]\)/', $js);
         self::assertStringNotContainsString("'&amp;'", $js);
     }
 

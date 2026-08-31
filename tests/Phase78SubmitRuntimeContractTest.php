@@ -25,16 +25,22 @@ final class Phase78SubmitRuntimeContractTest extends TestCase
     {
         $js = $this->productJs();
         self::assertMatchesRegularExpression(
-            '/closest\(\'\\[data-mtuc-submit\\]\'\)[\s\S]*?submitForm\(/',
+            '/closest\(\s*[\'"]\[data-mtuc-submit\][\'"]\s*\)[\s\S]*?submitForm\(/',
             $js
         );
-        self::assertStringContainsString("activeProductFinancingForm()?.addEventListener('submit', submitForm)", $js);
+        self::assertMatchesRegularExpression(
+            '/activeProductFinancingForm\(\)\?\.addEventListener\([\'"]submit[\'"],\s*submitForm\)/',
+            $js
+        );
     }
 
     public function testProductSubmitPostsToSubmitUrlWithoutRefreshAbort(): void
     {
         $js = $this->productJs();
-        self::assertStringContainsString('postJson(state.submit_url, payload, { abort: false })', $js);
+        self::assertMatchesRegularExpression(
+            '/postJson\(state\.submit_url,\s*payload,\s*\{[\s\S]*?abort:\s*false/',
+            $js
+        );
         self::assertStringContainsString('opts.abort !== false', $js);
     }
 
@@ -48,9 +54,12 @@ final class Phase78SubmitRuntimeContractTest extends TestCase
     public function testProductLockedFirstInstallmentNotDisabled(): void
     {
         $js = $this->productJs();
-        self::assertStringContainsString("first.setAttribute('readonly', 'readonly')", $js);
+        self::assertMatchesRegularExpression(
+            '/first\.setAttribute\([\'"]readonly[\'"],\s*[\'"]readonly[\'"]\)/',
+            $js
+        );
         self::assertDoesNotMatchRegularExpression(
-            '/first_installment_locked[\s\S]{0,200}setAttribute\(\'disabled\'/',
+            '/first_installment_locked[\s\S]{0,200}setAttribute\([\'"]disabled[\'"]/',
             $js
         );
     }
@@ -58,9 +67,12 @@ final class Phase78SubmitRuntimeContractTest extends TestCase
     public function testCartSubmitMirrorsProductAbortIsolation(): void
     {
         $js = $this->cartJs();
-        self::assertStringContainsString('postJson(state.submit_url, payload, { abort: false })', $js);
         self::assertMatchesRegularExpression(
-            '/closest\(\'\\[data-mtuc-submit\\]\'\)[\s\S]*?submitForm\(/',
+            '/postJson\(state\.submit_url,\s*payload,\s*\{[\s\S]*?abort:\s*false/',
+            $js
+        );
+        self::assertMatchesRegularExpression(
+            '/closest\(\s*[\'"]\[data-mtuc-submit\][\'"]\s*\)[\s\S]*?submitForm\(/',
             $js
         );
     }

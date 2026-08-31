@@ -13,6 +13,7 @@ use Opencart\System\Library\Extension\MtUniCredit\CpTokenRepository;
 use MtUniCredit\Tests\Support\PersistenceIntegrationHarness;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
+use Opencart\System\Library\Extension\MtUniCredit\PersistenceClock;
 use Opencart\System\Library\Extension\MtUniCredit\ShopCacheRepository;
 use PHPUnit\Framework\TestCase;
 
@@ -204,7 +205,7 @@ final class Phase4AuthLifecycleTest extends TestCase
         $stackOne = Phase4TestHarness::services($transportOne, $settings, $db, $storeOne);
         // Avoid wiping store-zero cache rows installed above.
         $stackOne['client']->login();
-        $cache = new ShopCacheRepository($db);
+        $cache = new ShopCacheRepository($db, new PersistenceClock(static fn (): int => 1_700_000_000));
         $cache->replaceValidated($storeOne, Phase4TestHarness::TEST_UNICID, ['shop' => 'store-one']);
         self::assertTrue($stackOne['tokens']->hasToken());
         self::assertNotNull($cache->findLatest($storeOne, Phase4TestHarness::TEST_UNICID));

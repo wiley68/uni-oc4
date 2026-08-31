@@ -31,9 +31,9 @@ final class Phase7ProductModalInteractionTest extends TestCase
         self::assertStringContainsString('hidden>', $modal);
         self::assertSame(1, substr_count($modal, 'id="mt-uni-credit-product-modal"'));
 
-        self::assertStringContainsString("ROOT_ID = 'mt-uni-credit-product-root'", $js);
-        self::assertStringContainsString("MODAL_ID = 'mt-uni-credit-product-modal'", $js);
-        self::assertStringContainsString("BOOTSTRAP_ID = 'mt-uni-credit-bootstrap'", $js);
+        self::assertMatchesRegularExpression('/ROOT_ID\s*=\s*[\'"]mt-uni-credit-product-root[\'"]/', $js);
+        self::assertMatchesRegularExpression('/MODAL_ID\s*=\s*[\'"]mt-uni-credit-product-modal[\'"]/', $js);
+        self::assertMatchesRegularExpression('/BOOTSTRAP_ID\s*=\s*[\'"]mt-uni-credit-bootstrap[\'"]/', $js);
         self::assertStringContainsString('.mt-uni-credit-product-calculator__button[data-offer-type]', $js);
     }
 
@@ -46,15 +46,18 @@ final class Phase7ProductModalInteractionTest extends TestCase
 
         self::assertStringContainsString("addScript(", $controller);
         self::assertStringContainsString("'footer'", $controller);
-        self::assertStringContainsString('DOMContentLoaded', $js);
-        self::assertStringContainsString('root.addEventListener(\'click\'', $js);
+        self::assertTrue(
+            str_contains($js, 'DOMContentLoaded') || str_contains($js, 'document.readyState === "loading"'),
+            'Product JS must defer init until DOM is ready'
+        );
+        self::assertMatchesRegularExpression('/root\.addEventListener\([\'"]click[\'"]/', $js);
         self::assertStringContainsString('event.target.closest(TRIGGER_SELECTOR)', $js);
         self::assertStringContainsString('scheduleRefreshCalculator', $js);
         self::assertStringContainsString('bindProductRecalculationListeners', $js);
         self::assertStringContainsString('[id^="input-option"]', $js);
         self::assertStringContainsString('document.body.appendChild(modal)', $js);
-        self::assertStringContainsString('modal.removeAttribute(\'inert\')', $js);
-        self::assertStringContainsString("event.key === 'Escape'", $js);
+        self::assertMatchesRegularExpression('/modal\.removeAttribute\([\'"]inert[\'"]\)/', $js);
+        self::assertMatchesRegularExpression('/event\.key\s*===\s*[\'"]Escape[\'"]/', $js);
         self::assertStringContainsString('lastTrigger.focus()', $js);
     }
 
@@ -130,9 +133,9 @@ HTML;
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
         self::assertStringContainsString('recalculateSelection()', $js);
-        self::assertStringContainsString('postJson(state.issue_url', $this->extractFunctionBody($js, 'recalculateSelection'));
-        self::assertStringContainsString('postJson(state.calculate_url', $this->extractFunctionBody($js, 'refreshCalculator'));
-        self::assertStringNotContainsString('postJson(state.issue_url', $this->extractFunctionBody($js, 'renderCalculator'));
+        self::assertStringContainsString('state.issue_url', $this->extractFunctionBody($js, 'recalculateSelection'));
+        self::assertStringContainsString('state.calculate_url', $this->extractFunctionBody($js, 'refreshCalculator'));
+        self::assertStringNotContainsString('state.issue_url', $this->extractFunctionBody($js, 'renderCalculator'));
         self::assertStringContainsString('recalculateSelection();', $this->extractFunctionBody($js, 'openModal'));
     }
 

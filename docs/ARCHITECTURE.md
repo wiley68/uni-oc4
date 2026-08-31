@@ -106,3 +106,13 @@ checkout/cart page
 Live OpenCart cart is **not** cleared at Phase 8 (`cart_unchanged`).
 
 Shared layers reused: Phase 5 calculator/CartContext/resolver; Phase 6 materialization/locks/correlation; Phase 7 Product visual system (CSS/modal patterns) and storefront CSRF.
+
+## Presentation and retention (Phase 12)
+
+Leasing presentation is loaded by `(store_id, order_id)` only — no cross-store order_id fallback.
+
+`leasing_presentation_json` is retained from attempt `created_at` for 183 days, then NULLed in a bounded batch. Process 2 ciphertext retention (180 days from `updated_at`) is separate.
+
+Thank You uses session order identity; Product Buy cookie is fail-closed without a real installation secret.
+
+`FinancingAttemptState::POST_CP_PROCESSING`, `COMPLETED`, and `TERMINAL_FAILED` are reserved and unused in Revision 1 writers — post-CP lives in `smartucf_state` / `process2_state`.

@@ -175,7 +175,7 @@ final class CrossPhaseStorefrontContractTest extends TestCase
         self::assertStringContainsString('ProductVisibilityDebugLog', $view);
         self::assertStringContainsString('DEBUG_ENABLED', $view);
         self::assertStringNotContainsString('debug_enabled', $js);
-        self::assertStringContainsString('сървърни диагностични', $helpBg);
-        self::assertStringContainsString('без изход в браузъра', $helpBg);
+        self::assertStringContainsString('сървърни SmartUCF диагностични', $helpBg);
+        self::assertStringContainsString('не се показват на клиента', $helpBg);
     }
 }

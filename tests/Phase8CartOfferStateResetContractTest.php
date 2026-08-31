@@ -51,9 +51,9 @@ final class Phase8CartOfferStateResetContractTest extends TestCase
         $body = $this->extractFunctionBody($js, 'resetCartModalOfferState');
 
         self::assertStringContainsString("lastCalculation = null", $body);
-        self::assertStringContainsString("submissionToken = ''", $body);
-        self::assertStringContainsString("first.value = '0'", $body);
-        self::assertStringContainsString("removeAttribute('readonly')", $body);
+        self::assertMatchesRegularExpression('/submissionToken\s*=\s*(?:\'\'|"")/', $body);
+        self::assertMatchesRegularExpression('/first\.value\s*=\s*[\'"]0[\'"]/', $body);
+        self::assertMatchesRegularExpression('/removeAttribute\([\'"]readonly[\'"]\)/', $body);
         self::assertStringContainsString('clearCalculationDisplays()', $body);
         self::assertStringContainsString('[data-mtuc-display]', $this->extractFunctionBody($js, 'clearCalculationDisplays'));
     }
@@ -66,7 +66,7 @@ final class Phase8CartOfferStateResetContractTest extends TestCase
             $js
         );
         self::assertMatchesRegularExpression(
-            '/schemeSelect\(\)\?\.addEventListener\(\'change\'[\s\S]*?resetFirstInstallmentForSchemeChange\(\);[\s\S]*?recalculateSelection\(\)/',
+            '/schemeSelect\(\)\?\.addEventListener\([\'"]change[\'"][\s\S]*?resetFirstInstallmentForSchemeChange\(\);[\s\S]*?recalculateSelection\(\)/',
             $js
         );
     }
@@ -75,7 +75,10 @@ final class Phase8CartOfferStateResetContractTest extends TestCase
     {
         $js = $this->cartJs();
         self::assertStringContainsString('selectedOfferType = trigger.dataset.offerType', $js);
-        self::assertStringContainsString("selectedSchemeKey = trigger.dataset.preferredKey || ''", $js);
+        self::assertMatchesRegularExpression(
+            '/selectedSchemeKey\s*=\s*trigger\.dataset\.preferredKey\s*\|\|\s*(?:\'\'|"")/',
+            $js
+        );
         self::assertStringNotContainsString(
             'selectedSchemeKey = trigger.dataset.preferredKey || selectedSchemeKey',
             $js

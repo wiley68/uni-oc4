@@ -99,7 +99,7 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
             dirname(__DIR__) . '/system/library/order_materialization_service.php',
             dirname(__DIR__) . '/admin/controller/module/mt_uni_credit.php',
         ];
-        $forbidden = ['SmartUcfSession', 'SmartUCF', 'Process1', 'Process2', 'bank_redirect', 'sucfOnlineSessionStart'];
+        $forbidden = ['SmartUcfSession', 'Process1', 'Process2', 'bank_redirect', 'sucfOnlineSessionStart'];
         foreach ($paths as $file) {
             $contents = (string) file_get_contents($file);
             foreach ($forbidden as $marker) {

@@ -46,7 +46,7 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
         $js = $this->productJs();
         self::assertStringContainsString('json.submission_token', $js);
         self::assertMatchesRegularExpression(
-            '/const token = String\(json\.submission_token \|\| \'\'\);[\s\S]*?submissionToken = token;/',
+            '/const token = String\(json\.submission_token \|\| (?:\'\'|"")\);[\s\S]*?submissionToken = token;/',
             $js
         );
     }
@@ -54,12 +54,18 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
     public function testSubmitRecoveryForcesIssueWithoutAbort(): void
     {
         $js = $this->productJs();
-        self::assertStringContainsString("recalculateSelection({ force: true, abort: false })", $js);
         self::assertMatchesRegularExpression(
-            '/const recovered = await recalculateSelection\(\{ force: true, abort: false \}\);[\s\S]*?if\s*\(\s*!recovered\s*\)/',
+            '/recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\)/',
             $js
         );
-        self::assertStringContainsString("postJson(state.submit_url, payload, { abort: false })", $js);
+        self::assertMatchesRegularExpression(
+            '/const recovered = await recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\);[\s\S]*?if\s*\(\s*!recovered\s*\)/',
+            $js
+        );
+        self::assertMatchesRegularExpression(
+            '/postJson\(\s*state\.submit_url,\s*payload,\s*\{[\s\S]*?abort:\s*false/',
+            $js
+        );
     }
 
     public function testPopupControlsDoNotScheduleProductRefresh(): void
@@ -67,7 +73,7 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
         $js = $this->productJs();
         self::assertStringContainsString('function isInsideUniCreditUi(', $js);
         self::assertMatchesRegularExpression(
-            '/document\.addEventListener\(\'change\'[\s\S]*?isInsideUniCreditUi\(target\)[\s\S]*?return;/',
+            '/document\.addEventListener\([\'"]change[\'"][\s\S]*?isInsideUniCreditUi\(target\)[\s\S]*?return;/',
             $js
         );
     }

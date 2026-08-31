@@ -116,7 +116,7 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         self::assertStringContainsString('quantityValue()', $js);
         self::assertStringContainsString('renderCalculator', $js);
         self::assertStringContainsString('syncBootstrap', $js);
-        self::assertStringContainsString("submissionToken = ''", $js);
+        self::assertMatchesRegularExpression('/submissionToken\s*=\s*(?:\'\'|"")/', $js);
         // Avoid brittle CSS attribute selector with unescaped "[" in name^=.
         self::assertStringNotContainsString('[name^="option["]', $js);
         // Permanent: no intentional storefront console diagnostics.

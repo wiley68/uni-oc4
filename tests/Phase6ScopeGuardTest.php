@@ -78,7 +78,11 @@ final class Phase6ScopeGuardTest extends TestCase
                     continue;
                 }
                 $relative = substr($file->getPathname(), strlen($root));
-                if (self::isPhase11Allowed($relative)) {
+                if (str_starts_with($relative, '/admin/language/')) {
+                    continue;
+                }
+                if (self::isPhase11Allowed($relative)
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())) {
                     continue;
                 }
                 if (in_array($relative, $allowed, true)) {

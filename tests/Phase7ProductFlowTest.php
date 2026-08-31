@@ -91,7 +91,7 @@ final class Phase7ProductFlowTest extends TestCase
     public function testJavascriptHandlesEscapeAndFocusReturn(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
-        self::assertStringContainsString("event.key === 'Escape'", $js);
+        self::assertMatchesRegularExpression('/event\.key\s*===\s*[\'"]Escape[\'"]/', $js);
         self::assertStringContainsString('lastTrigger.focus()', $js);
         self::assertStringContainsString('renderOfferButtons', $js);
         self::assertStringContainsString('scheduleRefreshCalculator', $js);

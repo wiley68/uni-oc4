@@ -70,7 +70,8 @@ final class Phase5ScopeGuardTest extends TestCase
                 if (in_array($relative, self::ALLOWED_CALCULATOR_FILES, true)) {
                     continue;
                 }
-                if (self::isBridgeAAllowed($path) || self::isPhase11Allowed($path)) {
+                if (self::isBridgeAAllowed($path) || self::isPhase11Allowed($path)
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($path)) {
                     continue;
                 }
                 $contents = (string) file_get_contents($path);

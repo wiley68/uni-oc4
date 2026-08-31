@@ -44,7 +44,8 @@ final class Phase0ScopeGuardTest extends TestCase
             }
 
             if (self::isPhase4CpProductionFile($path) || self::isBridgeAInboundProductionFile($path)
-                || self::isPhase11SmartUcfProductionFile($path) || self::isPhase11BProcessTwoProductionFile($path)) {
+                || self::isPhase11SmartUcfProductionFile($path) || self::isPhase11BProcessTwoProductionFile($path)
+                || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($path)) {
                 continue;
             }
 

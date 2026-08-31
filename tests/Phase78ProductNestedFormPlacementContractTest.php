@@ -83,15 +83,21 @@ HTML;
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_product.js');
         self::assertStringContainsString('function activeProductFinancingForm(', $js);
-        self::assertStringContainsString("modal.querySelector('#mt-uni-credit-product-form')", $js);
-        self::assertStringContainsString("document.getElementById('mt-uni-credit-product-form')", $js);
+        self::assertMatchesRegularExpression(
+            '/modal\.querySelector\([\'"]#mt-uni-credit-product-form[\'"]\)/',
+            $js
+        );
+        self::assertMatchesRegularExpression(
+            '/document\.getElementById\([\'"]mt-uni-credit-product-form[\'"]\)/',
+            $js
+        );
         self::assertStringContainsString('const activeForm = activeProductFinancingForm()', $js);
         self::assertStringContainsString('activeFormPresent', $js);
         self::assertStringContainsString('submit_missing_form', $js);
         self::assertStringContainsString('Заявката не може да бъде обработена. Моля, опитайте отново.', $js);
         // Must not rely on a single init-time form capture for submit.
         self::assertDoesNotMatchRegularExpression(
-            '/const form = document\.getElementById\(\'mt-uni-credit-product-form\'\);/',
+            '/const form = document\.getElementById\([\'"]mt-uni-credit-product-form[\'"]\);/',
             $js
         );
     }

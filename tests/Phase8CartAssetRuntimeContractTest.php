@@ -60,9 +60,9 @@ final class Phase8CartAssetRuntimeContractTest extends TestCase
             dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_cart_modal.twig'
         );
 
-        self::assertStringContainsString("ROOT_ID = 'mt-uni-credit-cart-root'", $js);
-        self::assertStringContainsString("MODAL_ID = 'mt-uni-credit-cart-modal'", $js);
-        self::assertStringContainsString("BOOTSTRAP_ID = 'mt-uni-credit-cart-bootstrap'", $js);
+        self::assertMatchesRegularExpression('/ROOT_ID\s*=\s*[\'"]mt-uni-credit-cart-root[\'"]/', $js);
+        self::assertMatchesRegularExpression('/MODAL_ID\s*=\s*[\'"]mt-uni-credit-cart-modal[\'"]/', $js);
+        self::assertMatchesRegularExpression('/BOOTSTRAP_ID\s*=\s*[\'"]mt-uni-credit-cart-bootstrap[\'"]/', $js);
         self::assertStringContainsString('id="mt-uni-credit-cart-root"', $calc);
         self::assertStringContainsString('id="mt-uni-credit-cart-bootstrap"', $calc);
         self::assertStringContainsString('id="mt-uni-credit-cart-modal"', $modal);

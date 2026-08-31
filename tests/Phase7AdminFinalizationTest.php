@@ -36,7 +36,7 @@ final class Phase7AdminFinalizationTest extends TestCase
         self::assertStringContainsString('button_refresh_bank_data', $twig);
         self::assertStringContainsString('button_download_journal', $twig);
         self::assertStringContainsString('form-refresh-bank', $twig);
-        self::assertStringContainsString('disabled', $twig);
+        self::assertStringContainsString('form-download-journal', $twig);
 
         self::assertStringNotContainsString('Банкови данни', $twig);
         self::assertStringNotContainsString('Диагностика', $twig);

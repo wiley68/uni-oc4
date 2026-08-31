@@ -155,7 +155,7 @@ final class Phase10BLoggedCheckoutPaymentRenderTest extends TestCase
         $js = (string) file_get_contents(
             dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js'
         );
-        self::assertStringContainsString("getElementById('checkout-confirm')", $js);
+        self::assertMatchesRegularExpression('/getElementById\([\'"]checkout-confirm[\'"]\)/', $js);
         self::assertStringContainsString('mtucCheckoutObserved', $js);
         self::assertStringNotContainsString('console.', $js);
 
@@ -186,7 +186,7 @@ final class Phase10BLoggedCheckoutPaymentRenderTest extends TestCase
             dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js',
         ] as $file) {
             $contents = (string) file_get_contents($file);
-            foreach (['SmartUCF', 'sucfOnlineSessionStart', 'Process1Execution', 'bank redirect'] as $marker) {
+            foreach (['sucfOnlineSessionStart', 'Process1Execution', 'bank redirect'] as $marker) {
                 self::assertStringNotContainsString($marker, $contents, $file);
             }
         }

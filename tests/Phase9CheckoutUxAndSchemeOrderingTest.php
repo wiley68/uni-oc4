@@ -138,8 +138,9 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
         self::assertStringNotContainsString('renderOfferTabs', $js);
         self::assertStringNotContainsString('data-mtuc-offers', $js);
         self::assertStringContainsString('unifiedSchemes', $js);
-        self::assertStringContainsString('resolvePreferredSchemeKey', $js);
-        self::assertStringContainsString("popup_offer_type: 'standard'", $js);
+        self::assertStringContainsString('resolveInitialSchemeKey', $js);
+        self::assertStringContainsString('readServerSelectedSchemeKey', $js);
+        self::assertMatchesRegularExpression('/popup_offer_type:\s*["\']standard["\']/', $js);
         self::assertStringContainsString('preferred_scheme_key', $js);
     }
 
@@ -258,7 +259,8 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
     public function testCheckoutJsSelectsPreferredNotFirstOnly(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/javascript/mt_uni_credit_checkout.js');
-        self::assertStringContainsString('resolvePreferredSchemeKey', $js);
+        self::assertStringContainsString('resolveInitialSchemeKey', $js);
+        self::assertStringContainsString('readServerSelectedSchemeKey', $js);
         self::assertStringContainsString('offers.standard?.preferred_scheme_key', $js);
         self::assertStringContainsString('select.value = selectedSchemeKey', $js);
     }

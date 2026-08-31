@@ -91,8 +91,9 @@ final class Phase7ProductStorefrontCsrfTest extends TestCase
         self::assertStringContainsString("mt_uni_credit_product.calculate", $view);
         self::assertStringContainsString("mt_uni_credit_product.issueSubmission", $view);
         self::assertStringContainsString("mt_uni_credit_product.submit", $view);
+        self::assertStringContainsString("mt_uni_credit_product.stashBuyPreference", $view);
         // Third argument true => Url::link keeps raw "&" for JavaScript.
-        self::assertSame(3, substr_count($view, "'language=' . \$language,\n            true"));
+        self::assertSame(4, substr_count($view, "'language=' . \$language,\n            true"));
         self::assertStringContainsString("url->link('checkout/checkout', 'language=' . \$language, true)", $view);
         self::assertStringContainsString('mt_uni_credit_bootstrap_json', $view);
         self::assertStringContainsString('JSON_UNESCAPED_SLASHES', $view);

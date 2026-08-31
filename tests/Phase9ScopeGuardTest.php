@@ -31,7 +31,8 @@ final class Phase9ScopeGuardTest extends TestCase
         ];
         foreach ($paths as $path) {
             if (is_file($path)) {
-                if (self::isPhase11Allowed($path)) {
+                if (self::isPhase11Allowed($path)
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($path)) {
                     continue;
                 }
                 $this->assertNoMarkers($path, (string) file_get_contents($path));
@@ -47,7 +48,8 @@ final class Phase9ScopeGuardTest extends TestCase
                 if (!$file->isFile()) {
                     continue;
                 }
-                if (self::isPhase11Allowed($file->getPathname())) {
+                if (self::isPhase11Allowed($file->getPathname())
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())) {
                     continue;
                 }
                 $this->assertNoMarkers($file->getPathname(), (string) file_get_contents($file->getPathname()));

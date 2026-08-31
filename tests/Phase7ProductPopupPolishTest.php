@@ -32,8 +32,8 @@ final class Phase7ProductPopupPolishTest extends TestCase
         self::assertStringContainsString('firstMissingRequiredOptionBlock', $js);
         self::assertStringContainsString('handleMissingRequiredOptions', $js);
         self::assertStringContainsString('mb-3.required', $js);
-        self::assertStringContainsString("name.indexOf('option[') === 0", $js);
-        self::assertStringContainsString("field.type === 'checkbox'", $js);
+        self::assertStringContainsString("name.indexOf(\"option[\") === 0", $js);
+        self::assertStringContainsString('field.type === "checkbox"', $js);
         self::assertStringContainsString('data-mtuc-entry-error', $calc);
         self::assertStringContainsString('Моля, изберете задължителните опции на продукта.', $lang);
         self::assertStringContainsString('requiredOptionsMessage()', $js);
@@ -45,7 +45,10 @@ final class Phase7ProductPopupPolishTest extends TestCase
             $js
         );
         self::assertStringContainsString('isMissingRequiredOptionError', $js);
-        self::assertStringContainsString("error_code === 'missing_required_option'", $js);
+        self::assertMatchesRegularExpression(
+            '/error_code\s*===\s*(?:\'missing_required_option\'|"missing_required_option")/',
+            $js
+        );
     }
 
     public function testServerMissingRequiredOptionUsesFriendlyBulgarianMessage(): void
@@ -90,20 +93,20 @@ final class Phase7ProductPopupPolishTest extends TestCase
 
         self::assertStringContainsString('resetFirstInstallmentForSchemeChange', $js);
         self::assertMatchesRegularExpression(
-            '/schemeSelect\(\)\?\.addEventListener\(\'change\'[\s\S]*?resetFirstInstallmentForSchemeChange\(\);[\s\S]*?recalculateSelection\(\)/',
+            '/schemeSelect\(\)\?\.addEventListener\([\'"]change[\'"][\s\S]*?resetFirstInstallmentForSchemeChange\(\);[\s\S]*?recalculateSelection\(\)/',
             $js
         );
-        self::assertStringContainsString("first.value = '0'", $js);
+        self::assertMatchesRegularExpression('/first\.value\s*=\s*[\'"]0[\'"]/', $js);
         self::assertStringContainsString("lastCalculation = null", $js);
-        self::assertStringContainsString("submissionToken = ''", $js);
-        self::assertStringContainsString("first.removeAttribute('readonly')", $js);
-        self::assertStringContainsString("first.removeAttribute('disabled')", $js);
+        self::assertMatchesRegularExpression('/submissionToken\s*=\s*(?:\'\'|"")/', $js);
+        self::assertMatchesRegularExpression('/first\.removeAttribute\([\'"]readonly[\'"]\)/', $js);
+        self::assertMatchesRegularExpression('/first\.removeAttribute\([\'"]disabled[\'"]\)/', $js);
 
         // renderCalculation still applies authoritative server value + lock state (readonly only — not disabled).
         self::assertStringContainsString('calculation.first_installment_locked', $js);
-        self::assertStringContainsString('setAttribute(\'readonly\'', $js);
+        self::assertMatchesRegularExpression('/setAttribute\([\'"]readonly[\'"]/', $js);
         self::assertDoesNotMatchRegularExpression(
-            '/first_installment_locked[\s\S]{0,240}setAttribute\(\'disabled\'/',
+            '/first_installment_locked[\s\S]{0,240}setAttribute\([\'"]disabled[\'"]/',
             $js
         );
     }

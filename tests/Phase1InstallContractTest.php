@@ -46,7 +46,10 @@ final class Phase1InstallContractTest extends TestCase
         $modelSource = (string) file_get_contents(dirname(__DIR__) . '/admin/model/module/mt_uni_credit.php');
         self::assertStringContainsString('deleteEventByCode', $modelSource);
         self::assertStringContainsString('addEvent', $modelSource);
+        self::assertStringContainsString('managedEventCodes', $modelSource);
         self::assertContains('module_mt_uni_credit_before_product_controller', EventRegistry::eventCodes());
+        self::assertContains('module_mt_uni_credit_after_checkout_success', EventRegistry::retiredEventCodes());
+        self::assertContains('module_mt_uni_credit_before_shipping_method_save_buy', EventRegistry::retiredEventCodes());
     }
 
     public function testUninstallRemovesEventsOnlyForThisExtension(): void

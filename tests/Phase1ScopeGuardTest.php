@@ -51,7 +51,8 @@ final class Phase1ScopeGuardTest extends TestCase
                 if (str_ends_with($file->getPathname(), '/system/library/persistence_schema_installer.php')) {
                     continue;
                 }
-                if (self::isBridgeAAllowed($file->getPathname()) || self::isPhase11Allowed($file->getPathname())) {
+                if (self::isBridgeAAllowed($file->getPathname()) || self::isPhase11Allowed($file->getPathname())
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())) {
                     continue;
                 }
                 $contents = (string) file_get_contents($file->getPathname());

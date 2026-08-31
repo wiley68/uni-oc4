@@ -37,7 +37,8 @@ final class Phase3ScopeGuardTest extends TestCase
                 if (!$file->isFile() || $file->getExtension() !== 'php') {
                     continue;
                 }
-                if (self::isBridgeAAllowed($file->getPathname()) || self::isPhase11Allowed($file->getPathname())) {
+                if (self::isBridgeAAllowed($file->getPathname()) || self::isPhase11Allowed($file->getPathname())
+                    || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())) {
                     continue;
                 }
                 $contents = (string) file_get_contents($file->getPathname());

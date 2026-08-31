@@ -199,7 +199,10 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         // Gate before POST — UX disabled is not the security boundary.
         self::assertStringContainsString('if (!updateSubmitState(true))', $js);
         self::assertStringContainsString('hasAuthoritativeCalculation()', $js);
-        self::assertStringContainsString("recalculateSelection({ force: true, abort: false })", $js);
+        self::assertMatchesRegularExpression(
+            '/recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\)/',
+            $js
+        );
 
         // Transition to Step 2 requires authoritative calculation+token+scheme then evaluates readiness.
         self::assertMatchesRegularExpression(
@@ -217,8 +220,8 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('if (!boxes.length)', $js);
 
         // Process-aware: EGN/phone2 only when rendered.
-        self::assertStringContainsString("customerField('egn')", $js);
-        self::assertStringContainsString("customerField('phone2')", $js);
+        self::assertMatchesRegularExpression('/customerField\([\'"]egn[\'"]\)/', $js);
+        self::assertMatchesRegularExpression('/customerField\([\'"]phone2[\'"]\)/', $js);
         self::assertStringContainsString('if (egnField)', $js);
         self::assertStringContainsString('if (phone2Field)', $js);
         self::assertStringContainsString('isValidEgn', $js);
@@ -244,7 +247,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
 
         // Clearing / invalid state toggles disabled again via updateSubmitState.
         self::assertStringContainsString('submit.disabled = !valid', $js);
-        self::assertStringContainsString("classList.toggle('is-disabled', !valid)", $js);
+        self::assertMatchesRegularExpression('/classList\.toggle\([\'"]is-disabled[\'"],\s*!valid\)/', $js);
 
         // Phone/email patterns match Woo/PS (BG numbers accepted).
         self::assertStringContainsString('/^[-0-9+() ]+$/', $js);
