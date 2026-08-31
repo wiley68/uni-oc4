@@ -53,7 +53,8 @@ Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amo
 | Surface                            | Audience          | EGN / phone2       |
 | ---------------------------------- | ----------------- | ------------------ |
 | Thank You                          | customer          | never              |
-| Native OC order email / alert      | customer          | never              |
+| Native OC order email              | customer          | never              |
+| Native admin alert                 | admin_email       | EGN + phone2 (P2)  |
 | Process 2 additional customer mail | customer          | never              |
 | Process 2 additional admin mail    | admin_email       | EGN + phone2 (PS9) |
 | Admin Order detail                 | admin_panel       | EGN + phone2 (PS9) |

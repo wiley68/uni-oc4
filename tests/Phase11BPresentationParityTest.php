@@ -295,7 +295,68 @@ HTML;
         );
     }
 
-    public function testAdminAlertBrHtmlKeepsLineStructureUnderSetHtml(): void
+    public function testNativeAdminAlertPipelineIncludesSensitiveForProcess2(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $sensitive = new ProcessTwoSensitiveData('1990011599', '0888123456');
+        $rows = $presenter->rows(
+            $snapshot,
+            BankStatus::LABEL_SENT_PROCESS2,
+            FinancingPresentationAudience::ADMIN_EMAIL,
+            $sensitive
+        );
+        $labels = array_column($rows, 'label');
+        self::assertSame(
+            [
+                FinancingLeasingPresenter::LABEL_BANK_STATUS,
+                FinancingLeasingPresenter::LABEL_CP_INTERNAL_ID,
+                FinancingLeasingPresenter::LABEL_CP_SHOP_ORDER_ID,
+                FinancingLeasingPresenter::LABEL_MONTHS,
+                FinancingLeasingPresenter::LABEL_KOP,
+                FinancingLeasingPresenter::LABEL_FIRST,
+                FinancingLeasingPresenter::LABEL_LOAN,
+                FinancingLeasingPresenter::LABEL_MONTHLY,
+                FinancingLeasingPresenter::LABEL_TOTAL,
+                FinancingLeasingPresenter::LABEL_GLP_GPR,
+                FinancingLeasingPresenter::LABEL_EGN,
+                FinancingLeasingPresenter::LABEL_PHONE2,
+            ],
+            $labels
+        );
+
+        // mail/order.alert → view/mail/order_alert → Mail::setHtml (br-line body).
+        $mailBody = "Order received<br/>\n<br/>\nOrder ID: 55<br/>\n";
+        $mailBody .= '<br/><br/>' . $presenter->renderBrHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг<br/>', $mailBody);
+        self::assertStringContainsString('Статус към банката: ' . BankStatus::LABEL_SENT_PROCESS2 . '<br/>', $mailBody);
+        self::assertStringContainsString('КП shop order_id: 55', $mailBody);
+        self::assertStringContainsString('ЕГН: 1990011599', $mailBody);
+        self::assertStringContainsString('Втори телефон: 0888123456', $mailBody);
+        self::assertStringNotContainsString('<table', $mailBody);
+        self::assertStringNotContainsString("УниКредит лизинг\nСтатус", $mailBody);
+    }
+
+    public function testNativeAdminAlertPipelineOmitsSensitiveForProcess1(): void
+    {
+        $presenter = new FinancingLeasingPresenter();
+        $snapshot = new FinancingPresentationSnapshot(55, 9, false, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
+        $rows = $presenter->rows(
+            $snapshot,
+            BankStatus::LABEL_SENT_PROCESS1,
+            FinancingPresentationAudience::ADMIN_EMAIL,
+            new ProcessTwoSensitiveData('1990011599', '0888123456')
+        );
+        $mailBody = "Order received<br/>\n<br/>\nOrder ID: 55<br/>\n";
+        $mailBody .= '<br/><br/>' . $presenter->renderBrHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг<br/>', $mailBody);
+        self::assertStringContainsString(BankStatus::LABEL_SENT_PROCESS1, $mailBody);
+        self::assertStringNotContainsString('1990011599', $mailBody);
+        self::assertStringNotContainsString('ЕГН', $mailBody);
+        self::assertStringNotContainsString('Втори телефон', $mailBody);
+    }
+
+    public function testNativeCustomerOrderMailOmitsSensitive(): void
     {
         $presenter = new FinancingLeasingPresenter();
         $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
@@ -305,17 +366,13 @@ HTML;
             FinancingPresentationAudience::CUSTOMER,
             new ProcessTwoSensitiveData('1990011599', '0888123456')
         );
-        // Native order_alert path: Mail::setHtml with br-line body.
-        $mailBody = "Order received<br/>\n<br/>\nOrder ID: 55<br/>\n";
-        $mailBody .= '<br/><br/>' . $presenter->renderBrHtml($rows);
-        self::assertStringContainsString('УниКредит лизинг<br/>', $mailBody);
-        self::assertStringContainsString('Статус към банката: ' . BankStatus::LABEL_SENT_PROCESS2 . '<br/>', $mailBody);
-        self::assertStringContainsString('КП shop order_id: 55', $mailBody);
-        self::assertStringNotContainsString('<table', $mailBody);
+        $mailBody = '<html><body><p>Order 55</p></body></html>';
+        $mailBody .= '<br/>' . $presenter->renderHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг', $mailBody);
         self::assertStringNotContainsString('1990011599', $mailBody);
+        self::assertStringNotContainsString('0888123456', $mailBody);
         self::assertStringNotContainsString('ЕГН', $mailBody);
-        // Must not be a single newline-only block (HTML clients collapse those).
-        self::assertStringNotContainsString("УниКредит лизинг\nСтатус", $mailBody);
+        self::assertStringNotContainsString('Втори телефон', $mailBody);
     }
 
     public function testPlainTextRendererUsesNewlinesWithoutHtmlTags(): void
@@ -351,20 +408,50 @@ HTML;
         self::assertStringContainsString('Snapshot must exist before addHistory', $src);
     }
 
-    public function testNativeMailAppendPreservesHtmlAndOmitsEgn(): void
+    public function testAdditionalProcess2CustomerMailOmitsSensitive(): void
     {
-        $presenter = new FinancingLeasingPresenter();
-        $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
-        $rows = $presenter->rows(
-            $snapshot,
-            BankStatus::LABEL_SENT_PROCESS2,
-            FinancingPresentationAudience::CUSTOMER,
-            new ProcessTwoSensitiveData('1990011599', '0888123456')
-        );
-        $mailBody = '<html><body><p>Order 55</p></body></html>';
-        $mailBody .= '<br/>' . $presenter->renderHtml($rows);
-        self::assertStringContainsString('УниКредит лизинг', $mailBody);
-        self::assertStringNotContainsString('1990011599', $mailBody);
-        self::assertStringNotContainsString('ЕГН', $mailBody);
+        $presenter = new \Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLeasingMailPresenter();
+        $rows = $presenter->customerRows([
+            'order_id' => 55,
+            'control_panel_order_id' => 9,
+            'months' => 6,
+            'kop_code' => 'POS COM 50',
+            'first_installment' => 0,
+            'financed_amount' => 100,
+            'monthly_installment' => 20,
+            'total_payable' => 120,
+            'glp' => 10,
+            'gpr' => 12,
+            'bank_status_label' => BankStatus::LABEL_SENT_PROCESS2,
+            'leasing_snapshot' => (new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12))->toArray(),
+        ]);
+        $html = $presenter->renderHtml($rows);
+        self::assertStringContainsString('УниКредит лизинг', $html);
+        self::assertStringNotContainsString('ЕГН', $html);
+        self::assertStringNotContainsString('Втори телефон', $html);
+    }
+
+    public function testAdditionalProcess2AdminMailIncludesSensitive(): void
+    {
+        $presenter = new \Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLeasingMailPresenter();
+        $rows = $presenter->adminRows([
+            'order_id' => 55,
+            'control_panel_order_id' => 9,
+            'months' => 6,
+            'kop_code' => 'POS COM 50',
+            'first_installment' => 0,
+            'financed_amount' => 100,
+            'monthly_installment' => 20,
+            'total_payable' => 120,
+            'glp' => 10,
+            'gpr' => 12,
+            'bank_status_label' => BankStatus::LABEL_SENT_PROCESS2,
+            'leasing_snapshot' => (new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12))->toArray(),
+        ], new ProcessTwoSensitiveData('1990011599', '0888123456'));
+        $html = $presenter->renderHtml($rows);
+        self::assertStringContainsString('ЕГН', $html);
+        self::assertStringContainsString('1990011599', $html);
+        self::assertStringContainsString('Втори телефон', $html);
+        self::assertStringContainsString('0888123456', $html);
     }
 }
