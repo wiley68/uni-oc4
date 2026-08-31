@@ -479,17 +479,35 @@
       return state.calculator?.offers?.[selectedOfferType] || null;
     }
 
+    /** Search all offer buckets — DOM select value is authoritative across standard/promo. */
+    function findSchemeAcrossOffers(key) {
+      const want = String(key || "");
+      if (!want) {
+        return null;
+      }
+      const offers = state.calculator?.offers || {};
+      for (const type of Object.keys(offers)) {
+        const schemes = offers[type]?.schemes || [];
+        for (let i = 0; i < schemes.length; i += 1) {
+          if (schemes[i] && schemes[i].key === want) {
+            return schemes[i];
+          }
+        }
+      }
+      return null;
+    }
+
     function selectedScheme() {
+      const byKey = findSchemeAcrossOffers(selectedSchemeKey);
+      if (byKey) {
+        return byKey;
+      }
       const offer = selectedOffer();
       if (!offer) {
         return null;
       }
       const schemes = offer.schemes || [];
-      return (
-        schemes.find((scheme) => scheme.key === selectedSchemeKey) ||
-        schemes[0] ||
-        null
-      );
+      return schemes[0] || null;
     }
 
     function schemeSelect() {
@@ -665,6 +683,18 @@
       if (select && select.value) {
         selectedSchemeKey = select.value;
       }
+      // DOM value is customer intent — never overwrite with another offer's schemes[0].
+      let scheme = findSchemeAcrossOffers(selectedSchemeKey);
+      if (scheme) {
+        if (scheme.scheme_type) {
+          selectedOfferType = scheme.scheme_type;
+        }
+        selectedSchemeKey = scheme.key;
+        if (select && select.value !== scheme.key) {
+          select.value = scheme.key;
+        }
+        return scheme;
+      }
       if (!selectedOffer()) {
         const offerTypes = Object.keys(state.calculator?.offers || {});
         if (
@@ -674,7 +704,7 @@
           selectedOfferType = offerTypes[0];
         }
       }
-      const scheme = selectedScheme();
+      scheme = selectedScheme();
       if (scheme) {
         selectedSchemeKey = scheme.key;
         if (select && select.value !== scheme.key) {
@@ -1741,6 +1771,10 @@
 
     schemeSelect()?.addEventListener("change", () => {
       selectedSchemeKey = schemeSelect().value;
+      const scheme = findSchemeAcrossOffers(selectedSchemeKey);
+      if (scheme && scheme.scheme_type) {
+        selectedOfferType = scheme.scheme_type;
+      }
       resetFirstInstallmentForSchemeChange();
       recalculateSelection();
     });

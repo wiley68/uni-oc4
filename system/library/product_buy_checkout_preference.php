@@ -8,6 +8,9 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  * Transient Product popup „Купи“ handoff into Checkout (payment + scheme preference).
  *
  * Not a financing attempt — only UX preselection after native cart.add.
+ *
+ * Native OC4 may reset session.payment_method on shipping_method.save (and address saves).
+ * Product Buy intent is independent of that native state until explicitly overridden or expired.
  */
 final class ProductBuyCheckoutPreference
 {
@@ -16,6 +19,8 @@ final class ProductBuyCheckoutPreference
     public const FLOW = 'product_buy';
 
     public const TTL_SECONDS = 1800;
+
+    public const JSON_PREFERRED_PAYMENT_KEY = 'mt_uni_credit_preferred_payment';
 
     /**
      * @param array<string, mixed> $sessionData
@@ -41,20 +46,22 @@ final class ProductBuyCheckoutPreference
         }
 
         $sessionData[self::SESSION_KEY] = [
-            'flow'                 => self::FLOW,
-            'source'               => 'product_buy',
-            'store_id'             => $storeId,
-            'product_id'           => (int) ($selection['product_id'] ?? 0),
-            'scheme_type'          => $schemeType,
-            'kop_code'             => $kopCode,
-            'months'               => $months,
-            'filter_id'            => $filterId,
-            'scheme_key'           => $schemeKey,
-            'first_installment'    => (float) ($selection['first_installment'] ?? 0),
-            'prefer_payment'       => true,
-            'scheme_matched'       => false,
-            'scheme_user_override' => false,
-            'created_at'           => time(),
+            'flow'                    => self::FLOW,
+            'source'                  => 'product_buy',
+            'store_id'                => $storeId,
+            'product_id'              => (int) ($selection['product_id'] ?? 0),
+            'scheme_type'             => $schemeType,
+            'kop_code'                => $kopCode,
+            'months'                  => $months,
+            'filter_id'               => $filterId,
+            'scheme_key'              => $schemeKey,
+            'first_installment'       => (float) ($selection['first_installment'] ?? 0),
+            'prefer_payment'          => true,
+            'payment_code'            => ModuleConstants::PAYMENT_OPTION_CODE,
+            'payment_user_overridden' => false,
+            'scheme_matched'          => false,
+            'scheme_user_override'    => false,
+            'created_at'              => time(),
         ];
     }
 
@@ -115,6 +122,9 @@ final class ProductBuyCheckoutPreference
     }
 
     /**
+     * Informational: last time a Checkout UniCredit panel matched Product scheme.
+     * Does NOT consume preference — native confirm rerenders may destroy that panel.
+     *
      * @param array<string, mixed> $sessionData
      */
     public static function markSchemeMatched(array &$sessionData, string $checkoutSchemeKey): void
@@ -126,6 +136,21 @@ final class ProductBuyCheckoutPreference
         $raw['scheme_matched'] = true;
         $raw['matched_scheme_key'] = $checkoutSchemeKey;
         $sessionData[self::SESSION_KEY] = $raw;
+    }
+
+    /**
+     * @param array<string, mixed> $preference
+     */
+    public static function shouldPreferPayment(array $preference): bool
+    {
+        if (empty($preference['prefer_payment'])) {
+            return false;
+        }
+        if (!empty($preference['payment_user_overridden'])) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -278,24 +303,21 @@ final class ProductBuyCheckoutPreference
     /**
      * Apply UniCredit payment method into session when listed in discovered methods.
      *
+     * Native shipping_method.save unsets payment_method — this re-applies Product Buy intent
+     * when payment methods are rediscovered. Does not treat native reset as user override.
+     *
      * @param array<string, mixed> $sessionData
      * @param array<string, mixed> $paymentMethods Native session.payment_methods shape
      */
     public static function applyPaymentIfAvailable(array &$sessionData, array $paymentMethods, int $storeId): bool
     {
         $preference = self::load($sessionData, $storeId);
-        if ($preference === null || empty($preference['prefer_payment'])) {
+        if ($preference === null || !self::shouldPreferPayment($preference)) {
             return false;
         }
 
-        $code = ModuleConstants::PAYMENT_OPTION_CODE;
-        $parts = explode('.', $code, 2);
-        if (count($parts) !== 2) {
-            return false;
-        }
-        [$extension, $option] = $parts;
-        $row = $paymentMethods[$extension]['option'][$option] ?? null;
-        if (!is_array($row) || (string) ($row['code'] ?? '') !== $code) {
+        $row = self::findUniCreditOption($paymentMethods);
+        if ($row === null) {
             // UniCredit unavailable for current cart — do not fake-select.
             if (PaymentIdentity::matchesStoredPayment($sessionData['payment_method'] ?? null)) {
                 unset($sessionData['payment_method']);
@@ -312,6 +334,96 @@ final class ProductBuyCheckoutPreference
     }
 
     /**
+     * Put UniCredit extension first so OC4 payment modal "first radio" fallback selects it
+     * when #input-payment-code is empty after native shipping reset.
+     *
+     * @param array<string, mixed> $paymentMethods
+     * @return array<string, mixed>
+     */
+    public static function preferUniCreditFirst(array $paymentMethods): array
+    {
+        $code = ModuleConstants::PAYMENT_CODE;
+        if (!isset($paymentMethods[$code]) || !is_array($paymentMethods[$code])) {
+            return $paymentMethods;
+        }
+        $uni = $paymentMethods[$code];
+        unset($paymentMethods[$code]);
+
+        return [$code => $uni] + $paymentMethods;
+    }
+
+    /**
+     * @param array<string, mixed> $paymentMethods
+     * @return array{code:string,name:string}|null
+     */
+    public static function preferredPaymentPayload(array $paymentMethods): ?array
+    {
+        $row = self::findUniCreditOption($paymentMethods);
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'code' => (string) ($row['code'] ?? ModuleConstants::PAYMENT_OPTION_CODE),
+            'name' => (string) ($row['name'] ?? PaymentIdentity::DISPLAY_NAME),
+        ];
+    }
+
+    /**
+     * Apply payment preference + reorder/annotate getMethods JSON for Checkout UI.
+     *
+     * @param array<string, mixed> $sessionData
+     * @param array<string, mixed> $json Decoded getMethods response
+     * @return array<string, mixed>
+     */
+    public static function enrichPaymentMethodsResponse(array &$sessionData, array $json, int $storeId): array
+    {
+        if (empty($json['payment_methods']) || !is_array($json['payment_methods'])) {
+            return $json;
+        }
+
+        $methods = $json['payment_methods'];
+        $sessionData['payment_methods'] = $methods;
+        $applied = self::applyPaymentIfAvailable($sessionData, $methods, $storeId);
+        if (!$applied) {
+            return $json;
+        }
+
+        $ordered = self::preferUniCreditFirst($methods);
+        $json['payment_methods'] = $ordered;
+        $sessionData['payment_methods'] = $ordered;
+        $payload = self::preferredPaymentPayload($ordered);
+        if ($payload !== null) {
+            $json[self::JSON_PREFERRED_PAYMENT_KEY] = $payload;
+        }
+
+        return $json;
+    }
+
+    /**
+     * @param array<string, mixed> $paymentMethods
+     * @return array<string, mixed>|null
+     */
+    private static function findUniCreditOption(array $paymentMethods): ?array
+    {
+        $code = ModuleConstants::PAYMENT_OPTION_CODE;
+        $parts = explode('.', $code, 2);
+        if (count($parts) !== 2) {
+            return null;
+        }
+        [$extension, $option] = $parts;
+        $row = $paymentMethods[$extension]['option'][$option] ?? null;
+        if (!is_array($row) || (string) ($row['code'] ?? '') !== $code) {
+            return null;
+        }
+
+        return $row;
+    }
+
+    /**
+     * Explicit customer payment save away from UniCredit cancels Product Buy handoff.
+     * Native shipping_method.save unset of payment_method is NOT a user override and must not call this.
+     *
      * @param array<string, mixed> $sessionData
      */
     public static function clearIfPaymentChangedAway(array &$sessionData): void

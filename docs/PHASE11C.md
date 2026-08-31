@@ -239,3 +239,25 @@ Module version remains **2.0.2**.
 **Tests:** `tests/Phase11CProductBuySchemeCheckoutIntegrationTest.php` (+ updated Rem 09A contract tests)
 
 Module version remains **2.0.2**.
+
+## Product Buy handoff across native Checkout rerenders (Remediation 09C)
+
+**Problem:** After Product „Купи“ with an explicit non-default scheme (e.g. 4m), Checkout shipping selection reset native `payment_method`. Payment modal then selected the first listed method (PB Personal Finance). After manually choosing UniCredit, scheme fell back to Product/Checkout default (12m promo) instead of the Buy-time 4m selection.
+
+**Proven causes:**
+
+1. **Payment:** OC4 `shipping_method.save` unsets `session.payment_method` + `payment_methods`. Modal radios use `#input-payment-code` or first method — Product Buy intent was not re-applied into discovery order / DOM before modal render.
+2. **Scheme:** Product `syncSelectedSchemeFromDom()` could resolve via current offer bucket only and overwrite the DOM-selected key with that bucket's `schemes[0]` (initial 12m promo) before stash.
+
+**DSK lesson used:** keep preferred-payment intent separate from native `payment_method`; re-apply after shipping save / getMethods. **Not copied:** setTimeout/setInterval polling, generic ajaxSuccess, console diagnostics.
+
+**Fix:**
+
+- Preference stores `payment_code` + `payment_user_overridden`; `enrichPaymentMethodsResponse()` applies UniCredit, reorders it first, annotates JSON.
+- Events: `shipping_method.save/after`, `checkout/before` handoff JS (`dataFilter` on getMethods/shipping.save — no polling).
+- Product JS: `findSchemeAcrossOffers()` — DOM select at Buy is authoritative.
+- `markSchemeMatched` remains informational (rerenders may destroy early panels).
+
+**Tests:** `tests/Phase11CProductBuyCheckoutRerenderHandoffTest.php`
+
+Module version remains **2.0.2**.

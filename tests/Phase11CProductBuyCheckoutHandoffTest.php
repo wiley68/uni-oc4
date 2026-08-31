@@ -43,6 +43,8 @@ final class Phase11CProductBuyCheckoutHandoffTest extends TestCase
         self::assertSame(6, $loaded['months']);
         self::assertSame(2, $loaded['filter_id']);
         self::assertTrue($loaded['prefer_payment']);
+        self::assertSame(ModuleConstants::PAYMENT_OPTION_CODE, $loaded['payment_code']);
+        self::assertFalse($loaded['payment_user_overridden']);
         self::assertNotSame('', $loaded['scheme_key']);
         self::assertArrayNotHasKey('redirect_url', $loaded);
         self::assertArrayNotHasKey('monthly_installment', $loaded);
@@ -210,8 +212,12 @@ final class Phase11CProductBuyCheckoutHandoffTest extends TestCase
         $triggers = array_column(EventRegistry::definitions(), 'trigger');
         self::assertContains('catalog/controller/checkout/payment_method.getMethods/after', $triggers);
         self::assertContains('catalog/controller/checkout/payment_method.save/after', $triggers);
+        self::assertContains('catalog/controller/checkout/shipping_method.save/after', $triggers);
+        self::assertContains('catalog/controller/checkout/checkout/before', $triggers);
         self::assertContains('module_mt_uni_credit_after_payment_methods', EventRegistry::eventCodes());
         self::assertContains('module_mt_uni_credit_after_payment_method_save', EventRegistry::eventCodes());
+        self::assertContains('module_mt_uni_credit_after_shipping_method_save_buy', EventRegistry::eventCodes());
+        self::assertContains('module_mt_uni_credit_before_checkout_handoff_js', EventRegistry::eventCodes());
         self::assertContains('module_mt_uni_credit_before_checkout_success_clear_buy', EventRegistry::eventCodes());
     }
 
