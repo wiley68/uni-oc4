@@ -67,3 +67,19 @@ Module version remains **2.0.2**.
 Checkout payment used incomplete `[data-mtuc-processing]` markup (title/text only). CSS for panel/spinner existed in `mt_uni_credit_checkout.css` but did not apply.
 
 **Fix:** shared processing panel + spinner markup (cart modal parity), viewport-fixed overlay (`z-index: 100050`, dimmed backdrop), `setProcessing()` toggles `mt-uni-credit-checkout--processing` + scroll lock. Loader stays on until Thank You navigation (`redirectTerminal` guard unchanged).
+
+## Checkout no-shipping address (Remediation 03)
+
+**Problem:** Logged customer + virtual/no-shipping cart skips native shipping/payment address steps; UniCredit submit failed `invalid_customer` (missing address) after local order creation; CP not created.
+
+**Root cause:** `verifiedOwnedAddressForOrder()` required explicit `payment_address_id` / `shipping_address_id` on order or session. Native OC4 confirm leaves both at 0 when `!cart->hasShipping()` and `config_checkout_payment_address` is off.
+
+**Fix:**
+
+- `verifiedOwnedAddressForOrder()` falls back to default/first owned address book row via `defaultOwnedAddressId()` (same source as `customerPrefillFromSession()`).
+- No fake shipping; product shipping flag unchanged.
+- `CheckoutFinancingSubmissionService` uses `ShippingMethodSnapshot::empty()` for no-shipping orders (Admin `cost` / `tax_class_id` parity).
+
+**Tests:** `tests/Phase11CNoShippingCheckoutTest.php`
+
+Module version remains **2.0.2**.

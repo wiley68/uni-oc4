@@ -35,7 +35,12 @@ use Opencart\System\Library\Extension\MtUniCredit\ProductSchemeCalculator;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSchemeList;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSelectionHash;
 use Opencart\System\Library\Extension\MtUniCredit\ProductSubmissionIssuer;
+use Opencart\System\Library\Extension\MtUniCredit\CartOrderDraftFactory;
+use Opencart\System\Library\Extension\MtUniCredit\CartSchemeCalculator;
+use Opencart\System\Library\Extension\MtUniCredit\CartSchemeResolver;
+use Opencart\System\Library\Extension\MtUniCredit\CheckoutCustomerValidator;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway;
+use Opencart\System\Library\Extension\MtUniCredit\CheckoutFinancingSubmissionService;
 use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderLifecycleService;
 use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilder;
 use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
@@ -224,6 +229,107 @@ final class ProductFinancingTestHarness
             new PersistenceClock(),
             new Calculator(),
             $cpLifecycle
+        );
+    }
+
+    public static function checkoutSubmissionService(
+        ?FinancingAttemptRepository $attempts = null,
+        ?InMemoryCheckoutOrderAdapter $orders = null,
+        ?FakeCpHttpTransport $transport = null
+    ): CheckoutFinancingSubmissionService {
+        $db = PersistenceIntegrationHarness::connection();
+        $attempts ??= new FinancingAttemptRepository($db);
+        $locks = new OperationLockRepository($db);
+        $orders ??= new InMemoryCheckoutOrderAdapter();
+        $correlations = new OrderCorrelationRepository($db);
+        $materializer = new OpenCartOrderMaterializer(
+            $orders,
+            new OpenCartOrderDataBuilder(),
+            new OpenCartOrderVerifier(),
+            $correlations
+        );
+        $statusPolicy = new FinancingOrderStatusPolicy(
+            OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
+            OrderMaterializationTestHarness::TEST_VOID_STATUS_ID,
+            1
+        );
+        $materialization = new OrderMaterializationService(
+            $attempts,
+            $locks,
+            $materializer,
+            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy),
+            $orders,
+            $statusPolicy
+        );
+
+        $addressResolver = new OpenCartCatalogAddressResolver(
+            static fn(int $addressId, int $customerId): bool => false,
+            static fn(int $addressId, int $customerId): ?array => null,
+            static fn(array $posted, FinancingCustomerData $customer): FinancingAddressData => new FinancingAddressData(
+                0,
+                $customer->firstname,
+                $customer->lastname,
+                '',
+                (string) ($posted['address_1'] ?? ''),
+                (string) ($posted['address_2'] ?? ''),
+                (string) ($posted['city'] ?? ''),
+                (string) ($posted['postcode'] ?? ''),
+                'Bulgaria',
+                (int) ($posted['country_id'] ?? 33),
+                'Sofia',
+                (int) ($posted['zone_id'] ?? 4239)
+            ),
+            static fn(): ?array => null
+        );
+
+        $createdTransport = $transport === null;
+        $transport ??= new FakeCpHttpTransport();
+        if ($createdTransport) {
+            $transport->enableAutoAuthAndCreate(901);
+        }
+        $settings = Phase4TestHarness::settings();
+        Phase4TestHarness::prepareCredentials($settings, self::STORE_ID);
+        Phase4TestHarness::prepareCredentials($settings, self::DEFAULT_STORE_ID);
+        $cpServices = CpServiceFactory::create(
+            $db,
+            $settings,
+            self::STORE_ID,
+            Phase4TestHarness::TEST_SHOP_URL,
+            Phase4TestHarness::TEST_SHOP_URL,
+            $transport,
+            new PersistenceClock(),
+            null,
+            ModuleEncryptionKeyProvider::testSecretInput()
+        );
+        $cpLifecycle = new ControlPanelOrderLifecycleService(
+            $attempts,
+            $locks,
+            $cpServices['client'],
+            new ControlPanelOrderPayloadBuilder()
+        );
+        $calculator = new Calculator();
+
+        return new CheckoutFinancingSubmissionService(
+            $attempts,
+            $locks,
+            $materialization,
+            new CartSchemeCalculator(
+                $calculator,
+                new CartSchemeResolver($calculator),
+                new CurrencyGate(),
+                new AmountDisplayFormatter()
+            ),
+            $calculator,
+            new CartSchemeResolver($calculator),
+            new CheckoutCustomerValidator(),
+            new ProductAddressValidator(),
+            $addressResolver,
+            new ConsentResolver(),
+            new CartOrderDraftFactory(),
+            new PersistenceClock(),
+            $cpLifecycle,
+            $orders,
+            1
         );
     }
 

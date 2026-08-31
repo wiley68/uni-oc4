@@ -423,6 +423,10 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
      * Logged-in only: Address::getAddress when order/session address_id belongs to the customer.
      * Guest (customer_id=0) never loads address model rows.
      *
+     * When native Checkout omits shipping/payment address steps (cart hasShipping=false and
+     * config_checkout_payment_address off), order address_id columns stay 0. Fall back to the
+     * customer's native default address book entry — same source as customerPrefillFromSession().
+     *
      * @param array<string, mixed> $order
      * @return array<string, mixed>|null
      */
@@ -445,6 +449,9 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             $addressId = (int) ($session['shipping_address']['address_id'] ?? 0);
         }
         if ($addressId <= 0) {
+            $addressId = $this->defaultOwnedAddressId($customerId);
+        }
+        if ($addressId <= 0) {
             return null;
         }
 
@@ -455,6 +462,24 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
         }
 
         return $row;
+    }
+
+    /** Native default address book id (default flag, else first row). */
+    private function defaultOwnedAddressId(int $customerId): int
+    {
+        if ($customerId <= 0) {
+            return 0;
+        }
+
+        $this->load->model('account/address');
+        $addresses = array_values($this->model_account_address->getAddresses($customerId));
+        foreach ($addresses as $address) {
+            if (!empty($address['default'])) {
+                return (int) ($address['address_id'] ?? 0);
+            }
+        }
+
+        return (int) ($addresses[0]['address_id'] ?? 0);
     }
 
     /**
@@ -630,9 +655,7 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
 /** Thin catalog adapter over native checkout order model for Checkout entry point. */
 final class CheckoutCatalogOrderAdapter implements \Opencart\System\Library\Extension\MtUniCredit\CheckoutOrderModelPort
 {
-    public function __construct(private MtUniCreditCheckout $model)
-    {
-    }
+    public function __construct(private MtUniCreditCheckout $model) {}
 
     public function addOrder(array $orderData): int
     {

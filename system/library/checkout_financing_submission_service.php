@@ -28,8 +28,7 @@ final class CheckoutFinancingSubmissionService
         private int $checkoutCpFailureVisibleStatusId = 0,
         private CheckoutOrderCustomerAdapter $orderCustomerAdapter = new CheckoutOrderCustomerAdapter(),
         private ProductPopupFormNormalizer $popupFormNormalizer = new ProductPopupFormNormalizer()
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $shop
@@ -130,7 +129,8 @@ final class CheckoutFinancingSubmissionService
 
         $boundOrderId = isset($attemptRow['order_id']) ? (int) $attemptRow['order_id'] : 0;
         $existingCpId = isset($attemptRow['control_panel_order_id']) ? (int) $attemptRow['control_panel_order_id'] : 0;
-        if ($boundOrderId > 0
+        if (
+            $boundOrderId > 0
             && $existingCpId > 0
             && (string) ($attemptRow['state'] ?? '') === FinancingAttemptState::CP_CREATED
         ) {
@@ -160,7 +160,8 @@ final class CheckoutFinancingSubmissionService
         }
 
         $fingerprint = CartFingerprint::hash($cart, $currencyCode);
-        if (!hash_equals($expectedFingerprint, $fingerprint)
+        if (
+            !hash_equals($expectedFingerprint, $fingerprint)
             || (!empty($attemptRow['cart_fingerprint']) && !hash_equals((string) $attemptRow['cart_fingerprint'], $fingerprint))
         ) {
             throw new ProductFinancingFlowException(
@@ -249,7 +250,7 @@ final class CheckoutFinancingSubmissionService
             : null;
         $shippingMethod = $shippingRequired
             ? $this->orderCustomerAdapter->shippingMethodFromOrder($orderSnapshot)
-            : ['name' => '', 'code' => ''];
+            : ShippingMethodSnapshot::empty();
 
         try {
             $this->consents->validate($shop, $postedConsents);
@@ -273,7 +274,8 @@ final class CheckoutFinancingSubmissionService
             FinancingAttemptState::VALIDATING
         )) {
             $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']);
-            if ($fresh !== null
+            if (
+                $fresh !== null
                 && isset($fresh['control_panel_order_id'])
                 && (int) $fresh['control_panel_order_id'] > 0
                 && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_CREATED
