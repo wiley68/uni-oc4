@@ -235,7 +235,8 @@ final class Phase11AProcess1ContractTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'phase11-operation-' . $orderId),
             hash('sha256', 'phase11-actor-' . $orderId),
-            hash('sha256', 'phase11-selection-' . $orderId)
+            hash('sha256', 'phase11-selection-' . $orderId),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
         $transport = new FakeCpHttpTransport();
@@ -248,7 +249,8 @@ final class Phase11AProcess1ContractTest extends TestCase
                 $client,
                 new SmartUcfFailureClassifier(),
                 new OrderBankStatusRepository($db),
-                $services['client']
+                $services['client'],
+                \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $services['client'])
             ),
             (int) $row['attempt_id'],
             $submission,

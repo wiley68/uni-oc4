@@ -22,7 +22,8 @@ final class CartSubmissionIssuer
         string $selectionHash,
         ?string $preferredToken = null,
         ?int $cartId = null,
-        ?string $cartFingerprint = null
+        ?string $cartFingerprint = null,
+        string $unicid = ''
     ): array {
         if ($preferredToken !== null && $preferredToken !== '') {
             $preferred = $this->attempts->findByToken($storeId, $preferredToken);
@@ -52,6 +53,7 @@ final class CartSubmissionIssuer
             $operationKeyHash,
             $actorBindingHash,
             $selectionHash,
+            $unicid,
             $cartId,
             $cartFingerprint
         );

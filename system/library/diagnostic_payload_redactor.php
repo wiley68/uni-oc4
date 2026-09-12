@@ -111,6 +111,25 @@ final class DiagnosticPayloadRedactor
         ) ?? '[REDACTED]';
     }
 
+    /**
+     * Sanitize free-form log lines (secrets, tokens, EGN, phone2, certificate PEMs).
+     */
+    public static function sanitizeLogMessage(string $message): string
+    {
+        $message = self::redactText($message);
+        $message = preg_replace('/\b(INSERT|UPDATE|DELETE|SELECT)\b.*/is', '[sql-redacted]', $message) ?? $message;
+        $message = preg_replace('/-----BEGIN [A-Z0-9 ]+-----.*?-----END [A-Z0-9 ]+-----/s', '[redacted-pem]', $message) ?? $message;
+        $message = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i', '[redacted-email]', $message) ?? $message;
+        $message = preg_replace('/\b(egn|clientEGN|phone2|clientPhone)\b\s*[:=]\s*\S+/i', '$1=[REDACTED]', $message) ?? $message;
+        $message = preg_replace('/\b\d{10}\b/', '[redacted-digits]', $message) ?? $message;
+
+        if (function_exists('mb_substr')) {
+            return mb_substr($message, 0, 500);
+        }
+
+        return substr($message, 0, 500);
+    }
+
     private static function isSensitiveKey(string $key): bool
     {
         if (in_array($key, self::SENSITIVE_KEYS, true)) {

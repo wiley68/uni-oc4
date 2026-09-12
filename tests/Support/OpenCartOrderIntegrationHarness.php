@@ -27,7 +27,9 @@ final class OpenCartOrderIntegrationHarness
         }
 
         if (!self::enabled()) {
-            throw new \RuntimeException('Integration tests disabled.');
+            throw new \PHPUnit\Framework\SkippedWithMessageException(
+                'Set MT_UNI_CREDIT_INTEGRATION=1 for OpenCart order integration tests.'
+            );
         }
 
         $config = self::loadOpenCartDatabaseConfig();
@@ -54,6 +56,10 @@ final class OpenCartOrderIntegrationHarness
 
     public static function cleanupModuleTestOrders(): void
     {
+        if (!self::enabled()) {
+            return;
+        }
+
         self::orders()->deleteTestOrdersByStoreAndPayment(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             PaymentIdentity::optionCode()

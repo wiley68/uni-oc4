@@ -19,6 +19,10 @@ final class FakeCpHttpTransport implements CpHttpTransport
 
     public bool $failStatusPatch = false;
 
+    public bool $failFirstOrderCreateWith401 = false;
+
+    private int $orderCreateAttempts = 0;
+
     public function enableAutoAuthAndCreate(int $cpOrderId = 901): void
     {
         $this->autoCreateOrderId = $cpOrderId;
@@ -77,12 +81,27 @@ final class FakeCpHttpTransport implements CpHttpTransport
                 return new CpHttpResponse(200, json_encode(Phase4TestHarness::loginSuccessPayload(), JSON_THROW_ON_ERROR));
             }
             if (str_contains($url, '/orders') && strtoupper($method) === 'POST') {
+                $this->orderCreateAttempts++;
+                if ($this->failFirstOrderCreateWith401 && $this->orderCreateAttempts === 1) {
+                    return new CpHttpResponse(401, json_encode([
+                        'success' => false,
+                        'error' => 'unauthorized',
+                        'message' => 'Forced auth failure for tests',
+                        'data' => new \stdClass(),
+                    ], JSON_THROW_ON_ERROR));
+                }
+                $orderId = is_array($payload) ? (string) ($payload['order_id'] ?? '') : '';
+                $unicid = is_array($payload) ? (string) ($payload['unicid'] ?? Phase4TestHarness::TEST_UNICID) : Phase4TestHarness::TEST_UNICID;
+
                 return new CpHttpResponse(201, json_encode([
                     'success' => true,
+                    'error' => null,
                     'message' => 'Поръчката е създадена успешно',
                     'data' => [
                         'id' => $this->autoCreateOrderId,
                         'shop_id' => 1,
+                        'order_id' => $orderId,
+                        'unicid' => $unicid,
                         'created_at' => '2026-01-01 00:00:00',
                     ],
                 ], JSON_THROW_ON_ERROR));
@@ -90,19 +109,41 @@ final class FakeCpHttpTransport implements CpHttpTransport
             if (str_contains($url, '/orders/status') && strtoupper($method) === 'PATCH') {
                 if ($this->failStatusPatch) {
                     return new CpHttpResponse(500, json_encode([
+                        'success' => false,
                         'error' => 'status_update_failed',
                         'message' => 'Forced PATCH failure for tests',
+                        'data' => new \stdClass(),
                     ], JSON_THROW_ON_ERROR));
                 }
+
                 return new CpHttpResponse(200, json_encode([
                     'success' => true,
+                    'error' => null,
                     'message' => 'Статусът е обновен',
+                    'data' => [
+                        'id' => 1,
+                        'shop_id' => 1,
+                        'order_id' => is_array($payload) ? (string) ($payload['order_id'] ?? '') : '',
+                        'status_id' => is_array($payload) ? (string) ($payload['status_id'] ?? '') : '',
+                        'status' => is_array($payload) ? (string) ($payload['status'] ?? '') : '',
+                        'updated_at' => '2026-01-01 00:00:01',
+                    ],
                 ], JSON_THROW_ON_ERROR));
             }
             if (str_contains($url, '/shop')) {
                 return new CpHttpResponse(200, json_encode([
                     'success' => true,
+                    'error' => null,
+                    'message' => 'ok',
                     'data' => mt_uni_credit_valid_shop_snapshot(),
+                ], JSON_THROW_ON_ERROR));
+            }
+            if (str_contains($url, '/auth/logout')) {
+                return new CpHttpResponse(200, json_encode([
+                    'success' => true,
+                    'error' => null,
+                    'message' => 'Logged out.',
+                    'data' => new \stdClass(),
                 ], JSON_THROW_ON_ERROR));
             }
         }

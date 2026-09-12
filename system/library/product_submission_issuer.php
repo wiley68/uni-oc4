@@ -20,7 +20,8 @@ final class ProductSubmissionIssuer
         string $operationKeyHash,
         string $actorBindingHash,
         string $selectionHash,
-        ?string $preferredToken = null
+        ?string $preferredToken = null,
+        string $unicid = ''
     ): array {
         if ($preferredToken !== null && $preferredToken !== '') {
             $preferred = $this->attempts->findByToken($storeId, $preferredToken);
@@ -49,7 +50,8 @@ final class ProductSubmissionIssuer
             OperationEntryPoint::PRODUCT,
             $operationKeyHash,
             $actorBindingHash,
-            $selectionHash
+            $selectionHash,
+            $unicid
         );
     }
 

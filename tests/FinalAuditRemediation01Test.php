@@ -104,7 +104,8 @@ final class FinalAuditRemediation01Test extends TestCase
             $submission->entryPoint,
             hash('sha256', 'f01-op'),
             hash('sha256', 'f01-actor'),
-            hash('sha256', 'f01-sel')
+            hash('sha256', 'f01-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
 
@@ -150,7 +151,8 @@ final class FinalAuditRemediation01Test extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'f01-ok-op'),
             hash('sha256', 'f01-ok-actor'),
-            hash('sha256', 'f01-ok-sel')
+            hash('sha256', 'f01-ok-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         ProcessTwoSubmissionSupport::persist(

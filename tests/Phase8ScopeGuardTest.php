@@ -64,7 +64,8 @@ final class Phase8ScopeGuardTest extends TestCase
                 continue;
             }
             if (self::isPhase11Allowed($file->getPathname())
-                || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())) {
+                || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isPhase11PlusProductionFile($file->getPathname())
+                || \MtUniCredit\Tests\Support\ScopeGuardAllowlist::isBridgeAInboundProductionFile($file->getPathname())) {
                 continue;
             }
             $contents = (string) file_get_contents($file->getPathname());

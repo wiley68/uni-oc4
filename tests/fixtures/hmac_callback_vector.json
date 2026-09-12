@@ -15,7 +15,7 @@
     "timestamp_must_be_digits": true,
     "timestamp_tolerance_seconds": 300,
     "nonce_hex_length": 64,
-    "nonce_pattern": "^[0-9a-fA-F]{64}$",
+    "nonce_pattern": "^[0-9a-f]{64}$",
     "nonce_retention_seconds": 900,
     "nonce_stored_as": "sha256(nonce)",
     "signature_encoding": "lowercase hex",

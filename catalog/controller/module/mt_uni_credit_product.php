@@ -63,7 +63,8 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 $context['operation_key_hash'],
                 $context['actor_binding_hash'],
                 $context['selection_hash'],
-                trim((string) ($this->request->post['submission_token'] ?? ''))
+                trim((string) ($this->request->post['submission_token'] ?? '')),
+                trim((string) ($shop['unicid'] ?? ''))
             );
             $token = (string) ($attempt['submission_token'] ?? '');
             if (!SubmissionTokenGenerator::isValidFormat($token)) {

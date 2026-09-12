@@ -26,7 +26,8 @@ final class HmacContractTest extends TestCase
         self::assertSame('X-UniPayment-Nonce', $fixture['headers']['nonce']);
         self::assertSame('X-UniPayment-Signature', $fixture['headers']['signature']);
         self::assertSame(64, strlen($vector['nonce']));
-        self::assertSame(1, preg_match('/^[0-9a-fA-F]{64}$/', $vector['nonce']));
+        self::assertSame(1, preg_match('/^[0-9a-f]{64}$/', $vector['nonce']));
+        self::assertSame(0, preg_match('/[A-F]/', $vector['nonce']));
         self::assertSame($fixture['vector']['expected_sha256_hmac'], $signature);
         self::assertDoesNotMatchRegularExpression('/prod|live|avalon/i', $vector['secret']);
     }
@@ -52,5 +53,6 @@ final class HmacContractTest extends TestCase
         self::assertSame(900, $rules['nonce_retention_seconds']);
         self::assertSame('sha256(nonce)', $rules['nonce_stored_as']);
         self::assertSame('lowercase hex', $rules['signature_encoding']);
+        self::assertSame('^[0-9a-f]{64}$', $rules['nonce_pattern']);
     }
 }

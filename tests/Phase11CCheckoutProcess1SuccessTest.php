@@ -46,7 +46,8 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'checkout-p1-bank-op'),
             hash('sha256', 'checkout-p1-bank-actor'),
-            hash('sha256', 'checkout-p1-bank-sel')
+            hash('sha256', 'checkout-p1-bank-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $orderId = 9701;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
@@ -81,7 +82,8 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
             },
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            $services['client']
+            $services['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $services['client'])
         );
 
         $service = new PostControlPanelLifecycleService($coordinator, null, 'https://shop.example/checkout/success');

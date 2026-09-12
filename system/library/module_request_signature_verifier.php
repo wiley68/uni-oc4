@@ -40,7 +40,8 @@ final class ModuleRequestSignatureVerifier
      */
     public function extractNonce(array $headers): string
     {
-        return strtolower($this->requireHeader($headers, ModuleRequestSignatureProtocol::HEADER_NONCE));
+        // Canonical wire nonce is already lowercase hex; do not normalize case.
+        return $this->requireHeader($headers, ModuleRequestSignatureProtocol::HEADER_NONCE);
     }
 
     /**
@@ -85,7 +86,7 @@ final class ModuleRequestSignatureVerifier
 
     private function assertNonceFormat(string $nonce): void
     {
-        if (!preg_match('/\A[0-9a-fA-F]{' . ModuleRequestSignatureProtocol::NONCE_HEX_LENGTH . '}\z/', $nonce)) {
+        if (!preg_match('/\A[0-9a-f]{' . ModuleRequestSignatureProtocol::NONCE_HEX_LENGTH . '}\z/', $nonce)) {
             throw $this->authFailure();
         }
     }

@@ -106,8 +106,13 @@ final class FinancingControlPanelCompletion
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
             $lifecycle->client(),
+            new ControlPanelStatusSyncService(
+                new ControlPanelStatusSyncRepository($db),
+                $lifecycle->client()
+            ),
             null,
-            SmartUcfDiagnosticJournal::fromDatabase($db)
+            SmartUcfDiagnosticJournal::fromDatabase($db),
+            null
         );
         $process2 = null;
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
@@ -127,7 +132,10 @@ final class FinancingControlPanelCompletion
             $process2 = new ProcessTwoLifecycleCoordinator(
                 new ProcessTwoLifecycleRepository($db),
                 new OrderBankStatusRepository($db),
-                $lifecycle->client(),
+                new ControlPanelStatusSyncService(
+                    new ControlPanelStatusSyncRepository($db),
+                    $lifecycle->client()
+                ),
                 $cipher,
                 $process2Mailer ?? new PhpMailProcessTwoMailer()
             );

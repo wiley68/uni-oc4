@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Process 2 post-CP handoff: bank_sent_process2 + leasing mail (no SmartUCF).
+ * Process 2 post-CP handoff: durable CP target → local bank_sent_process2 → PATCH → prepared → mail.
+ *
+ * Canonical sequence after CP create:
+ * claimPreparing → admit durable target → local bank fact → PATCH → markPrepared → mail.
+ * On CONFLICT after admit: fail without local mutation.
+ * Stale preparing reclaim avoids infinite operation_processing loops.
  */
 final class ProcessTwoLifecycleCoordinator
 {
@@ -13,10 +18,13 @@ final class ProcessTwoLifecycleCoordinator
     public const CUSTOMER_SUCCESS_MESSAGE =
         'Очаквайте контакт за потвърждаване на направената от Вас заявка.';
 
+    /** Seconds after which a stuck preparing lease may be reclaimed. */
+    public const PREPARING_STALE_SECONDS = 45;
+
     public function __construct(
         private ProcessTwoLifecycleRepository $lifecycle,
         private OrderBankStatusRepository $bankStatuses,
-        private ControlPanelClient $controlPanel,
+        private ControlPanelStatusSyncService $statusSync,
         private ProcessTwoSensitiveCipher $cipher,
         private ProcessTwoMailPort $mailer
     ) {
@@ -43,8 +51,12 @@ final class ProcessTwoLifecycleCoordinator
         }
 
         $state = (string) ($row['process2_state'] ?? ProcessTwoLifecycleStates::NOT_STARTED);
+        $shopOrderId = substr((string) $localOrderId, 0, 13);
+        $status = BankStatus::process2Sent();
+
         if ($state === ProcessTwoLifecycleStates::PREPARED) {
-            $this->reconcileBankStatus($attemptId, $storeId, $localOrderId);
+            // Replay: do not re-handoff local bank when already process2; only retry pending CP sync.
+            $this->statusSync->retryPending($attemptId, $shopOrderId);
             if (!$this->lifecycle->isMailSent($attemptId)) {
                 $this->trySendMail($attemptId, $row, $shop, $orderContext);
             }
@@ -53,11 +65,39 @@ final class ProcessTwoLifecycleCoordinator
         }
 
         if ($state === ProcessTwoLifecycleStates::PREPARING) {
-            // Concurrent handoff — wait / retry client-side.
-            throw new ProductFinancingFlowException(
-                'operation_processing',
-                'Заявката се обработва. Моля, изчакайте.'
-            );
+            $syncSnapshot = $this->lifecycle->findStatusSyncSnapshot($attemptId);
+            $syncState = (string) ($syncSnapshot['cp_status_sync_state'] ?? '');
+            $syncStatusId = (string) ($syncSnapshot['cp_status_sync_status_id'] ?? '');
+            $hasProcess2Target = $syncStatusId === BankStatus::SENT_PROCESS2
+                && in_array($syncState, [
+                    ControlPanelStatusSyncStates::PENDING,
+                    ControlPanelStatusSyncStates::CONFIRMED,
+                ], true);
+
+            if ($hasProcess2Target) {
+                // Durable target already admitted — resume local + PATCH without repeating sensitive handoff.
+                return $this->resumeAfterAdmittedTarget(
+                    $attemptId,
+                    $storeId,
+                    $localOrderId,
+                    $shopOrderId,
+                    $status,
+                    $row,
+                    $shop,
+                    $orderContext,
+                    $successRedirectUrl
+                );
+            }
+
+            if ($this->lifecycle->reclaimStalePreparing($attemptId, self::PREPARING_STALE_SECONDS)) {
+                // Fall through to fresh claim after reclaim to not_started/failed.
+                $row = $this->lifecycle->findByAttempt($attemptId) ?? $row;
+            } else {
+                throw new ProductFinancingFlowException(
+                    'operation_processing',
+                    'Заявката се обработва. Моля, изчакайте.'
+                );
+            }
         }
 
         if (!$this->lifecycle->claimPreparing($attemptId)) {
@@ -78,7 +118,39 @@ final class ProcessTwoLifecycleCoordinator
             if ($enc === '') {
                 throw new \RuntimeException('Process 2 sensitive payload missing.');
             }
-            $this->reconcileBankStatus($attemptId, $storeId, $localOrderId);
+
+            $decision = $this->statusSync->admitTarget(
+                $attemptId,
+                $status['status_id'],
+                $status['status_label']
+            );
+            if ($decision === ControlPanelStatusSyncService::CONFLICT
+                || $decision === ControlPanelStatusSyncService::REJECT
+            ) {
+                throw new \RuntimeException('Process 2 durable target admission conflict.');
+            }
+
+            try {
+                $this->bankStatuses->upsertAuthorizedLocal(
+                    $storeId,
+                    $localOrderId,
+                    $status['status_id'],
+                    $status['status_label']
+                );
+            } catch (OrderBankStatusSemanticConflictException $exception) {
+                throw new \RuntimeException('Process 2 local bank status conflict.', 0, $exception);
+            }
+
+            $syncState = $this->statusSync->retryPending($attemptId, $shopOrderId);
+            if ($syncState === ControlPanelStatusSyncStates::PENDING) {
+                error_log(
+                    'mt_uni_credit: ' . self::ERROR_CP_BANK_STATUS_SYNC_PENDING
+                    . ' attempt_id=' . $attemptId
+                    . ' order_id=' . $shopOrderId
+                    . ' status_id=' . $status['status_id']
+                );
+            }
+
             $this->lifecycle->markPrepared($attemptId);
             $this->trySendMail($attemptId, $row, $shop, $orderContext);
             $this->lifecycle->redactExpiredSensitiveBatch();
@@ -103,6 +175,54 @@ final class ProcessTwoLifecycleCoordinator
     }
 
     /**
+     * @param array{status_id: string, status_label: string} $status
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $shop
+     * @param array<string, mixed> $orderContext
+     */
+    private function resumeAfterAdmittedTarget(
+        int $attemptId,
+        int $storeId,
+        int $localOrderId,
+        string $shopOrderId,
+        array $status,
+        array $row,
+        array $shop,
+        array $orderContext,
+        ?string $successRedirectUrl
+    ): ProductFinancingResult {
+        try {
+            try {
+                $this->bankStatuses->upsertAuthorizedLocal(
+                    $storeId,
+                    $localOrderId,
+                    $status['status_id'],
+                    $status['status_label']
+                );
+            } catch (OrderBankStatusSemanticConflictException $exception) {
+                throw new \RuntimeException('Process 2 local bank status conflict on resume.', 0, $exception);
+            }
+
+            $this->statusSync->retryPending($attemptId, $shopOrderId);
+            $this->lifecycle->markPrepared($attemptId);
+            $this->trySendMail($attemptId, $row, $shop, $orderContext);
+        } catch (\Throwable $exception) {
+            error_log(
+                'mt_uni_credit: Process 2 resume after admitted target failed attempt_id=' . $attemptId
+                . ' class=' . $exception::class
+            );
+            throw new ProductFinancingFlowException(
+                'operation_processing',
+                'Заявката се обработва. Моля, изчакайте.'
+            );
+        }
+
+        $fresh = $this->lifecycle->findByAttempt($attemptId) ?? $row;
+
+        return $this->successResult($localOrderId, $fresh, $successRedirectUrl, true);
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @param array<string, mixed> $shop
      * @param array<string, mixed> $orderContext
@@ -112,23 +232,37 @@ final class ProcessTwoLifecycleCoordinator
         if ($this->lifecycle->isMailSent($attemptId)) {
             return;
         }
+
+        // Residual SMTP crash window: provider may have accepted the message before markSent;
+        // stale reclaim issues a NEW claim token so a prior owner cannot mutate after reclaim.
+        $claimToken = $this->lifecycle->claimSending($attemptId);
+        if ($claimToken === null) {
+            return;
+        }
+
         $sensitive = null;
         $enc = (string) ($row['process2_sensitive_enc'] ?? '');
         if ($enc !== '') {
             try {
                 $sensitive = $this->cipher->decrypt($enc);
             } catch (\Throwable $exception) {
+                $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
                 error_log('mt_uni_credit: Process 2 sensitive decrypt failed attempt_id=' . $attemptId);
+
+                return;
             }
         }
+
         try {
             $orderContext = $this->enrichMailContext($attemptId, $row, $orderContext);
             $ok = $this->mailer->sendProcess2Notifications($shop, $orderContext, $sensitive);
             if ($ok) {
-                $this->lifecycle->markMailSent($attemptId);
+                $this->lifecycle->markSent($attemptId, $claimToken);
+            } else {
+                $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
             }
         } catch (\Throwable $exception) {
-            // Bank status already prepared — mail is independent (PS9 parity).
+            $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
             error_log(
                 'mt_uni_credit: Process 2 mail failed attempt_id=' . $attemptId
                 . ' class=' . $exception::class
@@ -161,36 +295,6 @@ final class ProcessTwoLifecycleCoordinator
         }
 
         return $orderContext;
-    }
-
-    private function reconcileBankStatus(int $attemptId, int $storeId, int $localOrderId): void
-    {
-        $status = BankStatus::process2Sent();
-        $shopOrderId = substr((string) $localOrderId, 0, 13);
-        try {
-            $this->bankStatuses->updateByOrderIdentifier(
-                $storeId,
-                $shopOrderId,
-                $status['status_id'],
-                $status['status_label']
-            );
-        } catch (\Throwable $ignored) {
-        }
-        try {
-            $this->controlPanel->updateOrderStatus(
-                $shopOrderId,
-                $status['status_label'],
-                $status['status_id']
-            );
-        } catch (\Throwable $exception) {
-            error_log(
-                'mt_uni_credit: ' . self::ERROR_CP_BANK_STATUS_SYNC_PENDING
-                . ' attempt_id=' . $attemptId
-                . ' order_id=' . $shopOrderId
-                . ' status_id=' . $status['status_id']
-                . ' class=' . $exception::class
-            );
-        }
     }
 
     /**

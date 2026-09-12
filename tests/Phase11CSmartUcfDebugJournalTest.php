@@ -205,7 +205,8 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'debug-journal-cp'),
             hash('sha256', 'actor-debug-journal'),
-            hash('sha256', 'selection-debug-journal')
+            hash('sha256', 'selection-debug-journal'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $orderId = 906;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
@@ -247,7 +248,8 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             OperationEntryPoint::CHECKOUT,
             hash('sha256', 'debug-id-parity'),
             hash('sha256', 'actor-id-parity'),
-            hash('sha256', 'selection-id-parity')
+            hash('sha256', 'selection-id-parity'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $shopOrderId);
         $journal->recordSmartUcfSession(
@@ -379,7 +381,8 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'debug-journal-' . $orderId),
             hash('sha256', 'actor-debug-' . $orderId),
-            hash('sha256', 'selection-debug-' . $orderId)
+            hash('sha256', 'selection-debug-' . $orderId),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
 
@@ -407,6 +410,7 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
                 new SmartUcfFailureClassifier(),
                 new OrderBankStatusRepository($db),
                 $services['client'],
+                \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $services['client']),
                 null,
                 $journal
             ),

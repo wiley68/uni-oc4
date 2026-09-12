@@ -46,7 +46,9 @@ final class PersistenceIntegrationHarness
         }
 
         if (!self::enabled()) {
-            throw new \RuntimeException('Integration tests disabled (set MT_UNI_CREDIT_INTEGRATION=1).');
+            throw new \PHPUnit\Framework\SkippedWithMessageException(
+                'Set MT_UNI_CREDIT_INTEGRATION=1 for DB integration tests.'
+            );
         }
 
         $config = self::loadDatabaseConfig();
@@ -74,6 +76,12 @@ final class PersistenceIntegrationHarness
 
     public static function resetTables(): void
     {
+        if (!self::enabled()) {
+            throw new \PHPUnit\Framework\SkippedWithMessageException(
+                'Set MT_UNI_CREDIT_INTEGRATION=1 for DB integration tests.'
+            );
+        }
+
         $db = self::connection();
         // Idempotent: recreate if a prior teardown/drop removed tables mid-suite.
         (new PersistenceSchemaInstaller($db))->installAll();

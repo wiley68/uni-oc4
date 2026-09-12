@@ -55,14 +55,36 @@ Canonical string:
 timestamp + "\n" + nonce + "\n" + exact_raw_body
 ```
 
-- Algorithm: HMAC-SHA256, lowercase hex
-- Secret: store-scoped module login secret (`module_mt_uni_credit_secret`, encrypted at rest) — same secret CP uses as shop `secret_key`
+Processing order (after Content-Length / bounded body gate):
+
+1. POST only (else 405)
+2. empty body → 400
+3. credentials / module enabled
+4. HMAC verify on **exact raw body**
+5. JSON decode object
+6. UNICID `hash_equals`
+7. atomic nonce claim (storage failure → 500 `replay_store_failed`)
+8. `operation` must match the code-bound endpoint operation
+9. handler
+
+- Algorithm: HMAC-SHA256, lowercase hex signature compare
+- Secret: store-scoped module login secret (`module_mt_uni_credit_secret`, encrypted at rest)
 - UNICID: body `unicid` must match store setting
 - Timestamp tolerance: **±300 seconds**
-- Nonce: 64 hex chars; stored as `sha256(nonce)`; retention **900 seconds**; replay → **401**
-- Signature verified on **raw `php://input`** before JSON decode
+- Nonce: **exactly** `[0-9a-f]{64}` (lowercase only; uppercase rejected); stored as `sha256(nonce)`; retention **900 seconds**; replay → **401**
+- Body size: max **1 MiB** → **413** `payload_too_large` before auth/decode
 - Invalid signature does **not** consume the nonce
 - Module disabled → **403**
+
+All JSON responses use the four-field envelope: `success`, `error`, `message`, `data` (object, never a list).
+
+Endpoint operations:
+
+| Route              | `operation` value    |
+| ------------------ | -------------------- |
+| shop_cache         | `shop-cache`         |
+| order_bank_status  | `order-bank-status`  |
+| smartucf_debug_log | `smartucf-debug-log` |
 
 ## 1. Shop cache
 
@@ -70,14 +92,15 @@ timestamp + "\n" + nonce + "\n" + exact_raw_body
 
 ```json
 {
+  "operation": "shop-cache",
   "unicid": "<shop-unicid>",
   "data": {
-    /* full CP shop snapshot */
+    /* full CP shop snapshot (JSON object, not list) */
   }
 }
 ```
 
-Behavior: **accepts pushed shop data**, validates (`ShopConfigurationSnapshotValidator`), replaces `mt_uni_credit_shop_cache` for `(store_id, unicid)`. Does **not** call CP `GET /shop` on this path.
+Behavior: sanitize (`ShopSnapshotSanitizer`) → validate (`ShopConfigurationSnapshotValidator`) → replace `mt_uni_credit_shop_cache` for `(store_id, unicid)`. Does **not** call CP `GET /shop` on this path. Empty object / JSON list for `data` → 400.
 
 `store_id = 0` (default store) is valid and isolated.
 
@@ -86,12 +109,13 @@ Behavior: **accepts pushed shop data**, validates (`ShopConfigurationSnapshotVal
 ```json
 {
   "success": true,
+  "error": null,
   "message": "Кешът на shop данни е обновен успешно.",
   "data": { "fetched_at": "...", "expires_at": "...", "is_fresh": true }
 }
 ```
 
-**Errors:** 400 invalid body; 401 auth; 403 disabled; 422 invalid snapshot (`error=shop_snapshot_invalid`).
+**Errors:** 400 invalid body; 401 auth; 403 disabled; 413 oversized; 422 `shop_snapshot_invalid`.
 
 ## 2. Order bank status
 
@@ -99,14 +123,26 @@ Behavior: **accepts pushed shop data**, validates (`ShopConfigurationSnapshotVal
 
 ```json
 {
+  "operation": "order-bank-status",
   "unicid": "<shop-unicid>",
-  "order_id": "<local OpenCart order_id string>",
+  "order_id": "<local OpenCart order_id string max 13>",
   "status_id": "cp_sent",
   "status": "Създаден в КП Банка"
 }
 ```
 
-Lookup scope: `config_store_id` + local `order_id` that belongs to a UniCredit financing attempt (or UniCredit payment method on the order). No cross-store lookup.
+Field rules:
+
+- `order_id`: **string only** (reject int), non-empty, max 13, digit string for OC order id
+- `status_id`: string only, non-empty, max 255
+- `status`: string only, required non-empty, max 255
+- no `status_label` wire field
+
+Lookup: `FinancingOrderResolver` — financing attempts for `(store_id, order_id)` **without** `LIMIT 1` as auth decision.
+0 → 404; 1 → continue; 2+ → **409** `order_ambiguous`.
+**No** payment-method fallback.
+
+P1↔P2 terminal conflict on UPSERT → **409** `semantic_conflict` (existing status retained).
 
 Accepted `status_id` vocabulary:
 
@@ -115,18 +151,8 @@ Accepted `status_id` vocabulary:
 - `bank_send_failed`, `bank_send_failed_cp`, `bank_send_failed_smartucf`
 - SmartUCF numeric codes: `^\d{1,3}$`
 
-Semantics (unchanged):
-
-| status_id                   | Meaning                                        |
-| --------------------------- | ---------------------------------------------- |
-| `cp_sent`                   | Order exists in CP; bank handoff not completed |
-| `bank_sent_process1`        | Sent to SmartUCF via Process 1                 |
-| `bank_sent_process2`        | Process 2 channel                              |
-| `bank_send_failed_smartucf` | CP order exists; SmartUCF send failed          |
-
-Unsupported status → **400** `error=unsupported_status`.  
-Missing order → **404**.  
-Same status twice → upsert / idempotent success.  
+Unsupported status → **400** `unsupported_status`.
+Same status twice → idempotent success.
 OpenCart native order status is **not** changed (`oc_order_state_changed: false`).
 
 **Success 200:**
@@ -134,6 +160,7 @@ OpenCart native order status is **not** changed (`oc_order_state_changed: false`
 ```json
 {
   "success": true,
+  "error": null,
   "message": "Банковият статус е обновен успешно.",
   "data": {
     "order_id": "592",
@@ -151,14 +178,13 @@ OpenCart native order status is **not** changed (`oc_order_state_changed: false`
 
 ```json
 {
+  "operation": "smartucf-debug-log",
   "unicid": "<shop-unicid>",
-  "order_id": "<local OpenCart order_id string>"
+  "order_id": "<local OpenCart order_id string max 13>"
 }
 ```
 
-Authorized only when a financing attempt exists for `(store_id, order_id)`.
-
-If no diagnostic row: structured **404** JSON (not HTML/500).
+Ownership via `FinancingOrderResolver` **before** any journal disclosure. All denials (missing attempt, ambiguous, missing log) → opaque **404**.
 
 When present, payload is redacted (`DiagnosticPayloadRedactor`) — no EGN, email, phone, address, tokens, secrets, keys.
 
@@ -167,6 +193,8 @@ When present, payload is redacted (`DiagnosticPayloadRedactor`) — no EGN, emai
 ```json
 {
   "success": true,
+  "error": null,
+  "message": "Диагностичният запис е намерен.",
   "data": {
     "order_id": "592",
     "oc_order_id": 592,
@@ -182,11 +210,13 @@ When present, payload is redacted (`DiagnosticPayloadRedactor`) — no EGN, emai
 | Success                                                             | 200  |
 | Bad / missing signature, replay, expired timestamp, missing headers | 401  |
 | Module disabled                                                     | 403  |
-| Bad JSON / validation / unsupported status                          | 400  |
+| Bad JSON / validation / unsupported status / wrong operation        | 400  |
 | Invalid shop snapshot                                               | 422  |
 | Order / debug not found                                             | 404  |
+| Ambiguous order / semantic bank conflict                            | 409  |
+| Payload too large                                                   | 413  |
 | Wrong method                                                        | 405  |
-| Unexpected failure                                                  | 500  |
+| Replay store failure / unexpected                                   | 500  |
 
 ## Historical note
 

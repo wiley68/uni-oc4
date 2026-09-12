@@ -35,14 +35,16 @@ final class Phase3FinancingAttemptRepositoryIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             $hash('op-product'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $cart = $this->repository->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             OperationEntryPoint::CART,
             $hash('op-cart'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
 
         self::assertTrue(SubmissionTokenGenerator::isValidFormat((string) $product['submission_token']));
@@ -58,7 +60,8 @@ final class Phase3FinancingAttemptRepositoryIntegrationTest extends TestCase
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $hash('op-checkout'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         self::assertNull($checkout['submission_token']);
         self::assertSame(OperationEntryPoint::CHECKOUT, $checkout['entry_point']);
@@ -71,7 +74,8 @@ final class Phase3FinancingAttemptRepositoryIntegrationTest extends TestCase
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $hash('op-transition'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         self::assertTrue($this->repository->transition($attemptId, FinancingAttemptState::ISSUED, FinancingAttemptState::VALIDATING));
@@ -85,13 +89,15 @@ final class Phase3FinancingAttemptRepositoryIntegrationTest extends TestCase
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $hash('op-a'),
             $hash('actor-a'),
-            $hash('selection-a')
+            $hash('selection-a'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptB = $this->repository->issueCheckoutAttempt(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $hash('op-b'),
             $hash('actor-b'),
-            $hash('selection-b')
+            $hash('selection-b'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
 
         $attemptAId = (int) $attemptA['attempt_id'];
@@ -112,7 +118,8 @@ final class Phase3FinancingAttemptRepositoryIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             $operationHash,
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $token = (string) $issued['submission_token'];
         self::assertNotNull($this->repository->findByToken(PersistenceIntegrationHarness::TEST_STORE_ID, $token));

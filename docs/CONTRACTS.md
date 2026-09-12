@@ -46,16 +46,16 @@ Authoritative source: `ModuleConstants::VERSION`. See `docs/RELEASE.md`.
 
 Клиентът в uni-ps9: `src/Api/ControlPanelClient.php`.
 
-| Метод | Път                              | Auth   | Throttle        | Бележки                                                                  |
-| ----- | -------------------------------- | ------ | --------------- | ------------------------------------------------------------------------ |
-| POST  | `/api/v1/auth/login`             | не     | 10 / IP / min   | body: `unicid`, `name`, `secret` (required string, без max)              |
-| POST  | `/api/v1/auth/refresh`           | Bearer | 30 / shop / min | ротира токена; стар се забравя                                           |
-| POST  | `/api/v1/auth/logout`            | Bearer | 30 / shop / min | повторно logout → 401                                                    |
-| GET   | `/api/v1/shop`                   | Bearer | 30 / shop / min | `data` = ShopModuleResource + `coeff_list`                               |
-| GET   | `/api/v1/ssl/certificate`        | Bearer | CP policy       | SSL availability, revision and exact-PEM SHA-256 metadata                |
-| GET   | `/api/v1/ssl/certificate/bundle` | Bearer | CP policy       | Certificate + private key PEM; never returns passphrase                  |
-| POST  | `/api/v1/orders`                 | Bearer | 60 / shop / min | виж §2                                                                   |
-| PATCH | `/api/v1/orders/status`          | Bearer | 60 / shop / min | `order_id` max 13, `status` required, `status_id` optional; **без** enum |
+| Метод | Път                              | Auth   | Throttle        | Бележки                                                                                                             |
+| ----- | -------------------------------- | ------ | --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| POST  | `/api/v1/auth/login`             | не     | 10 / IP / min   | body: `unicid`, `name`, `secret` (required string, без max)                                                         |
+| POST  | `/api/v1/auth/refresh`           | Bearer | 30 / shop / min | ротира токена; стар се забравя                                                                                      |
+| POST  | `/api/v1/auth/logout`            | Bearer | 30 / shop / min | повторно logout → 401                                                                                               |
+| GET   | `/api/v1/shop`                   | Bearer | 30 / shop / min | `data` = ShopModuleResource + `coeff_list`                                                                          |
+| GET   | `/api/v1/ssl/certificate`        | Bearer | CP policy       | SSL availability, revision and exact-PEM SHA-256 metadata                                                           |
+| GET   | `/api/v1/ssl/certificate/bundle` | Bearer | CP policy       | Certificate + private key PEM; never returns passphrase                                                             |
+| POST  | `/api/v1/orders`                 | Bearer | 60 / shop / min | виж §2                                                                                                              |
+| PATCH | `/api/v1/orders/status`          | Bearer | 60 / shop / min | `order_id` max 13, `status` **and** `status_id` required; echo identity; durable module sync via `cp_status_sync_*` |
 
 Токен: 64 символа, TTL 24h, cache ключ `shop_token_{token}`. Login **не** е идемпотентен.
 
@@ -124,12 +124,12 @@ timestamp + "\n" + nonce + "\n" + exact_raw_body
 
 Headers: `X-UniPayment-Timestamp`, `X-UniPayment-Nonce`, `X-UniPayment-Signature`.
 
-| Правило   | Стойност                                                 | Къде се прилага                                     |
-| --------- | -------------------------------------------------------- | --------------------------------------------------- |
-| Timestamp | `ctype_digit`, прозорец **±300 s**                       | модул (verifier)                                    |
-| Nonce     | **64** hex                                               | модул; CP само генерира `bin2hex(random_bytes(32))` |
-| Retention | **900 s**, `sha256(nonce)` UNIQUE `(unicid, nonce_hash)` | модул                                               |
-| Raw body  | точните байтове; **без** re-encode                       | и двете при sign/verify                             |
+| Правило   | Стойност                                                 | Къде се прилага                                |
+| --------- | -------------------------------------------------------- | ---------------------------------------------- |
+| Timestamp | `ctype_digit`, прозорец **±300 s**                       | модул (verifier)                               |
+| Nonce     | **64** lowercase hex `[0-9a-f]{64}`                      | модул; CP генерира `bin2hex(random_bytes(32))` |
+| Retention | **900 s**, `sha256(nonce)` UNIQUE `(unicid, nonce_hash)` | модул                                          |
+| Raw body  | точните байтове; **без** re-encode                       | и двете при sign/verify                        |
 
 Известен тестови вектор (не е производствен секрет): виж `tests/fixtures/hmac_callback_vector.json`.
 
@@ -147,7 +147,7 @@ https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/order_ba
 https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/smartucf_debug_log
 ```
 
-Implementations: `ModuleRequestSignatureProtocol`, `ModuleRequestAuthenticator`, catalog `api/*` controllers.
+Implementations: `ModuleRequestSignatureProtocol`, `ModuleRequestAuthenticator`, `InboundApiOperations`, `FinancingOrderResolver`, catalog `api/*` controllers. Canonical envelope always includes `success`/`error`/`message`/`data`.
 
 ---
 
@@ -397,7 +397,7 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 
 Phase 10A: Product/Cart `addOrder()` + `addHistory(payment order status)`. Order totals must set `extension=opencart` so native `addHistory` can load total confirm handlers. Admin visibility requires `order_status_id > 0`. See `docs/PHASE10A.md`.
 
-Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Recovery = re-POST same payload (CP idempotent on shop+order_id). See `docs/PHASE10B.md`. Checkout status remains native (confirm `addHistory`); Product/Cart status source is the payment method setting only.
+Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Retryable recovery (`cp_failed_retryable`) = re-POST same frozen payload (CP idempotent on shop+order*id). Ambiguous outcomes (including 5xx) stay at `cp_outcome_unknown` with **no** blind re-POST and **no** `bank_send_failed_cp`. Definitive create machine codes → `terminal_failed`. After proven P1/P2 handoff, outbound PATCH is durable via `cp_status_sync*\*`(not fire-and-forget). See`docs/PHASE10B.md`/`docs/RECOVERY.md`. Checkout status remains native (confirm `addHistory`); Product/Cart status source is the payment method setting only.
 
 ### Store scope (OpenCart)
 

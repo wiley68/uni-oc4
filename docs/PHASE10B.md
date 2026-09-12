@@ -41,28 +41,36 @@ Process 2 shops (`uni_proces === 1`): also omit `status` / `status_id` on Phase 
 ```text
 order_created → cp_submitting → cp_created
 cp_submitting → cp_failed_retryable | cp_outcome_unknown
-cp_failed_retryable → cp_submitting (retry)
-cp_outcome_unknown → cp_submitting (recover via re-POST)
+cp_failed_retryable → cp_submitting (retry via re-POST frozen payload)
+cp_outcome_unknown → STOP (no automatic re-POST; operator / manual recovery only)
 cp_created → (replay local only; no CP call)
 ```
 
-Forbidden: `cp_created → cp_submitting` without clearing durable CP id (replay returns existing).
+Forbidden:
+
+- `cp_created → cp_submitting` without clearing durable CP id (replay returns existing)
+- Blind re-POST from `cp_outcome_unknown` (auth/429/timeout/transport/malformed 2xx success)
 
 ## Persistence
 
 `mt_uni_credit_financing_attempt`:
 
 - `control_panel_order_id` (BIGINT) — CP `data.id`
-- `cp_payload` — frozen POST body (recovery source of truth)
+- `cp_payload` — frozen POST body (recovery source of truth for retryable failures only)
 - `last_error_class` — taxonomy below
 - `state` — lifecycle
+- `cp_status_sync_*` — durable outbound PATCH confirmation (separate from local bank*sent*\*)
 
 ## Crash / timeout recovery
 
-CP has no lookup-by-shop-order GET. Recovery = re-POST **frozen** `cp_payload`.
+CP has no lookup-by-shop-order GET. Retryable recovery (`cp_failed_retryable`) = re-POST **frozen** `cp_payload`.
 Same semantic hash → HTTP 200 + same `data.id`. Different hash → 409 (`cp_conflict`).
 
-Timeout / unknown outcome → `cp_outcome_unknown` → next submit re-POSTs frozen payload (never a blind second create with a rebuilt body).
+Ambiguous outcomes (timeout, transport, auth, 429, 5xx, unknown 4xx, malformed success / echo mismatch after HTTP 2xx, persist race with known `cpId`) → `cp_outcome_unknown`.
+**Do not** automatic re-POST from `cp_outcome_unknown`. **Do not** write `bank_send_failed_cp` for ambiguous create outcomes.
+
+HTTP ≥500 without definitive machine code → `cp_outcome_unknown` (no blind re-POST).
+Definitive machine codes (`invalid_payload`, `semantic_conflict`, `unsupported_status`, `shop_not_found`, `order_not_found`) → `terminal_failed` / non-retryable.
 
 ## Error taxonomy
 

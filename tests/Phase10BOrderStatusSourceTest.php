@@ -55,7 +55,8 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             OperationEntryPoint::PRODUCT,
             $submission->operationKeyHash,
             str_repeat('a', 64),
-            $submission->selectionHash
+            $submission->selectionHash,
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $created = $service->materializeAndBind(
             $submission,
@@ -90,7 +91,8 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             OperationEntryPoint::CART,
             $submission->operationKeyHash,
             str_repeat('b', 64),
-            $submission->selectionHash
+            $submission->selectionHash,
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $created = $service->materializeAndBind(
             $submission,

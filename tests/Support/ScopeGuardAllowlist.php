@@ -25,6 +25,8 @@ final class ScopeGuardAllowlist
             || str_ends_with($path, '/system/library/control_panel_client.php')
             || str_ends_with($path, '/system/library/control_panel_order_payload_builder.php')
             || str_ends_with($path, '/system/library/control_panel_order_lifecycle_service.php')
+            || str_contains($path, '/system/library/control_panel_status_sync_')
+            || str_ends_with($path, '/system/library/process_two_mail_states.php')
             || str_ends_with($path, '/system/library/financing_presentation_repository.php')
             || str_ends_with($path, '/system/library/financing_presentation_service.php')
             || str_ends_with($path, '/system/library/financing_presentation_snapshot.php')
@@ -53,7 +55,10 @@ final class ScopeGuardAllowlist
             || str_contains($path, '/system/library/module_request_')
             || str_contains($path, '/system/library/module_api_exception.php')
             || str_contains($path, '/system/library/inbound_')
-            || str_contains($path, '/system/library/order_bank_status_repository.php')
+            || str_contains($path, '/system/library/order_bank_status_')
+            || str_contains($path, '/system/library/financing_order_')
+            || str_ends_with($path, '/system/library/bounded_raw_body_reader.php')
+            || str_ends_with($path, '/system/library/shop_snapshot_sanitizer.php')
             || str_contains($path, '/system/library/diagnostic_');
     }
 }

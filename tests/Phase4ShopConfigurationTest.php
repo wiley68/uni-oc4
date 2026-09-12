@@ -71,7 +71,12 @@ final class Phase4ShopConfigurationTest extends TestCase
         $stack['client']->login();
         $stack['shopConfiguration']->refreshRemote();
 
-        $transport->enqueueJson(503, ['error' => 'down']);
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'down',
+            'data' => new \stdClass(),
+        ]);
         try {
             $stack['shopConfiguration']->refreshRemote();
             self::fail('Expected transient HTTP failure');

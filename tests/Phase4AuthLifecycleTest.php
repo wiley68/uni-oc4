@@ -35,7 +35,12 @@ final class Phase4AuthLifecycleTest extends TestCase
     public function testInvalidCredentialsDoNotPersistToken(): void
     {
         $transport = new FakeCpHttpTransport();
-        $transport->enqueueJson(401, ['error' => 'invalid']);
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'invalid',
+            'data' => new \stdClass(),
+        ]);
         $stack = $this->stack($transport);
         try {
             $stack['client']->login();
@@ -48,7 +53,7 @@ final class Phase4AuthLifecycleTest extends TestCase
     public function testMalformedLoginResponseInvalidatesToken(): void
     {
         $transport = new FakeCpHttpTransport();
-        $transport->enqueueJson(200, ['success' => true, 'access_token' => '', 'token_type' => 'Bearer', 'expires_in' => 86400, 'shop' => []]);
+        $transport->enqueueJson(200, ['success' => true, 'error' => null, 'message' => 'bad', 'data' => ['access_token' => '', 'token_type' => 'Bearer', 'expires_in' => 86400, 'shop' => []]]);
         $stack = $this->stack($transport);
         $this->expectException(CpInvalidPayloadException::class);
         $stack['client']->login();
@@ -60,9 +65,13 @@ final class Phase4AuthLifecycleTest extends TestCase
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         $transport->enqueueJson(200, [
             'success' => true,
-            'access_token' => str_repeat('b', 64),
-            'token_type' => 'Bearer',
-            'expires_in' => 86400,
+            'error' => null,
+            'message' => 'Refreshed.',
+            'data' => [
+                'access_token' => str_repeat('b', 64),
+                'token_type' => 'Bearer',
+                'expires_in' => 86400,
+            ],
         ]);
         $stack = $this->stack($transport, now: 1_700_000_000);
         $stack['client']->login();
@@ -74,7 +83,12 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(401, ['error' => 'invalid']);
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'invalid',
+            'data' => new \stdClass(),
+        ]);
         $stack = $this->stack($transport);
         $stack['client']->login();
         try {
@@ -89,7 +103,7 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(200, ['success' => true]);
+        $transport->enqueueJson(200, ['success' => true, 'error' => null, 'message' => 'Logged out.', 'data' => new \stdClass()]);
         $stack = $this->stack($transport);
         $stack['client']->login();
         $stack['client']->logout();
@@ -100,7 +114,12 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(503, ['error' => 'down']);
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'down',
+            'data' => new \stdClass(),
+        ]);
         $stack = $this->stack($transport);
         $stack['client']->login();
         try {
@@ -115,9 +134,19 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(401, ['error' => 'expired']);
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'expired',
+            'data' => new \stdClass(),
+        ]);
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(401, ['error' => 'expired again']);
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'expired again',
+            'data' => new \stdClass(),
+        ]);
         $stack = $this->stack($transport, now: 1_700_000_000 + 86400 + 120);
         try {
             $stack['client']->getShop();
@@ -132,7 +161,12 @@ final class Phase4AuthLifecycleTest extends TestCase
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(401, ['error' => 'expired']);
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'expired',
+            'data' => new \stdClass(),
+        ]);
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         $transport->enqueueJson(200, Phase4TestHarness::shopSuccessPayload());
         $stack = $this->stack($transport, now: 1_700_000_000 + 86400 + 120);

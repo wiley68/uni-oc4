@@ -58,10 +58,10 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         // Application rejection (e.g. historical empty-phone 422) must not become transport_failed.
         $transport->enqueueJson(422, [
+            'success' => false,
+            'error' => 'invalid_payload',
             'message' => 'Телефонният номер е задължителен.',
-            'errors'  => [
-                'phone' => ['Телефонният номер е задължителен.'],
-            ],
+            'data' => new \stdClass(),
         ]);
         $orders = new InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
@@ -76,7 +76,7 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
 
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
         self::assertNotNull($row);
-        self::assertSame(FinancingAttemptState::CP_FAILED_RETRYABLE, $row['state']);
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
         self::assertSame(ControlPanelErrorClass::REJECTED, $row['last_error_class']);
         self::assertNull($row['control_panel_order_id']);
     }
@@ -213,7 +213,7 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
         );
         $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
-            ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection);
+            ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
         $token = (string) $attempt['submission_token'];
 
         return $service->submit(

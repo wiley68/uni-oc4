@@ -94,17 +94,39 @@ final class Phase4TestHarness
      */
     public static function loginSuccessPayload(array $overrides = []): array
     {
-        return array_merge([
+        $base = [
             'success' => true,
-            'access_token' => str_repeat('a', 64),
-            'token_type' => 'Bearer',
-            'expires_in' => 86400,
-            'shop' => [
-                'id' => 1,
-                'name' => self::TEST_SHOP_URL,
-                'unicid' => self::TEST_UNICID,
+            'error' => null,
+            'message' => 'Authenticated.',
+            'data' => [
+                'access_token' => str_repeat('a', 64),
+                'token_type' => 'Bearer',
+                'expires_in' => 86400,
+                'shop' => [
+                    'id' => 1,
+                    'name' => self::TEST_SHOP_URL,
+                    'unicid' => self::TEST_UNICID,
+                ],
             ],
-        ], $overrides);
+        ];
+
+        if ($overrides === []) {
+            return $base;
+        }
+
+        // Allow shallow overrides of data.* token fields used by multi-store tests.
+        if (isset($overrides['access_token']) || isset($overrides['token_type']) || isset($overrides['expires_in']) || isset($overrides['shop'])) {
+            $data = $base['data'];
+            foreach (['access_token', 'token_type', 'expires_in', 'shop'] as $key) {
+                if (array_key_exists($key, $overrides)) {
+                    $data[$key] = $overrides[$key];
+                    unset($overrides[$key]);
+                }
+            }
+            $base['data'] = $data;
+        }
+
+        return array_replace_recursive($base, $overrides);
     }
 
     /**
@@ -116,6 +138,7 @@ final class Phase4TestHarness
 
         return [
             'success' => true,
+            'error' => null,
             'message' => 'ok',
             'data' => $data,
         ];

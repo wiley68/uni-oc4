@@ -107,7 +107,12 @@ final class Phase11ACertificateSyncTest extends TestCase
     {
         [$synchronizer, $transport] = $this->synchronizer();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(503, ['success' => false, 'error' => 'temporarily_unavailable']);
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'temporarily unavailable',
+            'data' => new \stdClass(),
+        ]);
 
         try {
             $synchronizer->ensureCurrent();
@@ -122,7 +127,12 @@ final class Phase11ACertificateSyncTest extends TestCase
     {
         [$synchronizer, $transport, , $certificate, $privateKey] = $this->synchronizer();
         $this->queueMetadata($transport, $certificate, $privateKey);
-        $transport->enqueueJson(503, ['success' => false, 'error' => 'temporarily_unavailable']);
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'temporarily unavailable',
+            'data' => new \stdClass(),
+        ]);
 
         try {
             $synchronizer->ensureCurrent();
@@ -149,14 +159,20 @@ final class Phase11ACertificateSyncTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'phase11-cert-sync-operation'),
             hash('sha256', 'phase11-cert-sync-actor'),
-            hash('sha256', 'phase11-cert-sync-selection')
+            hash('sha256', 'phase11-cert-sync-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 921);
 
         [$synchronizer, $transport, , , , $controlPanel] = $this->synchronizer();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(503, ['success' => false, 'error' => 'temporarily_unavailable']);
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'temporarily unavailable',
+            'data' => new \stdClass(),
+        ]);
         $smartUcf = new class {
             public int $calls = 0;
 
@@ -173,6 +189,7 @@ final class Phase11ACertificateSyncTest extends TestCase
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
             $controlPanel,
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $controlPanel),
             $synchronizer
         );
 
@@ -258,6 +275,8 @@ final class Phase11ACertificateSyncTest extends TestCase
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         $transport->enqueueJson(200, [
             'success' => true,
+            'error' => null,
+            'message' => 'ok',
             'data' => [
                 'available' => true,
                 'ssl_revision' => 'revision-1',
@@ -275,6 +294,8 @@ final class Phase11ACertificateSyncTest extends TestCase
         $this->queueMetadata($transport, $certificate, $privateKey);
         $transport->enqueueJson(200, [
             'success' => true,
+            'error' => null,
+            'message' => 'ok',
             'data' => [
                 'available' => true,
                 'ssl_revision' => 'revision-1',

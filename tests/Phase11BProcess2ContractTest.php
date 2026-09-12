@@ -85,7 +85,8 @@ final class Phase11BProcess2ContractTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'p2-op'),
             hash('sha256', 'p2-actor'),
-            hash('sha256', 'p2-sel')
+            hash('sha256', 'p2-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 9011);
@@ -125,10 +126,14 @@ final class Phase11BProcess2ContractTest extends TestCase
             }
         };
         $mailer = new RecordingProcessTwoMailer();
+        $statusSync = new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelStatusSyncService(
+            new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelStatusSyncRepository($db),
+            $services['client']
+        );
         $process2 = new ProcessTwoLifecycleCoordinator(
             new ProcessTwoLifecycleRepository($db),
             new OrderBankStatusRepository($db),
-            $services['client'],
+            $statusSync,
             new ProcessTwoSensitiveCipher(ModuleEncryptionKeyProviderTestSecret()),
             $mailer
         );
@@ -137,7 +142,8 @@ final class Phase11BProcess2ContractTest extends TestCase
             $smartClient,
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            $services['client']
+            $services['client'],
+            $statusSync
         );
         $lifecycle = new \Opencart\System\Library\Extension\MtUniCredit\PostControlPanelLifecycleService(
             $coordinator,

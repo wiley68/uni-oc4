@@ -161,7 +161,12 @@ final class Phase4AdminBankActionsTest extends TestCase
         $storeId = PersistenceIntegrationHarness::TEST_STORE_ID_DEFAULT;
 
         $authFail = new FakeCpHttpTransport();
-        $authFail->enqueueJson(401, ['error' => 'invalid']);
+        $authFail->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'invalid',
+            'data' => new \stdClass(),
+        ]);
         $stack = Phase4TestHarness::services($authFail, $settings, $db, $storeId);
         try {
             $stack['shopConfiguration']->refreshRemote();
@@ -175,6 +180,7 @@ final class Phase4AdminBankActionsTest extends TestCase
         $badShop->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
         $badShop->enqueueJson(200, [
             'success' => true,
+            'error' => null,
             'message' => 'ok',
             'data' => ['unicid' => Phase4TestHarness::TEST_UNICID],
         ]);
@@ -196,7 +202,12 @@ final class Phase4AdminBankActionsTest extends TestCase
         PersistenceIntegrationHarness::resetTables();
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueue(503, 'unavailable');
+        $transport->enqueueJson(503, [
+            'success' => false,
+            'error' => 'temporarily_unavailable',
+            'message' => 'unavailable',
+            'data' => new \stdClass(),
+        ]);
         $stack = Phase4TestHarness::services(
             $transport,
             Phase4TestHarness::settings(),

@@ -13,9 +13,9 @@ local OpenCart order
 → CP POST /orders (omit status → CP default cp_sent)
 → validate EGN + phone2 (server)
 → encrypt sensitive payload on financing_attempt
-→ ProcessTwoLifecycleCoordinator
-→ local + CP bank_sent_process2 (shop order_id = local OC order id)
-→ leasing mail (admin may include EGN; customer never)
+→ ProcessTwoLifecycleCoordinator:
+   claimPreparing → durable cp_status_sync target (bank_sent_process2)
+   → local bank_sent_process2 → PATCH → markPrepared → leasing mail (claim token)
 → customer continuation (checkout/success) — no SmartUCF
 ```
 

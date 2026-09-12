@@ -23,6 +23,10 @@ final class BridgeAInboundApiContractTest extends TestCase
         self::assertFileExists($root . '/catalog/controller/api/order_bank_status.php');
         self::assertFileExists($root . '/catalog/controller/api/smartucf_debug_log.php');
         self::assertFileExists($root . '/docs/INBOUND-API.md');
+        self::assertFileExists($root . '/system/library/inbound_api_operations.php');
+        self::assertFileExists($root . '/system/library/inbound_api_envelope.php');
+        self::assertFileExists($root . '/system/library/bounded_raw_body_reader.php');
+        self::assertFileExists($root . '/system/library/financing_order_resolver.php');
 
         $doc = (string) file_get_contents($root . '/docs/INBOUND-API.md');
         self::assertStringContainsString(
@@ -37,6 +41,7 @@ final class BridgeAInboundApiContractTest extends TestCase
             'https://open40.avalonbg.com/index.php?route=extension/mt_uni_credit/api/smartucf_debug_log',
             $doc
         );
+        self::assertStringContainsString('operation', $doc);
         self::assertSame('2.0.2', ModuleConstants::VERSION);
     }
 

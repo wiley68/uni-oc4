@@ -115,27 +115,31 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
     public function testAuth401ThenSuccessRetriesOnce(): void
     {
         $transport = new FakeCpHttpTransport();
-        $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueue(401, '{"success":false}');
-        $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(201, [
-            'success' => true,
-            'data' => ['id' => 777, 'shop_id' => 1, 'created_at' => '2026-01-01 00:00:00'],
-        ]);
+        $transport->failFirstOrderCreateWith401 = true;
+        $transport->enableAutoAuthAndCreate(777);
         $orders = new \MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
-        $result = $this->submitProduct($service);
-        self::assertSame(777, $result->controlPanelOrderId);
-        self::assertSame(2, $transport->countOrderCreates());
+        try {
+            $this->submitProduct($service);
+            self::fail('Expected create ambiguity — POST /orders must not auto-replay after 401');
+        } catch (ProductFinancingFlowException $exception) {
+            self::assertSame(ControlPanelErrorClass::AUTH_FAILED, $exception->errorCode());
+        }
+        self::assertSame(1, $transport->countOrderCreates());
+        $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
     }
 
     public function testAuthHardFailurePreservesLocalOrder(): void
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueue(401, '{"success":false}');
-        $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueue(401, '{"success":false}');
+        $transport->enqueueJson(401, [
+            'success' => false,
+            'error' => 'unauthorized',
+            'message' => 'auth failed',
+            'data' => new \stdClass(),
+        ]);
         $orders = new \MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
         try {
@@ -149,16 +153,22 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         self::assertGreaterThan(0, $orderId);
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orderId);
         self::assertNotNull($row);
-        self::assertSame(FinancingAttemptState::CP_FAILED_RETRYABLE, $row['state']);
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
         self::assertSame(ControlPanelErrorClass::AUTH_FAILED, $row['last_error_class']);
         self::assertNull($row['control_panel_order_id']);
+        self::assertSame(1, $transport->countOrderCreates());
     }
 
     public function testCpRejectionPreservesOrder(): void
     {
         $transport = new FakeCpHttpTransport();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());
-        $transport->enqueueJson(422, ['error' => 'validation', 'message' => 'phone required']);
+        $transport->enqueueJson(422, [
+            'success' => false,
+            'error' => 'invalid_payload',
+            'message' => 'phone required',
+            'data' => new \stdClass(),
+        ]);
         $orders = new \MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
         try {
@@ -169,7 +179,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         }
         self::assertSame(1, $orders->addOrderCallCount());
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
-        self::assertSame(FinancingAttemptState::CP_FAILED_RETRYABLE, $row['state']);
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
         self::assertSame(ControlPanelErrorClass::REJECTED, $row['last_error_class']);
     }
 
@@ -188,6 +198,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         }
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
         self::assertSame(ControlPanelErrorClass::INVALID_RESPONSE, $row['last_error_class']);
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
         self::assertNull($row['control_panel_order_id']);
     }
 
@@ -209,12 +220,19 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
         self::assertNotSame('', (string) $row['cp_payload']);
 
+        // Ambiguous create outcomes must not blind re-POST.
         $transport->enableAutoAuthAndCreate(909);
         $service2 = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
-        $recovered = $this->submitProduct($service2, (string) $row['submission_token']);
-        self::assertSame(909, $recovered->controlPanelOrderId);
+        try {
+            $this->submitProduct($service2, (string) $row['submission_token']);
+            self::fail('Expected blocked recovery from cp_outcome_unknown');
+        } catch (ProductFinancingFlowException $exception) {
+            self::assertSame(ControlPanelErrorClass::TIMEOUT, $exception->errorCode());
+        }
         self::assertSame(1, $orders->addOrderCallCount());
-        self::assertGreaterThanOrEqual(2, $transport->countOrderCreates());
+        self::assertSame(1, $transport->countOrderCreates());
+        $fresh = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orderId);
+        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $fresh['state']);
     }
 
     public function testStaleCpSubmittingRecoversExistingOrder(): void
@@ -283,8 +301,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             str_repeat('a', 64),
             str_repeat('b', 64),
             str_repeat('c', 64),
-            null,
-            null
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $this->attempts->attachOrder((int) $attempt['attempt_id'], 55);
         $this->attempts->transitionFromStates((int) $attempt['attempt_id'], [FinancingAttemptState::ISSUED], FinancingAttemptState::ORDER_CREATED);
@@ -364,7 +381,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
         if ($token === null) {
             $attempt = (new ProductSubmissionIssuer($this->attempts, new PersistenceClock()))
-                ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection);
+                ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
             $token = (string) $attempt['submission_token'];
         }
 

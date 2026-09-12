@@ -109,7 +109,8 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'op-zero'),
             hash('sha256', 'actor-zero'),
-            hash('sha256', 'selection-zero')
+            hash('sha256', 'selection-zero'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         self::assertSame(0, (int) $row['store_id']);
         self::assertSame(FinancingAttemptState::ISSUED, $row['state']);
@@ -129,7 +130,8 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'op-neg'),
             hash('sha256', 'actor-neg'),
-            hash('sha256', 'selection-neg')
+            hash('sha256', 'selection-neg'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
     }
 
@@ -181,7 +183,8 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'corr-op'),
             hash('sha256', 'corr-actor'),
-            hash('sha256', 'corr-selection')
+            hash('sha256', 'corr-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $attempt['attempt_id'];
         $correlations->linkCreatedOrder(

@@ -507,7 +507,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         );
         $operationKey = CheckoutOperationIdentity::hash($storeId, $orderId);
         $attempt = (new CheckoutSubmissionIssuer($this->attempts, new PersistenceClock()))
-            ->issueOrReuse($storeId, $operationKey, $actor, $selectionHash, null, null, $fingerprint);
+            ->issueOrReuse($storeId, $operationKey, $actor, $selectionHash, null, null, $fingerprint, PersistenceIntegrationHarness::TEST_UNICID);
         $token = (string) $attempt['submission_token'];
 
         $sessionCheckout = [

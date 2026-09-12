@@ -85,7 +85,8 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'biz-reject-121-op'),
             hash('sha256', 'biz-reject-121-actor'),
-            hash('sha256', 'biz-reject-121-sel')
+            hash('sha256', 'biz-reject-121-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
@@ -113,7 +114,8 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             },
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            $services['client']
+            $services['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $services['client'])
         );
 
         $thankYou = 'https://shop.test/index.php?route=checkout/success';
@@ -168,7 +170,8 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'biz-success-op'),
             hash('sha256', 'biz-success-actor'),
-            hash('sha256', 'biz-success-sel')
+            hash('sha256', 'biz-success-sel'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
@@ -203,7 +206,8 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             },
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            $services['client']
+            $services['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, $services['client'])
         );
 
         $result = (new PostControlPanelLifecycleService($coordinator))->handle(

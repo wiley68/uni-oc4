@@ -29,7 +29,7 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
-        if (!OpenCartOrderIntegrationHarness::enabled()) {
+        if (!OpenCartOrderIntegrationHarness::enabled() || !PersistenceIntegrationHarness::enabled()) {
             self::markTestSkipped('Set MT_UNI_CREDIT_INTEGRATION=1 for OpenCart order integration tests.');
         }
 
@@ -44,7 +44,9 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
 
     protected function tearDown(): void
     {
-        OpenCartOrderIntegrationHarness::cleanupModuleTestOrders();
+        if (OpenCartOrderIntegrationHarness::enabled()) {
+            OpenCartOrderIntegrationHarness::cleanupModuleTestOrders();
+        }
     }
 
     public function testRealProductOrderMaterialization(): void
@@ -62,7 +64,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             $submission->operationKeyHash,
             hash('sha256', 'actor'),
-            $submission->selectionHash
+            $submission->selectionHash,
+            PersistenceIntegrationHarness::TEST_UNICID
         );
 
         $created = $service->materializeAndBind(
@@ -93,6 +96,7 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             $submission->operationKeyHash,
             hash('sha256', 'actor-cart'),
             $submission->selectionHash,
+            PersistenceIntegrationHarness::TEST_UNICID,
             777,
             $submission->cartFingerprint
         );
@@ -126,7 +130,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             PersistenceIntegrationHarness::TEST_STORE_ID,
             $submission->operationKeyHash,
             hash('sha256', 'actor-checkout'),
-            $submission->selectionHash
+            $submission->selectionHash,
+            PersistenceIntegrationHarness::TEST_UNICID
         );
 
         $before = $this->countOpenCartOrders($orders);
@@ -149,7 +154,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'crash-window-op'),
             hash('sha256', 'actor-crash-window'),
-            hash('sha256', 'selection-crash-window')
+            hash('sha256', 'selection-crash-window'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $attempt['attempt_id'];
         $this->attempts->transition($attemptId, FinancingAttemptState::ISSUED, FinancingAttemptState::ORDER_CREATING);
@@ -188,7 +194,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'scope-op'),
             hash('sha256', 'actor-scope'),
-            hash('sha256', 'selection-scope')
+            hash('sha256', 'selection-scope'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $attempt['attempt_id'];
         $orderId = $orders->addOrder((new OpenCartOrderDataBuilder())->build($submission->orderDraft));
@@ -201,7 +208,8 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             hash('sha256', 'scope-op-b'),
             hash('sha256', 'actor-scope-b'),
-            hash('sha256', 'selection-scope-b')
+            hash('sha256', 'selection-scope-b'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $this->expectException(PersistenceConflictException::class);
         $this->correlations->linkCreatedOrder(

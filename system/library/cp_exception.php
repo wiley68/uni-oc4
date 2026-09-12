@@ -44,14 +44,25 @@ final class CpHttpException extends CpException
     /** @var array<string, mixed> */
     private array $errorPayload;
 
+    private bool $canonicalFailure;
+
+    private ?string $canonicalError;
+
     /**
      * @param array<string, mixed> $errorPayload Safe decoded error body without secrets.
      */
-    public function __construct(int $statusCode, array $errorPayload = [], string $message = 'Control Panel HTTP error.')
-    {
+    public function __construct(
+        int $statusCode,
+        array $errorPayload = [],
+        string $message = 'Control Panel HTTP error.',
+        bool $canonicalFailure = false,
+        ?string $canonicalError = null
+    ) {
         parent::__construct($message);
         $this->statusCode = $statusCode;
         $this->errorPayload = $errorPayload;
+        $this->canonicalFailure = $canonicalFailure;
+        $this->canonicalError = $canonicalError;
     }
 
     public function getStatusCode(): int
@@ -63,6 +74,16 @@ final class CpHttpException extends CpException
     public function getErrorPayload(): array
     {
         return $this->errorPayload;
+    }
+
+    public function isCanonicalFailure(): bool
+    {
+        return $this->canonicalFailure;
+    }
+
+    public function getCanonicalError(): ?string
+    {
+        return $this->canonicalError;
     }
 
     public function isTransient(): bool

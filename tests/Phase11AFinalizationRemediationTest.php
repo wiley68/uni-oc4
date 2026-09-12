@@ -138,7 +138,9 @@ final class Phase11AFinalizationRemediationTest extends TestCase
         self::assertStringContainsString('BankStatus::process1Sent()', $coordinator);
         self::assertStringContainsString('substr((string) $localOrderId, 0, 13)', $coordinator);
         self::assertStringContainsString('ERROR_CP_BANK_STATUS_SYNC_PENDING', $coordinator);
-        self::assertStringNotContainsString('BankStatus::SENT_PROCESS2', $coordinator);
+        // Process 1 must not write Process 2 success; conflict detection may reference SENT_PROCESS2.
+        self::assertStringNotContainsString('BankStatus::process2Sent()', $coordinator);
+        self::assertStringNotContainsString('LABEL_SENT_PROCESS2', $coordinator);
         self::assertStringContainsString('persistProcess1BankStatus($attemptId', $coordinator);
     }
 

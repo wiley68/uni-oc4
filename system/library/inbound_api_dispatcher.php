@@ -18,7 +18,8 @@ final class InboundApiDispatcher
         ModuleRequestAuthenticator $authenticator,
         array $server,
         string $rawBody,
-        string $requestMethod
+        string $requestMethod,
+        ?string $expectedOperation = null
     ): array {
         if (strtoupper($requestMethod) !== 'POST') {
             throw new ModuleApiException('Разрешени са само POST заявки.', 405);
@@ -28,18 +29,12 @@ final class InboundApiDispatcher
             throw new ModuleApiException('Изисква се JSON тяло на заявката.', 400);
         }
 
-        try {
-            $payload = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new ModuleApiException('JSON тялото на заявката е невалидно.', 400);
-        }
-
-        if (!is_array($payload)) {
-            throw new ModuleApiException('JSON тялото на заявката трябва да бъде обект.', 400);
-        }
-
         $headers = self::extractHeaders($server);
-        $unicid = $authenticator->authenticate($payload, $rawBody, $headers);
+        [$payload, $unicid] = $authenticator->authenticate($rawBody, $headers);
+
+        if ($expectedOperation !== null) {
+            InboundApiOperations::assertExact($payload, $expectedOperation);
+        }
 
         return $handler($payload, $unicid);
     }
@@ -80,31 +75,73 @@ final class InboundApiDispatcher
      */
     public static function encodeResponse(array $payload, int $statusCode): array
     {
+        $normalized = InboundApiEnvelope::forJsonEncode($payload, $statusCode < 400);
+
         try {
-            $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $body = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
+            $fallback = InboundApiEnvelope::forJsonEncode(
+                InboundApiEnvelope::failure('internal_error', 'Модулът не можа да кодира отговора.'),
+                false
+            );
+
             return [
                 'status' => 500,
-                'body' => '{"success":false,"message":"Модулът не можа да кодира отговора."}',
+                'body' => (string) json_encode(
+                    $fallback,
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                ),
             ];
         }
 
         return ['status' => $statusCode, 'body' => (string) $body];
     }
 
+    /**
+     * @return array{status: int, body: string}
+     */
     public static function encodeException(ModuleApiException $exception): array
     {
-        $payload = [
-            'success' => false,
-            'message' => $exception->getMessage(),
-        ];
-        if ($exception->getErrorCode() !== null) {
-            $payload['error'] = $exception->getErrorCode();
-        }
-        if ($exception->getResponseData() !== null) {
-            $payload['data'] = $exception->getResponseData();
+        $error = $exception->getErrorCode();
+        if ($error === null || $error === '') {
+            $error = match ($exception->getStatusCode()) {
+                400 => 'bad_request',
+                401 => 'authentication_failed',
+                403 => 'module_disabled',
+                404 => 'not_found',
+                405 => 'method_not_allowed',
+                409 => 'conflict',
+                413 => 'payload_too_large',
+                422 => 'unprocessable_entity',
+                default => 'internal_error',
+            };
         }
 
-        return self::encodeResponse($payload, $exception->getStatusCode());
+        return self::encodeResponse(
+            InboundApiEnvelope::failure(
+                $error,
+                $exception->getMessage(),
+                $exception->getResponseData()
+            ),
+            $exception->getStatusCode()
+        );
+    }
+
+    public static function httpStatusLine(int $status): string
+    {
+        return match ($status) {
+            200 => '200 OK',
+            201 => '201 Created',
+            400 => '400 Bad Request',
+            401 => '401 Unauthorized',
+            403 => '403 Forbidden',
+            404 => '404 Not Found',
+            405 => '405 Method Not Allowed',
+            409 => '409 Conflict',
+            413 => '413 Payload Too Large',
+            422 => '422 Unprocessable Entity',
+            500 => '500 Internal Server Error',
+            default => $status . ' Error',
+        };
     }
 }

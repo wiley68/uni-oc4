@@ -48,7 +48,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'terminal-reject-op'),
             hash('sha256', 'terminal-reject-actor'),
-            hash('sha256', 'terminal-reject-selection')
+            hash('sha256', 'terminal-reject-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 821);
@@ -74,7 +75,16 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
                 null,
                 $db,
                 $submission->storeId
-            )['client']
+            )['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create(
+                $db,
+                \MtUniCredit\Tests\Support\Phase4TestHarness::services(
+                    new \MtUniCredit\Tests\Support\FakeCpHttpTransport(),
+                    null,
+                    $db,
+                    $submission->storeId
+                )['client']
+            )
         );
         $service = new PostControlPanelLifecycleService($coordinator, null, 'https://shop.test/success');
         $result = $service->handle($attemptId, $submission, 821, 906, mt_uni_credit_valid_shop_snapshot());
@@ -106,7 +116,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'terminal-pre-send-op'),
             hash('sha256', 'terminal-pre-send-actor'),
-            hash('sha256', 'terminal-pre-send-selection')
+            hash('sha256', 'terminal-pre-send-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 822);
@@ -132,7 +143,16 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
                 null,
                 $db,
                 $submission->storeId
-            )['client']
+            )['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create(
+                $db,
+                \MtUniCredit\Tests\Support\Phase4TestHarness::services(
+                    new \MtUniCredit\Tests\Support\FakeCpHttpTransport(),
+                    null,
+                    $db,
+                    $submission->storeId
+                )['client']
+            )
         );
         $service = new PostControlPanelLifecycleService($coordinator);
 
@@ -160,7 +180,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'terminal-unknown-op'),
             hash('sha256', 'terminal-unknown-actor'),
-            hash('sha256', 'terminal-unknown-selection')
+            hash('sha256', 'terminal-unknown-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 823);
@@ -186,7 +207,16 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
                 null,
                 $db,
                 $submission->storeId
-            )['client']
+            )['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create(
+                $db,
+                \MtUniCredit\Tests\Support\Phase4TestHarness::services(
+                    new \MtUniCredit\Tests\Support\FakeCpHttpTransport(),
+                    null,
+                    $db,
+                    $submission->storeId
+                )['client']
+            )
         );
         $service = new PostControlPanelLifecycleService($coordinator);
         $result = $service->handle($attemptId, $submission, 823, 908, mt_uni_credit_valid_shop_snapshot());
@@ -315,7 +345,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             $submission->entryPoint,
             hash('sha256', 'terminal-replay-op'),
             hash('sha256', 'terminal-replay-actor'),
-            hash('sha256', 'terminal-replay-selection')
+            hash('sha256', 'terminal-replay-selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 820);
@@ -336,7 +367,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             },
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
-            Phase4TestHarness::services(new \MtUniCredit\Tests\Support\FakeCpHttpTransport(), null, $db, $submission->storeId)['client']
+            Phase4TestHarness::services(new \MtUniCredit\Tests\Support\FakeCpHttpTransport(), null, $db, $submission->storeId)['client'],
+            \MtUniCredit\Tests\Support\StatusSyncTestFactory::create($db, Phase4TestHarness::services(new \MtUniCredit\Tests\Support\FakeCpHttpTransport(), null, $db, $submission->storeId)['client'])
         );
         $service = new PostControlPanelLifecycleService($coordinator, null, 'https://shop.test/success');
         $result = $service->handle($attemptId, $submission, 820, 905, mt_uni_credit_valid_shop_snapshot(), true);

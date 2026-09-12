@@ -9,6 +9,19 @@ final class PersistenceSchemaInstaller
 {
     private DbConnection $db;
 
+    /** @var list<string> */
+    private const REQUIRED_FINANCING_ATTEMPT_COLUMNS = [
+        'unicid',
+        'process2_mail_state',
+        'process2_mail_claimed_at',
+        'process2_mail_claim_token',
+        'cp_status_sync_state',
+        'cp_status_sync_status_id',
+        'cp_status_sync_status',
+        'cp_status_sync_error_class',
+        'cp_status_sync_updated_at',
+    ];
+
     public function __construct(DbConnection $db)
     {
         $this->db = $db;
@@ -25,7 +38,7 @@ final class PersistenceSchemaInstaller
     /**
      * Idempotent column upgrades for existing installs (CREATE IF NOT EXISTS does not alter).
      */
-    private function ensureUpgrades(): void
+    public function ensureUpgrades(): void
     {
         $financingAttempt = $this->db->getPrefix() . PersistenceTableNames::FINANCING_ATTEMPT;
         try {
@@ -39,6 +52,7 @@ final class PersistenceSchemaInstaller
         }
 
         $columns = [
+            'unicid' => 'VARCHAR(64) NULL',
             'smartucf_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
             'smartucf_session_id' => 'VARCHAR(128) NULL',
             'smartucf_redirect_url' => 'VARCHAR(768) NULL',
@@ -50,7 +64,15 @@ final class PersistenceSchemaInstaller
             'process2_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
             'process2_sensitive_enc' => 'TEXT NULL',
             'process2_mail_sent' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'process2_mail_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_sent'",
+            'process2_mail_claimed_at' => 'DATETIME NULL',
+            'process2_mail_claim_token' => 'CHAR(64) NULL',
             'leasing_presentation_json' => 'MEDIUMTEXT NULL',
+            'cp_status_sync_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_needed'",
+            'cp_status_sync_status_id' => 'VARCHAR(255) NULL',
+            'cp_status_sync_status' => 'VARCHAR(255) NULL',
+            'cp_status_sync_error_class' => 'VARCHAR(64) NULL',
+            'cp_status_sync_updated_at' => 'DATETIME NULL',
         ];
         foreach ($columns as $column => $definition) {
             try {
@@ -62,11 +84,179 @@ final class PersistenceSchemaInstaller
                 }
                 $this->db->query("ALTER TABLE `{$financingAttempt}` ADD COLUMN `{$column}` {$definition}");
             } catch (\Throwable $exception) {
-                // Concurrent installer or restricted metadata access; retry remains idempotent.
+                // Tolerate duplicate column / concurrent installer race only.
+                $message = strtolower($exception->getMessage());
+                if (!str_contains($message, 'duplicate') && !str_contains($message, '1060')) {
+                    // Leave verification to postconditions — may still succeed via race.
+                }
             }
         }
 
         $this->ensureDiagnosticCreatedAtIndex();
+        $this->ensureCpStatusSyncIndex();
+        $this->ensureStoreOrderUnicidIndex();
+        $this->verifySchemaPostconditions();
+    }
+
+    public function verifySchemaPostconditions(): void
+    {
+        $financingAttempt = $this->db->getPrefix() . PersistenceTableNames::FINANCING_ATTEMPT;
+        $present = [];
+        try {
+            $result = $this->db->query("SHOW COLUMNS FROM `{$financingAttempt}`");
+        } catch (\Throwable $exception) {
+            throw new PersistenceException(
+                'Financing attempt schema postcondition failed: unable to list columns.',
+                0,
+                $exception
+            );
+        }
+
+        if (!is_object($result)) {
+            throw new PersistenceException('Financing attempt schema postcondition failed: empty column list.');
+        }
+
+        $rows = [];
+        if (isset($result->rows) && is_array($result->rows)) {
+            $rows = $result->rows;
+        } elseif (isset($result->row) && is_array($result->row) && (int) ($result->num_rows ?? 0) === 1) {
+            $rows = [$result->row];
+        } elseif (isset($result->num_rows) && (int) $result->num_rows > 0 && isset($result->row)) {
+            // Some drivers only expose the first row; fall back to per-column checks.
+            $rows = [];
+        }
+
+        if ($rows !== []) {
+            foreach ($rows as $row) {
+                $name = (string) ($row['Field'] ?? $row['field'] ?? '');
+                if ($name !== '') {
+                    $present[$name] = true;
+                }
+            }
+        } else {
+            foreach (self::REQUIRED_FINANCING_ATTEMPT_COLUMNS as $column) {
+                $colResult = $this->db->query(
+                    "SHOW COLUMNS FROM `{$financingAttempt}` LIKE '" . $this->db->escape($column) . "'"
+                );
+                if (is_object($colResult) && (int) ($colResult->num_rows ?? 0) > 0) {
+                    $present[$column] = true;
+                }
+            }
+        }
+
+        foreach (self::REQUIRED_FINANCING_ATTEMPT_COLUMNS as $column) {
+            if (!isset($present[$column])) {
+                throw new PersistenceException(
+                    'Financing attempt schema postcondition failed: missing column `' . $column . '`.'
+                );
+            }
+        }
+
+        $this->assertIndexColumnOrder(
+            $financingAttempt,
+            'idx_mt_uni_credit_attempt_cp_status_sync',
+            ['cp_status_sync_state']
+        );
+        $this->assertIndexColumnOrder(
+            $financingAttempt,
+            'idx_mt_uni_credit_attempt_store_order_unicid',
+            ['store_id', 'order_id', 'unicid']
+        );
+    }
+
+    /**
+     * @param list<string> $expectedColumns
+     */
+    private function assertIndexColumnOrder(string $table, string $indexName, array $expectedColumns): void
+    {
+        try {
+            $indexResult = $this->db->query(
+                "SHOW INDEX FROM `{$table}` WHERE Key_name = '" . $this->db->escape($indexName) . "'"
+            );
+        } catch (\Throwable $exception) {
+            throw new PersistenceException(
+                'Financing attempt schema postcondition failed: unable to verify index `' . $indexName . '`.',
+                0,
+                $exception
+            );
+        }
+
+        if (!is_object($indexResult) || (int) ($indexResult->num_rows ?? 0) < 1) {
+            throw new PersistenceException(
+                'Financing attempt schema postcondition failed: missing index `' . $indexName . '`.'
+            );
+        }
+
+        $indexRows = [];
+        if (isset($indexResult->rows) && is_array($indexResult->rows)) {
+            $indexRows = $indexResult->rows;
+        } elseif (isset($indexResult->row) && is_array($indexResult->row)) {
+            $indexRows = [$indexResult->row];
+        }
+
+        usort(
+            $indexRows,
+            static function (array $left, array $right): int {
+                return ((int) ($left['Seq_in_index'] ?? $left['seq_in_index'] ?? 0))
+                    <=> ((int) ($right['Seq_in_index'] ?? $right['seq_in_index'] ?? 0));
+            }
+        );
+
+        $actualColumns = [];
+        foreach ($indexRows as $row) {
+            $column = (string) ($row['Column_name'] ?? $row['column_name'] ?? '');
+            if ($column !== '') {
+                $actualColumns[] = $column;
+            }
+        }
+
+        if ($actualColumns !== $expectedColumns) {
+            throw new PersistenceException(
+                'Financing attempt schema postcondition failed: index `' . $indexName
+                . '` column order mismatch (expected '
+                . implode(',', $expectedColumns)
+                . ', got '
+                . implode(',', $actualColumns)
+                . ').'
+            );
+        }
+    }
+
+    private function ensureCpStatusSyncIndex(): void
+    {
+        $this->ensureIndex(
+            $this->db->getPrefix() . PersistenceTableNames::FINANCING_ATTEMPT,
+            'idx_mt_uni_credit_attempt_cp_status_sync',
+            '(`cp_status_sync_state`)'
+        );
+    }
+
+    private function ensureStoreOrderUnicidIndex(): void
+    {
+        $this->ensureIndex(
+            $this->db->getPrefix() . PersistenceTableNames::FINANCING_ATTEMPT,
+            'idx_mt_uni_credit_attempt_store_order_unicid',
+            '(`store_id`, `order_id`, `unicid`)'
+        );
+    }
+
+    private function ensureIndex(string $table, string $indexName, string $columnSql): void
+    {
+        try {
+            $result = $this->db->query(
+                "SHOW INDEX FROM `{$table}` WHERE Key_name = '" . $this->db->escape($indexName) . "'"
+            );
+            if (is_object($result) && (int) ($result->num_rows ?? 0) > 0) {
+                return;
+            }
+            $this->db->query("ALTER TABLE `{$table}` ADD KEY `{$indexName}` {$columnSql}");
+        } catch (\Throwable $exception) {
+            // Concurrent installer race — verification enforces final correctness.
+            $message = strtolower($exception->getMessage());
+            if (!str_contains($message, 'duplicate') && !str_contains($message, '1061')) {
+                // Leave to postconditions.
+            }
+        }
     }
 
     private function ensureDiagnosticCreatedAtIndex(): void
@@ -143,6 +333,7 @@ final class PersistenceSchemaInstaller
             "CREATE TABLE IF NOT EXISTS `{$financingAttempt}` (
                 `attempt_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `store_id` INT UNSIGNED NOT NULL,
+                `unicid` VARCHAR(64) NULL,
                 `entry_point` VARCHAR(16) NOT NULL,
                 `submission_token` CHAR(64) NULL,
                 `operation_key_hash` CHAR(64) NOT NULL,
@@ -165,7 +356,15 @@ final class PersistenceSchemaInstaller
                 `process2_state` VARCHAR(32) NOT NULL DEFAULT 'not_started',
                 `process2_sensitive_enc` TEXT NULL,
                 `process2_mail_sent` TINYINT(1) NOT NULL DEFAULT 0,
+                `process2_mail_state` VARCHAR(32) NOT NULL DEFAULT 'not_sent',
+                `process2_mail_claimed_at` DATETIME NULL,
+                `process2_mail_claim_token` CHAR(64) NULL,
                 `leasing_presentation_json` MEDIUMTEXT NULL,
+                `cp_status_sync_state` VARCHAR(32) NOT NULL DEFAULT 'not_needed',
+                `cp_status_sync_status_id` VARCHAR(255) NULL,
+                `cp_status_sync_status` VARCHAR(255) NULL,
+                `cp_status_sync_error_class` VARCHAR(64) NULL,
+                `cp_status_sync_updated_at` DATETIME NULL,
                 `last_error_class` VARCHAR(64) NULL,
                 `expires_at` DATETIME NULL,
                 `created_at` DATETIME NOT NULL,
@@ -176,7 +375,9 @@ final class PersistenceSchemaInstaller
                 KEY `idx_mt_uni_credit_attempt_operation` (`store_id`, `entry_point`, `operation_key_hash`, `state`),
                 KEY `idx_mt_uni_credit_attempt_cart` (`store_id`, `cart_id`, `state`),
                 KEY `idx_mt_uni_credit_attempt_state_updated` (`state`, `updated_at`),
-                KEY `idx_mt_uni_credit_attempt_expires` (`expires_at`)
+                KEY `idx_mt_uni_credit_attempt_expires` (`expires_at`),
+                KEY `idx_mt_uni_credit_attempt_cp_status_sync` (`cp_status_sync_state`),
+                KEY `idx_mt_uni_credit_attempt_store_order_unicid` (`store_id`, `order_id`, `unicid`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
             "CREATE TABLE IF NOT EXISTS `{$orderCorrelation}` (

@@ -102,14 +102,16 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             OperationEntryPoint::PRODUCT,
             $hash('op-a'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
         $second = $this->attempts->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
             OperationEntryPoint::PRODUCT,
             $hash('op-b'),
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
 
         $this->attempts->attachOrder((int) $first['attempt_id'], 71001);
@@ -127,7 +129,8 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             $entryPoint,
             $operationKeyHash,
             $hash('actor'),
-            $hash('selection')
+            $hash('selection'),
+            PersistenceIntegrationHarness::TEST_UNICID
         );
     }
 }

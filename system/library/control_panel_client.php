@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Control Panel HTTP client — login, refresh, logout, GET /shop (Phase 4).
+ * Control Panel HTTP client — login, refresh, logout, shop, orders (canonical envelopes).
  */
 final class ControlPanelClient implements ControlPanelOrderStatusPort
 {
@@ -60,12 +60,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             'name' => $this->shopName,
             'secret' => $secret,
         ]);
-        $this->storeTokenResponse($response);
-
-        if (!isset($response['shop']) || !is_array($response['shop'])) {
-            $this->tokens->invalidate();
-            throw new CpInvalidPayloadException('The Control Panel login response has no valid shop data.');
-        }
+        $this->storeTokenResponse($response, true);
 
         return $response;
     }
@@ -80,7 +75,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
 
         try {
             $response = $this->send('POST', '/auth/refresh', null, $token);
-            $this->storeTokenResponse($response);
+            $this->storeTokenResponse($response, false);
 
             return $response;
         } catch (CpAuthenticationException $exception) {
@@ -94,7 +89,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
     {
         $token = $this->tokens->getAccessToken();
         if ($token === null) {
-            return ['success' => true];
+            return InboundApiEnvelope::success('Logged out locally.');
         }
 
         try {
@@ -108,7 +103,8 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
     public function getShop(): array
     {
         $response = $this->authenticatedRequest('GET', '/shop');
-        if (!isset($response['data']) || !is_array($response['data'])) {
+        $data = $response['data'] ?? null;
+        if (!is_array($data) || !$this->isAssociativeObject($data)) {
             throw new CpInvalidPayloadException('The Control Panel shop response has no valid data object.');
         }
 
@@ -169,7 +165,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
     }
 
     /**
-     * POST /orders — Phase 10B financing order create (idempotent by shop_id + order_id).
+     * POST /orders — financing order create (idempotent by shop_id + order_id).
      *
      * @param array<string, mixed> $order
      * @return array<string, mixed>
@@ -177,9 +173,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
     public function createOrder(array $order): array
     {
         $response = $this->authenticatedRequest('POST', '/orders', $order);
-        if (!isset($response['data']) || !is_array($response['data'])) {
-            throw new CpInvalidPayloadException('The Control Panel order response has no valid data object.');
-        }
+        $this->assertCreateOrderIdentity($response, $order);
 
         return $response;
     }
@@ -189,20 +183,25 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
      *
      * @param string $shopOrderId Shop order identifier — same value as POST /orders `order_id`
      *                            (local OpenCart order id), not the Control Panel internal PK.
+     * @return array<string, mixed>
      */
-    public function updateOrderStatus(string $shopOrderId, string $statusLabel, string $statusId): void
+    public function updateOrderStatus(string $shopOrderId, string $statusLabel, string $statusId): array
     {
         $shopOrderId = trim($shopOrderId);
         $statusLabel = trim($statusLabel);
         $statusId = trim($statusId);
-        if ($shopOrderId === '' || $statusId === '') {
+        if ($shopOrderId === '' || $statusId === '' || $statusLabel === '') {
             throw new CpInvalidPayloadException('Control Panel order status fields are incomplete.');
         }
-        $this->authenticatedRequest('PATCH', '/orders/status', [
+        $payload = [
             'order_id' => $shopOrderId,
             'status' => $statusLabel,
             'status_id' => $statusId,
-        ]);
+        ];
+        $response = $this->authenticatedRequest('PATCH', '/orders/status', $payload);
+        $this->assertPatchStatusEcho($response, $payload);
+
+        return $response;
     }
 
     /**
@@ -216,6 +215,11 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
         try {
             return $this->send($method, $path, $payload, $token);
         } catch (CpAuthenticationException $exception) {
+            // POST /orders must never auto-replay after a remote response — lifecycle owns create ambiguity.
+            if (!$this->allowsAuthenticationRetry($method, $path)) {
+                throw $exception;
+            }
+
             $this->tokens->invalidate();
             $this->login();
             $retryToken = $this->tokens->getAccessToken();
@@ -230,6 +234,26 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
                 throw $retryException;
             }
         }
+    }
+
+    /**
+     * Automatic login-and-retry after a *canonical* 401 is allowed only for idempotent routes.
+     * Unsafe create (POST /orders) is never auto-replayed once a remote response was received.
+     */
+    private function allowsAuthenticationRetry(string $method, string $path): bool
+    {
+        $method = strtoupper($method);
+        $normalized = '/' . trim($path, '/');
+
+        if ($method === 'GET' && ($normalized === '/shop' || str_starts_with($normalized, '/ssl/'))) {
+            return true;
+        }
+
+        if ($method === 'PATCH' && $normalized === '/orders/status') {
+            return true;
+        }
+
+        return false;
     }
 
     private function ensureToken(): string
@@ -278,40 +302,102 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             $headers,
             $payload
         );
-        if ($response->getStatusCode() === 401) {
-            throw new CpAuthenticationException('The Control Panel rejected the authentication.');
-        }
 
         if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
-            throw new CpHttpException(
-                $response->getStatusCode(),
-                $this->decodeErrorResponse($response->getBody())
+            // Including 401: bare/malformed bodies are not treated as safe auth evidence.
+            throw $this->buildHttpFailure($response->getStatusCode(), $response->getBody());
+        }
+
+        return $this->decodeSuccessEnvelope($response->getBody());
+    }
+
+    private function buildHttpFailure(int $statusCode, string $body): \Throwable
+    {
+        try {
+            $decodedObject = $this->decodeJsonAsObject($body);
+        } catch (CpMalformedJsonException $exception) {
+            return $exception;
+        }
+
+        if ($decodedObject === null) {
+            return new CpMalformedJsonException('The Control Panel JSON error response is not an object.');
+        }
+
+        if (!property_exists($decodedObject, 'success')
+            || $decodedObject->success !== false
+            || !property_exists($decodedObject, 'error')
+            || !is_string($decodedObject->error)
+            || $decodedObject->error === ''
+            || !property_exists($decodedObject, 'message')
+            || !is_string($decodedObject->message)
+            || !property_exists($decodedObject, 'data')
+            || !($decodedObject->data instanceof \stdClass)
+        ) {
+            return new CpInvalidPayloadException('The Control Panel error response is not a canonical failure envelope.');
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode(json_encode($decodedObject, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($decoded)) {
+            return new CpMalformedJsonException('The Control Panel JSON error response is not an object.');
+        }
+
+        $message = is_string($decodedObject->message) ? $decodedObject->message : 'Control Panel HTTP error.';
+
+        // Canonical 401 is structured auth failure evidence for safe-route retry policy.
+        if ($statusCode === 401) {
+            return new CpAuthenticationException(
+                $message !== '' ? $message : 'The Control Panel rejected the authentication.'
             );
         }
 
-        $decoded = $this->decode($response->getBody());
-
-        if (($decoded['success'] ?? null) !== true) {
-            throw new CpInvalidPayloadException('The Control Panel response does not confirm success.');
-        }
-
-        return $decoded;
+        return new CpHttpException(
+            $statusCode,
+            $decoded,
+            $message,
+            true,
+            $decodedObject->error
+        );
     }
 
     /** @return array<string, mixed> */
-    private function decode(string $body): array
+    private function decodeSuccessEnvelope(string $body): array
     {
-        try {
-            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new CpMalformedJsonException('The Control Panel returned malformed JSON.', 0, $exception);
+        $decodedObject = $this->decodeJsonAsObject($body);
+        if ($decodedObject === null) {
+            throw new CpMalformedJsonException('The Control Panel JSON response is not an object.');
         }
 
+        if (!property_exists($decodedObject, 'success')
+            || $decodedObject->success !== true
+            || !property_exists($decodedObject, 'error')
+            || $decodedObject->error !== null
+            || !property_exists($decodedObject, 'message')
+            || !is_string($decodedObject->message)
+            || !property_exists($decodedObject, 'data')
+            || !($decodedObject->data instanceof \stdClass)
+        ) {
+            throw new CpInvalidPayloadException('The Control Panel response does not confirm success.');
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode(json_encode($decodedObject, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($decoded)) {
             throw new CpMalformedJsonException('The Control Panel JSON response is not an object.');
         }
 
         return $decoded;
+    }
+
+    private function decodeJsonAsObject(string $body): ?\stdClass
+    {
+        try {
+            $decoded = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new CpMalformedJsonException('The Control Panel returned malformed JSON.', 0, $exception);
+        }
+
+        return $decoded instanceof \stdClass ? $decoded : null;
     }
 
     /** @return array<string, mixed> */
@@ -363,11 +449,25 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
     }
 
     /** @param array<string, mixed> $response */
-    private function storeTokenResponse(array $response): void
+    private function storeTokenResponse(array $response, bool $requireShop): void
     {
-        $accessToken = $response['access_token'] ?? null;
-        $tokenType = $response['token_type'] ?? null;
-        $expiresIn = $response['expires_in'] ?? null;
+        $data = $response['data'] ?? null;
+        if (!is_array($data) || !$this->isAssociativeObject($data)) {
+            $this->tokens->invalidate();
+            throw new CpInvalidPayloadException('The Control Panel token response has no valid data object.');
+        }
+
+        // Tokens ONLY from response.data — reject legacy top-level token fields.
+        if (isset($response['access_token']) || isset($response['token_type']) || isset($response['expires_in'])) {
+            if (!isset($data['access_token'])) {
+                $this->tokens->invalidate();
+                throw new CpInvalidPayloadException('The Control Panel token response uses legacy top-level token fields.');
+            }
+        }
+
+        $accessToken = $data['access_token'] ?? null;
+        $tokenType = $data['token_type'] ?? null;
+        $expiresIn = $data['expires_in'] ?? null;
 
         if (
             !is_string($accessToken) || $accessToken === ''
@@ -378,10 +478,123 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             throw new CpInvalidPayloadException('The Control Panel token response is invalid.');
         }
 
+        if ($requireShop) {
+            $shop = $data['shop'] ?? null;
+            if (!is_array($shop)) {
+                $this->tokens->invalidate();
+                throw new CpInvalidPayloadException('The Control Panel login response has no valid shop data.');
+            }
+
+            $responseUnicid = $shop['unicid'] ?? null;
+            $configuredUnicid = $this->credentials->getUnicid($this->storeId);
+            if (
+                !is_string($responseUnicid)
+                || $responseUnicid === ''
+                || $configuredUnicid === ''
+                || !hash_equals($configuredUnicid, $responseUnicid)
+            ) {
+                $this->tokens->invalidate();
+                throw new CpInvalidPayloadException('The Control Panel login shop UNICID does not match configuration.');
+            }
+        }
+
         if (!$this->tokens->save($accessToken, $tokenType, $this->now() + (int) $expiresIn)) {
             $this->tokens->invalidate();
             throw new CpInvalidPayloadException('The Control Panel token could not be stored.');
         }
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @param array<string, mixed> $order
+     */
+    private function assertCreateOrderIdentity(array $response, array $order): void
+    {
+        $data = $response['data'] ?? null;
+        if (!is_array($data) || !$this->isAssociativeObject($data)) {
+            throw new CpInvalidPayloadException('The Control Panel create-order response has no valid data object.');
+        }
+
+        $id = $data['id'] ?? null;
+        if (!is_int($id) || $id <= 0) {
+            throw new CpInvalidPayloadException('The Control Panel create-order response has no order id.');
+        }
+
+        $sentOrderId = $order['order_id'] ?? null;
+        if (!is_string($sentOrderId) || $sentOrderId === '') {
+            throw new CpInvalidPayloadException('The Control Panel create-order request order_id is invalid.');
+        }
+        $echoOrderId = $data['order_id'] ?? null;
+        if (!is_string($echoOrderId) || $echoOrderId !== $sentOrderId) {
+            throw new CpInvalidPayloadException('The Control Panel create-order response order_id does not match the request.');
+        }
+
+        $configuredUnicid = $this->credentials->getUnicid($this->storeId);
+        $echoUnicid = $data['unicid'] ?? null;
+        if (!is_string($echoUnicid)
+            || $echoUnicid === ''
+            || $configuredUnicid === ''
+            || !hash_equals($configuredUnicid, $echoUnicid)
+        ) {
+            throw new CpInvalidPayloadException('The Control Panel create-order response unicid does not match configuration.');
+        }
+
+        $shopId = $data['shop_id'] ?? null;
+        if (!is_int($shopId) || $shopId <= 0) {
+            throw new CpInvalidPayloadException('The Control Panel create-order response has no valid shop_id.');
+        }
+
+        $createdAt = $data['created_at'] ?? null;
+        if (!is_string($createdAt) || trim($createdAt) === '') {
+            throw new CpInvalidPayloadException('The Control Panel create-order response has no valid created_at.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @param array{order_id: string, status_id: string, status: string} $payload
+     */
+    private function assertPatchStatusEcho(array $response, array $payload): void
+    {
+        $data = $response['data'] ?? null;
+        if (!is_array($data) || !$this->isAssociativeObject($data)) {
+            throw new CpInvalidPayloadException('The Control Panel status response has no valid data object.');
+        }
+
+        $id = $data['id'] ?? null;
+        if (!is_int($id) || $id <= 0) {
+            throw new CpInvalidPayloadException('The Control Panel status response has no valid id.');
+        }
+
+        $shopId = $data['shop_id'] ?? null;
+        if (!is_int($shopId) || $shopId <= 0) {
+            throw new CpInvalidPayloadException('The Control Panel status response has no valid shop_id.');
+        }
+
+        $echoOrderId = $data['order_id'] ?? null;
+        $echoStatusId = $data['status_id'] ?? null;
+        $echoStatus = $data['status'] ?? null;
+        if (!is_string($echoOrderId) || $echoOrderId !== $payload['order_id']
+            || !is_string($echoStatusId) || $echoStatusId !== $payload['status_id']
+            || !is_string($echoStatus) || $echoStatus !== $payload['status']
+        ) {
+            throw new CpInvalidPayloadException('The Control Panel status response does not echo the request identity.');
+        }
+
+        $updatedAt = $data['updated_at'] ?? null;
+        if (!is_string($updatedAt) || trim($updatedAt) === '') {
+            throw new CpInvalidPayloadException('The Control Panel status response has no valid updated_at.');
+        }
+    }
+
+    /** @param array<mixed> $value */
+    private function isAssociativeObject(array $value): bool
+    {
+        if ($value === []) {
+            return true;
+        }
+
+        return !array_is_list($value);
     }
 
     private function now(): int

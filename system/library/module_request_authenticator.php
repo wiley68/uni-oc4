@@ -36,10 +36,14 @@ final class ModuleRequestAuthenticator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * Authenticate a signed inbound request.
+     *
+     * Order: enabled/credentials → HMAC on raw body → JSON object decode → UNICID → nonce claim.
+     *
      * @param array<string, string> $headers
+     * @return array{0: array<string, mixed>, 1: string} decoded payload and authenticated unicid
      */
-    public function authenticate(array $payload, string $rawBody, array $headers): string
+    public function authenticate(string $rawBody, array $headers): array
     {
         if (!$this->moduleEnabled) {
             throw new ModuleApiException('Модулът е изключен.', 403);
@@ -51,6 +55,11 @@ final class ModuleRequestAuthenticator
             throw new ModuleApiException('Модулът не е конфигуриран.', 401);
         }
 
+        // HMAC over exact raw body before JSON decode / UNICID binding.
+        $this->verifier->verify($storedSecret, $rawBody, $headers);
+
+        $payload = $this->decodeJsonObject($rawBody);
+
         $unicid = $payload['unicid'] ?? null;
         if (!is_string($unicid) || $unicid === '') {
             throw $this->authFailure();
@@ -60,14 +69,38 @@ final class ModuleRequestAuthenticator
             throw $this->authFailure();
         }
 
-        $this->verifier->verify($storedSecret, $rawBody, $headers);
-
         $nonce = $this->verifier->extractNonce($headers);
-        if (!$this->nonces->claim($this->storeId, $unicid, $nonce)) {
-            throw $this->authFailure();
+        try {
+            if (!$this->nonces->claim($this->storeId, $unicid, $nonce)) {
+                throw $this->authFailure();
+            }
+        } catch (PersistenceException $exception) {
+            throw new ModuleApiException(
+                'Хранилището за replay защита временно е недостъпно.',
+                500,
+                'replay_store_failed',
+                null,
+                $exception
+            );
         }
 
-        return $unicid;
+        return [$payload, $unicid];
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeJsonObject(string $rawBody): array
+    {
+        try {
+            $payload = json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new ModuleApiException('JSON тялото на заявката е невалидно.', 400);
+        }
+
+        if (!is_array($payload) || ($payload !== [] && array_is_list($payload))) {
+            throw new ModuleApiException('JSON тялото на заявката трябва да бъде обект.', 400);
+        }
+
+        return $payload;
     }
 
     private function authFailure(): ModuleApiException

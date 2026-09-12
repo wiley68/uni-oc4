@@ -2,9 +2,11 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Api;
 
+use Opencart\System\Library\Extension\MtUniCredit\InboundApiOperations;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleApiException;
 use Opencart\System\Library\Extension\MtUniCredit\ShopCacheRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationSnapshotValidator;
+use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotSanitizer;
 use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotValidationException;
 
 /**
@@ -17,13 +19,23 @@ use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotValidationExceptio
  */
 class ShopCache extends InboundApiBase
 {
+    protected function expectedOperation(): string
+    {
+        return InboundApiOperations::SHOP_CACHE;
+    }
+
     public function index(): void
     {
         $this->runInbound(function (array $payload, string $unicid): array {
             $data = $payload['data'] ?? null;
-            if (!is_array($data) || $data === []) {
+            if (!is_array($data) || array_is_list($data)) {
                 throw new ModuleApiException('Полето data трябва да съдържа пълна конфигурация на магазина.', 400);
             }
+            if ($data === []) {
+                throw new ModuleApiException('Полето data трябва да съдържа пълна конфигурация на магазина.', 400);
+            }
+
+            $data = ShopSnapshotSanitizer::sanitize($data);
 
             if (isset($data['unicid']) && (!is_string($data['unicid']) || !hash_equals($unicid, $data['unicid']))) {
                 throw new ModuleApiException('UNICID в конфигурацията не съвпада с този на магазина.', 400);
@@ -40,7 +52,7 @@ class ShopCache extends InboundApiBase
                 throw new ModuleApiException(
                     'Конфигурацията на магазина е невалидна.',
                     422,
-                    $exception->errorCode(),
+                    'shop_snapshot_invalid',
                     ['violations' => $exception->violations()]
                 );
             }

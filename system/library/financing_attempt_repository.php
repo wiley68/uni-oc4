@@ -31,6 +31,7 @@ final class FinancingAttemptRepository
         string $operationKeyHash,
         string $actorBindingHash,
         string $selectionHash,
+        string $unicid,
         ?int $cartId = null,
         ?string $cartFingerprint = null
     ): array {
@@ -38,7 +39,7 @@ final class FinancingAttemptRepository
             throw new PersistenceValidationException('Submission tokens are issued only for product, cart, or checkout entry points.');
         }
 
-        $this->validateIssueInputs($storeId, $entryPoint, $operationKeyHash, $actorBindingHash, $selectionHash, $cartId, $cartFingerprint);
+        $this->validateIssueInputs($storeId, $entryPoint, $operationKeyHash, $actorBindingHash, $selectionHash, $cartId, $cartFingerprint, $unicid);
 
         for ($attempt = 0; $attempt < 3; ++$attempt) {
             $token = SubmissionTokenGenerator::generate();
@@ -51,7 +52,8 @@ final class FinancingAttemptRepository
                     $actorBindingHash,
                     $selectionHash,
                     $cartId,
-                    $cartFingerprint
+                    $cartFingerprint,
+                    $unicid
                 );
             } catch (\Throwable $exception) {
                 if (!self::isDuplicateKeyError($exception)) {
@@ -71,6 +73,7 @@ final class FinancingAttemptRepository
         string $operationKeyHash,
         string $actorBindingHash,
         string $selectionHash,
+        string $unicid,
         ?int $cartId = null,
         ?string $cartFingerprint = null
     ): array {
@@ -81,7 +84,8 @@ final class FinancingAttemptRepository
             $actorBindingHash,
             $selectionHash,
             $cartId,
-            $cartFingerprint
+            $cartFingerprint,
+            $unicid
         );
 
         return $this->insertAttempt(
@@ -92,7 +96,8 @@ final class FinancingAttemptRepository
             $actorBindingHash,
             $selectionHash,
             $cartId,
-            $cartFingerprint
+            $cartFingerprint,
+            $unicid
         );
     }
 
@@ -388,7 +393,8 @@ final class FinancingAttemptRepository
         string $actorBindingHash,
         string $selectionHash,
         ?int $cartId,
-        ?string $cartFingerprint
+        ?string $cartFingerprint,
+        string $unicid
     ): array {
         $now = $this->clock->now();
         $createdAt = $this->clock->formatUtc($now);
@@ -402,13 +408,15 @@ final class FinancingAttemptRepository
         $cartFingerprintSql = ($cartFingerprint !== null && PersistenceHashValidator::isSha256Hex($cartFingerprint))
             ? "'" . $this->db->escape($cartFingerprint) . "'"
             : 'NULL';
+        $unicidSql = "'" . $this->db->escape($unicid) . "'";
 
         $this->db->query(
             "INSERT INTO `{$table}`
-                (`store_id`, `entry_point`, `submission_token`, `operation_key_hash`, `actor_binding_hash`,
+                (`store_id`, `unicid`, `entry_point`, `submission_token`, `operation_key_hash`, `actor_binding_hash`,
                  `selection_hash`, `cart_id`, `cart_fingerprint`, `state`, `expires_at`, `created_at`, `updated_at`)
              VALUES (
                 " . (int) $storeId . ",
+                {$unicidSql},
                 '" . $this->db->escape($entryPoint) . "',
                 {$tokenSql},
                 '" . $this->db->escape($operationKeyHash) . "',
@@ -439,11 +447,16 @@ final class FinancingAttemptRepository
         string $actorBindingHash,
         string $selectionHash,
         ?int $cartId,
-        ?string $cartFingerprint
+        ?string $cartFingerprint,
+        string $unicid
     ): void {
         OpenCartStoreScope::require($storeId);
         if (!OperationEntryPoint::isValid($entryPoint)) {
             throw new PersistenceValidationException('Unsupported financing attempt entry point.');
+        }
+        $unicid = trim($unicid);
+        if ($unicid === '' || strlen($unicid) > 64) {
+            throw new PersistenceValidationException('Financing attempt UNICID is required for new attempts.');
         }
         PersistenceHashValidator::requireSha256Hex($operationKeyHash, 'operation_key_hash');
         PersistenceHashValidator::requireSha256Hex($actorBindingHash, 'actor_binding_hash');

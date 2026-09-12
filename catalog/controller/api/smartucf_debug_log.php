@@ -2,9 +2,14 @@
 
 namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Api;
 
+use Opencart\System\Library\Extension\MtUniCredit\BankStatus;
 use Opencart\System\Library\Extension\MtUniCredit\DiagnosticDebugLogRepository;
-use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
+use Opencart\System\Library\Extension\MtUniCredit\FinancingOrderAmbiguousException;
+use Opencart\System\Library\Extension\MtUniCredit\FinancingOrderResolver;
+use Opencart\System\Library\Extension\MtUniCredit\InboundApiOperations;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleApiException;
+use Opencart\System\Library\Extension\MtUniCredit\OrderBankStatusRepository;
+use Opencart\System\Library\Extension\MtUniCredit\SmartUcfLifecycleStates;
 
 /**
  * CP → module diagnostic debug retrieval (safe / redacted).
@@ -12,38 +17,53 @@ use Opencart\System\Library\Extension\MtUniCredit\ModuleApiException;
  * Route: extension/mt_uni_credit/api/smartucf_debug_log
  * Method: POST
  *
- * Phase 11 writers may populate diagnostic rows. Bridge A returns structured 404 when absent.
+ * Ownership checks run before any journal disclosure. All denials are opaque 404.
  */
 class SmartucfDebugLog extends InboundApiBase
 {
+    protected function expectedOperation(): string
+    {
+        return InboundApiOperations::SMARTUCF_DEBUG_LOG;
+    }
+
     public function index(): void
     {
         $this->runInbound(function (array $payload, string $unicid): array {
-            unset($unicid);
-
             $orderIdRaw = $payload['order_id'] ?? null;
-            if (!is_string($orderIdRaw) && !is_int($orderIdRaw)) {
+            if (!is_string($orderIdRaw)) {
                 throw new ModuleApiException('Полето order_id е задължително.', 400);
             }
-            $orderIdRaw = trim((string) $orderIdRaw);
-            if ($orderIdRaw === '' || strlen($orderIdRaw) > 64 || !ctype_digit($orderIdRaw)) {
+            $orderIdRaw = trim($orderIdRaw);
+            if ($orderIdRaw === '' || strlen($orderIdRaw) > 13 || !ctype_digit($orderIdRaw)) {
                 throw new ModuleApiException('Полето order_id е невалидно.', 400);
             }
 
-            $orderId = (int) $orderIdRaw;
             $storeId = $this->storeId();
             $db = $this->dbConnection();
 
-            // Authorize: financing attempt in this store, or same opaque 404 (no cross-shop oracle).
-            $attempt = (new FinancingAttemptRepository($db))->findByOrderId($storeId, $orderId);
-            $log = (new DiagnosticDebugLogRepository($db))->findLatestByOrderId($storeId, $orderId);
+            try {
+                $resolved = (new FinancingOrderResolver($db))->resolve($storeId, $unicid, $orderIdRaw);
+            } catch (FinancingOrderAmbiguousException $exception) {
+                throw $this->opaqueNotFound();
+            }
 
-            if ($attempt === null || $log === null) {
-                throw new ModuleApiException('Не е намерена диагностична информация за тази поръчка.', 404);
+            if ($resolved === null) {
+                throw $this->opaqueNotFound();
+            }
+
+            if (!$this->isAuthorizedPrimaryDebugTarget($storeId, $resolved['order_id'], $resolved['attempt'])) {
+                throw $this->opaqueNotFound();
+            }
+
+            $orderId = $resolved['order_id'];
+            $log = (new DiagnosticDebugLogRepository($db))->findLatestByOrderId($storeId, $orderId);
+            if ($log === null) {
+                throw $this->opaqueNotFound();
             }
 
             return [
                 'success' => true,
+                'message' => 'Диагностичният запис е намерен.',
                 'data' => [
                     'order_id' => $orderIdRaw,
                     'oc_order_id' => $orderId,
@@ -51,5 +71,30 @@ class SmartucfDebugLog extends InboundApiBase
                 ],
             ];
         });
+    }
+
+    /**
+     * Process 1 ownership only. Process-2-only and missing session ownership are opaque.
+     *
+     * @param array<string, mixed> $attempt
+     */
+    private function isAuthorizedPrimaryDebugTarget(int $storeId, int $orderId, array $attempt): bool
+    {
+        $bank = (new OrderBankStatusRepository($this->dbConnection()))->findCurrentStatus($storeId, $orderId);
+        if (is_array($bank) && (string) ($bank['status_id'] ?? '') === BankStatus::SENT_PROCESS2) {
+            return false;
+        }
+
+        $smartucfState = isset($attempt['smartucf_state']) ? (string) $attempt['smartucf_state'] : '';
+        if ($smartucfState === '' || $smartucfState === SmartUcfLifecycleStates::NOT_STARTED) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function opaqueNotFound(): ModuleApiException
+    {
+        return new ModuleApiException('Не е намерена диагностична информация за тази поръчка.', 404);
     }
 }

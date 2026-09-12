@@ -321,7 +321,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit {
      */
     interface ControlPanelOrderStatusPort
     {
-        public function updateOrderStatus(string $shopOrderId, string $statusLabel, string $statusId): void;
+        /** @return array<string, mixed> */
+        public function updateOrderStatus(string $shopOrderId, string $statusLabel, string $statusId): array;
     }
 }
 
