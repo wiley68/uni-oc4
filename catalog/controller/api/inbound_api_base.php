@@ -97,4 +97,9 @@ abstract class InboundApiBase extends \Opencart\System\Engine\Controller
     {
         return new OpenCartDbConnection($this->db, DB_PREFIX);
     }
+
+    protected function moduleSettingStore(): OpenCartModuleSettingStore
+    {
+        return new OpenCartModuleSettingStore($this->dbConnection());
+    }
 }

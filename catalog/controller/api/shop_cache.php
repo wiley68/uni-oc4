@@ -4,10 +4,14 @@ namespace Opencart\Catalog\Controller\Extension\MtUniCredit\Api;
 
 use Opencart\System\Library\Extension\MtUniCredit\InboundApiOperations;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleApiException;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleEncryptionKeyProvider;
+use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
 use Opencart\System\Library\Extension\MtUniCredit\ShopCacheRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationSnapshotValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotSanitizer;
 use Opencart\System\Library\Extension\MtUniCredit\ShopSnapshotValidationException;
+use Opencart\System\Library\Extension\MtUniCredit\SmartUcfCredentialPersistence;
+use Opencart\System\Library\Extension\MtUniCredit\SmartUcfCredentialRepository;
 
 /**
  * CP → module shop cache push.
@@ -42,12 +46,17 @@ class ShopCache extends InboundApiBase
             }
 
             $storeId = $this->storeId();
-            $cache = new ShopCacheRepository($this->dbConnection());
+            $db = $this->dbConnection();
+            $settings = $this->moduleSettingStore();
+            $cipher = new ModuleSettingCipher((new ModuleEncryptionKeyProvider())->resolveDerivedKey());
+            $cache = new ShopCacheRepository($db);
             $validator = new ShopConfigurationSnapshotValidator();
+            $smartUcfCredentials = new SmartUcfCredentialRepository($settings, $cipher);
+            $persistence = new SmartUcfCredentialPersistence($smartUcfCredentials, $cipher, $cache, $db);
 
             try {
                 $validator->validate($data, $unicid);
-                $cache->replaceValidated($storeId, $unicid, $data);
+                $persistence->persistValidatedSnapshot($storeId, $unicid, $data);
             } catch (ShopSnapshotValidationException $exception) {
                 throw new ModuleApiException(
                     'Конфигурацията на магазина е невалидна.',

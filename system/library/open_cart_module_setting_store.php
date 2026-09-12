@@ -40,6 +40,47 @@ final class OpenCartModuleSettingStore implements ModuleSettingStore
         return is_scalar($value) ? (string) $value : null;
     }
 
+    /**
+     * @param list<string> $keys
+     * @return array<string, ?string>
+     */
+    public function getMany(int $storeId, array $keys): array
+    {
+        $out = [];
+        foreach ($keys as $key) {
+            if (is_string($key) && $key !== '') {
+                $out[$key] = null;
+            }
+        }
+        if ($out === [] || !OpenCartStoreScope::isValid($storeId)) {
+            return $out;
+        }
+
+        $escaped = [];
+        foreach (array_keys($out) as $key) {
+            $escaped[] = "'" . $this->db->escape($key) . "'";
+        }
+        $table = $this->db->getPrefix() . 'setting';
+        $result = $this->db->query(
+            "SELECT `key`, `value` FROM `{$table}`
+             WHERE `store_id` = " . (int) $storeId . "
+               AND `key` IN (" . implode(',', $escaped) . ")"
+        );
+        if (!is_object($result) || $result->num_rows < 1) {
+            return $out;
+        }
+        foreach ($result->rows as $row) {
+            $key = (string) ($row['key'] ?? '');
+            if ($key === '' || !array_key_exists($key, $out)) {
+                continue;
+            }
+            $value = $row['value'] ?? null;
+            $out[$key] = is_scalar($value) ? (string) $value : null;
+        }
+
+        return $out;
+    }
+
     public function set(int $storeId, string $key, string $value): void
     {
         OpenCartStoreScope::require($storeId);

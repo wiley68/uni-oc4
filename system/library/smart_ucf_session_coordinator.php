@@ -82,6 +82,15 @@ final class SmartUcfSessionCoordinator
             return $known;
         }
 
+        // Fail-before-network: require hydrated SmartUCF credentials before claim or cURL.
+        if (!$this->hasRuntimeSmartUcfCredentials($shop)) {
+            return SmartUcfCoordinationResult::failed(
+                self::CUSTOMER_FAILED,
+                true,
+                'smartucf_credentials_unavailable'
+            );
+        }
+
         $lease = null;
         if (ShopConfigurationFlags::usesSmartUcfCertificate($shop)) {
             try {
@@ -722,5 +731,16 @@ final class SmartUcfSessionCoordinator
             );
         } catch (\Throwable $ignored) {
         }
+    }
+
+    /**
+     * @param array<string, mixed> $shop
+     */
+    private function hasRuntimeSmartUcfCredentials(array $shop): bool
+    {
+        $user = trim((string) ($shop['uni_user'] ?? ''));
+        $password = trim((string) ($shop['uni_password'] ?? ''));
+
+        return $user !== '' && $password !== '';
     }
 }

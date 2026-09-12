@@ -7,7 +7,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Narrow shop-cache sanitizer: retain safe unknown fields, strip unknown secret-like keys.
  *
- * Known Process 1 credentials (uni_user / uni_password) are retained — they are schema fields.
+ * Known SmartUCF credential keys (uni_user / uni_password) are retained through ingress so the
+ * shared credential partitioner can classify/persist them, then strip them from general shop_data.
  * Nested objects and list elements that are arrays are sanitized recursively.
  * Key matching normalizes camelCase / PascalCase / kebab-case / snake_case.
  */

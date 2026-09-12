@@ -131,7 +131,18 @@ final class CertificateLocalStore
 
     private function tryChmod(string $path, int $mode): void
     {
-        if (!@chmod($path, $mode)) {
+        // Local-only suppression: OpenCart/global handlers may still surface @-suppressed
+        // warnings into HTTP bodies. Swallow only this handled chmod warning, then log.
+        set_error_handler(static function (): bool {
+            return true;
+        });
+        try {
+            $ok = chmod($path, $mode);
+        } finally {
+            restore_error_handler();
+        }
+
+        if ($ok !== true) {
             // Non-fatal when the runtime already owns usable permissions; never emit PHP warnings.
             error_log('[mt_uni_credit] certificate store chmod failed mode=' . decoct($mode) . ' path_category=keys');
         }
@@ -214,8 +225,8 @@ final class CertificateLocalStore
             ) {
                 throw new CertificateSyncException('The staged certificate pair could not be written.', CertificateSyncException::REASON_LOCAL_FS);
             }
-            @chmod($stageCert, 0640);
-            @chmod($stageKey, 0600);
+            $this->tryChmod($stageCert, 0640);
+            $this->tryChmod($stageKey, 0600);
 
             if (!@rename($stageCert, $this->certificatePath()) || !@rename($stageKey, $this->privateKeyPath())) {
                 throw new CertificateSyncException('The staged certificate pair could not be promoted.', CertificateSyncException::REASON_LOCAL_FS);
@@ -278,8 +289,8 @@ final class CertificateLocalStore
             );
         }
 
-        @chmod($this->certificatePath(), 0640);
-        @chmod($this->privateKeyPath(), 0600);
+        $this->tryChmod($this->certificatePath(), 0640);
+        $this->tryChmod($this->privateKeyPath(), 0600);
         $directory = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'mt-uni-credit-ssl-' . bin2hex(random_bytes(8));
         if (!@mkdir($directory, 0700) && !is_dir($directory)) {
@@ -301,8 +312,8 @@ final class CertificateLocalStore
                     CertificateSyncException::REASON_LOCAL_FS
                 );
             }
-            @chmod($certificatePath, 0600);
-            @chmod($privateKeyPath, 0600);
+            $this->tryChmod($certificatePath, 0600);
+            $this->tryChmod($privateKeyPath, 0600);
         } catch (\Throwable $exception) {
             @unlink($certificatePath);
             @unlink($privateKeyPath);

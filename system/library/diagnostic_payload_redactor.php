@@ -39,6 +39,8 @@ final class DiagnosticPayloadRedactor
         'encryption_key',
         'password',
         'pass',
+        'uni_user',
+        'uni_password',
         'passphrase',
         'private_key',
         'private_key_pem',

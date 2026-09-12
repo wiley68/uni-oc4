@@ -100,7 +100,13 @@ final class Phase7AdminFinalizationTest extends TestCase
         self::assertStringContainsString('transient_failure', $model);
         self::assertStringContainsString('shop_snapshot_invalid', $model);
         self::assertStringNotContainsString('DeploymentHealthService()->isDeploymentReady', $model);
-        self::assertStringNotContainsString('smartucf', strtolower($model));
+        // Dedicated encrypted bank-login setting suffixes may contain the platform token; ignore those keys only.
+        $withoutCredentialKeys = preg_replace(
+            '/module_mt_uni_credit_smartucf_(user|password)|_smartucf_(user|password)/',
+            '',
+            strtolower($model)
+        ) ?? strtolower($model);
+        self::assertStringNotContainsString('smartucf', $withoutCredentialKeys);
         self::assertStringNotContainsString('avalon_cert.pem', $model);
         self::assertStringNotContainsString('avalon_private_key.pem', $model);
     }

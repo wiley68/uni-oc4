@@ -22,8 +22,8 @@ final class SmartUcfPayloadBuilder
         ], static fn(string $value): bool => trim($value) !== '')));
 
         $payload = [
-            'user' => (string) ($shop['uni_user'] ?? ''),
-            'pass' => (string) ($shop['uni_password'] ?? ''),
+            'user' => trim((string) ($shop['uni_user'] ?? '')),
+            'pass' => trim((string) ($shop['uni_password'] ?? '')),
             'orderNo' => (string) $localOrderId,
             'clientFirstName' => $this->clean($submission->customer->firstname),
             'clientLastName' => $this->clean($submission->customer->lastname),
@@ -37,6 +37,10 @@ final class SmartUcfPayloadBuilder
             'monthlyPayment' => $this->formatAmount($calculation->monthlyInstallment),
             'items' => $this->buildItems($submission->orderDraft->products, $shop, $submission->orderDraft->currencyCode),
         ];
+
+        if ($payload['user'] === '' || $payload['pass'] === '') {
+            throw new \InvalidArgumentException('SmartUCF credentials are required before payload build.');
+        }
 
         foreach (array_keys($payload) as $key) {
             if (preg_match('/egn|phone2/i', (string) $key)) {

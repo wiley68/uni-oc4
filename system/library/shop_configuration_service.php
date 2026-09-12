@@ -19,6 +19,10 @@ class ShopConfigurationService
 
     private ShopConfigurationSnapshotValidator $snapshotValidator;
 
+    private SmartUcfCredentialRepository $smartUcfCredentials;
+
+    private SmartUcfCredentialPersistence $credentialPersistence;
+
     private int $storeId;
 
     public function __construct(
@@ -27,6 +31,8 @@ class ShopConfigurationService
         ControlPanelClient $client,
         CpTokenRepository $tokens,
         int $storeId,
+        SmartUcfCredentialRepository $smartUcfCredentials,
+        SmartUcfCredentialPersistence $credentialPersistence,
         ?ShopConfigurationSnapshotValidator $snapshotValidator = null
     ) {
         $this->credentials = $credentials;
@@ -34,6 +40,8 @@ class ShopConfigurationService
         $this->client = $client;
         $this->tokens = $tokens;
         $this->storeId = $storeId;
+        $this->smartUcfCredentials = $smartUcfCredentials;
+        $this->credentialPersistence = $credentialPersistence;
         $this->snapshotValidator = $snapshotValidator ?? new ShopConfigurationSnapshotValidator();
     }
 
@@ -49,11 +57,11 @@ class ShopConfigurationService
         if (!$forceRefresh) {
             $cached = $this->cache->findFresh($this->storeId, $unicid);
             if ($cached !== null) {
-                return $cached['shop_data'];
+                return $this->hydrateRuntime($cached['shop_data']);
             }
         }
 
-        return $this->refresh($unicid);
+        return $this->hydrateRuntime($this->refresh($unicid));
     }
 
     /**
@@ -71,7 +79,7 @@ class ShopConfigurationService
         try {
             $cached = $this->cache->findFresh($this->storeId, $unicid);
 
-            return $cached !== null ? $cached['shop_data'] : null;
+            return $cached !== null ? $this->hydrateRuntime($cached['shop_data']) : null;
         } catch (\Throwable $exception) {
             return null;
         }
@@ -96,7 +104,7 @@ class ShopConfigurationService
             throw new CpAuthenticationException('UNICID is required to refresh the shop configuration.');
         }
 
-        return $this->refresh($unicid);
+        return $this->hydrateRuntime($this->refresh($unicid));
     }
 
     /**
@@ -112,9 +120,14 @@ class ShopConfigurationService
         }
 
         $this->snapshotValidator->validate($shopData, $unicid);
-        $this->cache->replaceValidated($this->storeId, $unicid, $shopData);
+        $this->credentialPersistence->persistValidatedSnapshot($this->storeId, $unicid, $shopData);
 
         return true;
+    }
+
+    public function smartUcfCredentials(): SmartUcfCredentialRepository
+    {
+        return $this->smartUcfCredentials;
     }
 
     /** @return array<string, mixed> */
@@ -128,9 +141,8 @@ class ShopConfigurationService
             }
 
             $this->snapshotValidator->validate($shopData, $unicid);
-            $this->cache->replaceValidated($this->storeId, $unicid, $shopData);
 
-            return $shopData;
+            return $this->credentialPersistence->persistValidatedSnapshot($this->storeId, $unicid, $shopData);
         } catch (ShopSnapshotValidationException $exception) {
             throw $exception;
         } catch (CpAuthenticationException $exception) {
@@ -146,6 +158,15 @@ class ShopConfigurationService
             $this->purgePermanentFailure($unicid);
             throw $exception;
         }
+    }
+
+    /**
+     * @param array<string, mixed> $shopData
+     * @return array<string, mixed>
+     */
+    private function hydrateRuntime(array $shopData): array
+    {
+        return $this->smartUcfCredentials->hydrateShopSnapshot($this->storeId, $shopData);
     }
 
     private function purgePermanentFailure(string $unicid): void

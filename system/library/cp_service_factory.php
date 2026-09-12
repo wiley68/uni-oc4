@@ -33,6 +33,7 @@ final class CpServiceFactory
         $keyProvider = new ModuleEncryptionKeyProvider();
         $cipher = new ModuleSettingCipher($keyProvider->resolveDerivedKey($encryptionSecretInputOverride));
         $credentials = new ModuleCredentialsRepository($settings, $cipher);
+        $smartUcfCredentials = new SmartUcfCredentialRepository($settings, $cipher);
         $tokens = new CpTokenRepository($settings, $cipher, $storeId);
         $shopName = (new CanonicalShopUrlProvider())->resolve($catalogSslUrl, $catalogPlainUrl);
         $client = new ControlPanelClient(
@@ -45,12 +46,20 @@ final class CpServiceFactory
             $wallClock
         );
         $cache = new ShopCacheRepository($db, $clock);
+        $credentialPersistence = new SmartUcfCredentialPersistence(
+            $smartUcfCredentials,
+            $cipher,
+            $cache,
+            $db
+        );
         $shopConfiguration = new ShopConfigurationService(
             $credentials,
             $cache,
             $client,
             $tokens,
-            $storeId
+            $storeId,
+            $smartUcfCredentials,
+            $credentialPersistence
         );
         $presenter = new CpAdminHealthPresenter($credentials, $tokens, $shopConfiguration, $storeId);
         $credentialChange = new CredentialChangeHandler($tokens, $cache, $storeId);

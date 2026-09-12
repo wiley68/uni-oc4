@@ -56,6 +56,7 @@ class MtUniCredit extends \Opencart\System\Engine\Model
     {
         $this->removeEvents();
         $this->deleteStaleAwaitingFinancingSetting();
+        $this->deleteDedicatedEncryptedBankLoginSettings();
     }
 
     /**
@@ -70,6 +71,23 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         $this->db->query(
             "DELETE FROM `" . DB_PREFIX . "setting`
              WHERE `key` = 'module_mt_uni_credit_awaiting_financing_order_status_id'"
+        );
+    }
+
+    /**
+     * Remove store-scoped encrypted bank login settings (operational tables retained).
+     */
+    private function deleteDedicatedEncryptedBankLoginSettings(): void
+    {
+        if (!defined('DB_PREFIX')) {
+            return;
+        }
+
+        $userKey = ModuleConstants::MODULE_SETTING_CODE . '_smartucf_user';
+        $passwordKey = ModuleConstants::MODULE_SETTING_CODE . '_smartucf_password';
+        $this->db->query(
+            "DELETE FROM `" . DB_PREFIX . "setting`
+             WHERE `key` IN ('" . $this->db->escape($userKey) . "', '" . $this->db->escape($passwordKey) . "')"
         );
     }
 

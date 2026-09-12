@@ -15,6 +15,23 @@ final class InMemoryModuleSettingStore implements ModuleSettingStore
         return $this->values[$storeId][$key] ?? null;
     }
 
+    /**
+     * @param list<string> $keys
+     * @return array<string, ?string>
+     */
+    public function getMany(int $storeId, array $keys): array
+    {
+        $out = [];
+        foreach ($keys as $key) {
+            if (!is_string($key) || $key === '') {
+                continue;
+            }
+            $out[$key] = $this->values[$storeId][$key] ?? null;
+        }
+
+        return $out;
+    }
+
     public function set(int $storeId, string $key, string $value): void
     {
         $this->values[$storeId][$key] = $value;
