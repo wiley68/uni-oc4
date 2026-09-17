@@ -171,15 +171,15 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         ]);
         $orders = new \MtUniCredit\Tests\Support\InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
-        try {
-            $this->submitProduct($service);
-            self::fail('Expected rejection');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertSame(ControlPanelErrorClass::REJECTED, $exception->errorCode());
-        }
+        $result = $this->submitProduct($service);
+        self::assertFalse($result->success);
+        self::assertSame(
+            \Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::STEP_CP_TERMINAL_FAILED,
+            $result->step
+        );
         self::assertSame(1, $orders->addOrderCallCount());
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
-        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
+        self::assertSame(FinancingAttemptState::TERMINAL_FAILED, $row['state']);
         self::assertSame(ControlPanelErrorClass::REJECTED, $row['last_error_class']);
     }
 

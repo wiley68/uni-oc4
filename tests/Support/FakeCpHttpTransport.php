@@ -155,7 +155,21 @@ final class FakeCpHttpTransport implements CpHttpTransport
     {
         $count = 0;
         foreach ($this->requests as $request) {
-            if (strtoupper($request['method']) === 'POST' && str_contains($request['url'], '/orders')) {
+            if (strtoupper($request['method']) === 'POST' && str_contains($request['url'], '/orders')
+                && !str_contains($request['url'], '/status')
+            ) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    public function countStatusPatches(): int
+    {
+        $count = 0;
+        foreach ($this->requests as $request) {
+            if (strtoupper($request['method']) === 'PATCH' && str_contains($request['url'], '/orders/status')) {
                 $count++;
             }
         }

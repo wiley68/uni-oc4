@@ -25,6 +25,14 @@ final class ControlPanelOrderLifecycleService
         'order_not_found',
     ];
 
+    /**
+     * Explicit HTTP endpoint rejections that prove create was not accepted
+     * (no valid CP order), even without an application machine code.
+     *
+     * @var list<int>
+     */
+    private const DEFINITIVE_ENDPOINT_REJECTION_STATUSES = [403, 404, 405, 410];
+
     /** @var callable|null */
     private $logger;
 
@@ -237,7 +245,15 @@ final class ControlPanelOrderLifecycleService
             $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::TERMINAL_FAILED);
             $this->log('cp_rejected_terminal', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
 
-            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status);
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, true);
+        }
+
+        // Explicit endpoint rejection: create was not accepted; no CP order exists.
+        if (in_array($status, self::DEFINITIVE_ENDPOINT_REJECTION_STATUSES, true)) {
+            $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::TERMINAL_FAILED);
+            $this->log('cp_endpoint_rejected_terminal', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
+
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, true);
         }
 
         // Bare/malformed/non-definitive 409 remains ambiguous — never terminal_failed.

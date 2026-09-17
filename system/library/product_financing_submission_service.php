@@ -289,14 +289,23 @@ final class ProductFinancingSubmissionService
 
         $fresh = $this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow;
 
-        return FinancingControlPanelCompletion::apply(
-            $this->cpLifecycle,
-            new FinancingAttemptContext($fresh),
-            $submission,
-            $created->orderId,
-            $shop,
-            $lockOwnerToken
-        );
+        try {
+            $result = FinancingControlPanelCompletion::apply(
+                $this->cpLifecycle,
+                new FinancingAttemptContext($fresh),
+                $submission,
+                $created->orderId,
+                $shop,
+                $lockOwnerToken
+            );
+        } catch (ProductFinancingFlowException $exception) {
+            $this->materialization->applyProductCartVisibleStatus($created, $submission->entryPoint);
+            throw $exception;
+        }
+
+        $this->materialization->applyProductCartVisibleStatus($created, $submission->entryPoint);
+
+        return $result;
     }
 
     /**

@@ -351,9 +351,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 ];
             }
 
-            if (\Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::isSmartUcfTerminalFailure($result)) {
-                // Native editOrder() voids the draft first. Bank reject must not leave commerce
-                // at Voided/0 — apply the same UniCredit payment status used on success / Product/Cart.
+            if (\Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::isSmartUcfTerminalFailure($result)
+                || \Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::isCpTerminalFailure($result)
+            ) {
+                // Native editOrder() voids the draft first. Terminal bank failure must not leave
+                // commerce at Voided/0 — apply the same UniCredit payment status used on success.
                 $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
 
                 $payload = $result->toArray();

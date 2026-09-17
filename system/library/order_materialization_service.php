@@ -58,9 +58,8 @@ final class OrderMaterializationService
         $boundOrderId = $attempt->orderId();
         if ($boundOrderId !== null) {
             $created = $this->materializer->loadVerified($boundOrderId, $submission, true);
-            // Snapshot must exist before addHistory → native order emails.
+            // Snapshot must exist before later addHistory → native order emails.
             $this->persistPresentationBeforeMail($submission, $attempt, $created->orderId);
-            $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
 
             return $created;
         }
@@ -82,9 +81,9 @@ final class OrderMaterializationService
             );
         }
 
-        // Snapshot must exist before addHistory → native order emails (view/mail/*).
+        // Snapshot before mail-triggering addHistory. Visible status is applied after CP
+        // classification so definitive bank_send_failed_cp is present in standard emails.
         $this->persistPresentationBeforeMail($submission, $attempt, $created->orderId);
-        $this->ensureInterimVisibleStatus($created, $submission->entryPoint);
 
         return $created;
     }
@@ -114,11 +113,12 @@ final class OrderMaterializationService
     }
 
     /**
-     * Move Product/Cart orders off status 0 so Admin Orders lists them.
+     * Move Product/Cart orders off status 0 so Admin Orders lists them and native
+     * order emails fire. Call after CP create classification (or on ambiguous catch)
+     * so leasing mail can include a definitive bank status when one was persisted.
      * Idempotent: skips addHistory when already at the interim status.
-     * Also applied on recovered/bound retries after a failed prior status update.
      */
-    private function ensureInterimVisibleStatus(CreatedOpenCartOrder $created, string $entryPoint): void
+    public function applyProductCartVisibleStatus(CreatedOpenCartOrder $created, string $entryPoint): void
     {
         if (!$this->statusPolicy->shouldApplyProductCartStatus($entryPoint)) {
             return;

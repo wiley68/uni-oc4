@@ -18,6 +18,11 @@ final class FinancingLeasingPresenter
     'Поръчката Ви е регистрирана успешно в магазина, но заявката за финансиране не беше приета/стартирана успешно от банковата система. '
         . 'Не изпращайте поръчката повторно. При необходимост търговецът ще се свърже с Вас.';
 
+    /** Customer-safe definitive CP create failure (Shop order exists; CP order does not). */
+    public const CP_TERMINAL_FAILURE_MESSAGE =
+    'Поръчката Ви е регистрирана успешно в магазина, но изпращането към системата за финансиране не беше успешно. '
+        . 'Не изпращайте поръчката повторно. При необходимост търговецът ще се свърже с Вас.';
+
     public const LABEL_BANK_STATUS = 'Статус към банката';
     public const LABEL_CP_INTERNAL_ID = 'КП поръчка (ID)';
     public const LABEL_CP_SHOP_ORDER_ID = 'КП shop order_id';
@@ -92,6 +97,11 @@ final class FinancingLeasingPresenter
             && $status === BankStatus::LABEL_SEND_FAILED_SMARTUCF
         ) {
             $rows[] = ['label' => self::LABEL_MESSAGE, 'value' => self::SMARTUCF_TERMINAL_FAILURE_MESSAGE];
+        } elseif (
+            $audience === FinancingPresentationAudience::CUSTOMER
+            && $status === BankStatus::LABEL_SEND_FAILED_CP
+        ) {
+            $rows[] = ['label' => self::LABEL_MESSAGE, 'value' => self::CP_TERMINAL_FAILURE_MESSAGE];
         }
 
         return $rows;

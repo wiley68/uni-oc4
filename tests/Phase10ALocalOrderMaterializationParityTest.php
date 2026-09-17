@@ -75,8 +75,11 @@ final class Phase10ALocalOrderMaterializationParityTest extends TestCase
     public function testMaterializationServiceAppliesInterimStatusOnBoundRetry(): void
     {
         $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
-        self::assertStringContainsString('ensureInterimVisibleStatus', $src);
-        self::assertStringContainsString('boundOrderId !== null', $src);
+        self::assertStringContainsString('applyProductCartVisibleStatus', $src);
+        $product = (string) file_get_contents(dirname(__DIR__) . '/system/library/product_financing_submission_service.php');
+        $cart = (string) file_get_contents(dirname(__DIR__) . '/system/library/cart_financing_submission_service.php');
+        self::assertStringContainsString('applyProductCartVisibleStatus', $product);
+        self::assertStringContainsString('applyProductCartVisibleStatus', $cart);
         self::assertStringContainsString('current === $statusId', $src);
     }
 

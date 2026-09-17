@@ -313,13 +313,35 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
 
     private function buildHttpFailure(int $statusCode, string $body): \Throwable
     {
+        $definitiveEndpointRejection = in_array($statusCode, [403, 404, 405, 410], true);
+
         try {
             $decodedObject = $this->decodeJsonAsObject($body);
         } catch (CpMalformedJsonException $exception) {
+            if ($definitiveEndpointRejection) {
+                return new CpHttpException(
+                    $statusCode,
+                    [],
+                    'Control Panel endpoint rejected the create request.',
+                    false,
+                    null
+                );
+            }
+
             return $exception;
         }
 
         if ($decodedObject === null) {
+            if ($definitiveEndpointRejection) {
+                return new CpHttpException(
+                    $statusCode,
+                    [],
+                    'Control Panel endpoint rejected the create request.',
+                    false,
+                    null
+                );
+            }
+
             return new CpMalformedJsonException('The Control Panel JSON error response is not an object.');
         }
 
@@ -333,12 +355,32 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             || !property_exists($decodedObject, 'data')
             || !($decodedObject->data instanceof \stdClass)
         ) {
+            if ($definitiveEndpointRejection) {
+                return new CpHttpException(
+                    $statusCode,
+                    [],
+                    'Control Panel endpoint rejected the create request.',
+                    false,
+                    null
+                );
+            }
+
             return new CpInvalidPayloadException('The Control Panel error response is not a canonical failure envelope.');
         }
 
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode(json_encode($decodedObject, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($decoded)) {
+            if ($definitiveEndpointRejection) {
+                return new CpHttpException(
+                    $statusCode,
+                    [],
+                    'Control Panel endpoint rejected the create request.',
+                    false,
+                    null
+                );
+            }
+
             return new CpMalformedJsonException('The Control Panel JSON error response is not an object.');
         }
 

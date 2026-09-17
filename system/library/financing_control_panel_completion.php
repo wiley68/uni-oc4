@@ -51,6 +51,29 @@ final class FinancingControlPanelCompletion
             );
         }
 
+        if ($result->definitiveFailure) {
+            $status = BankStatus::cpFailure();
+            (new OrderBankStatusRepository($lifecycle->database()))->upsertAuthorizedLocal(
+                $submission->storeId,
+                $localOrderId,
+                $status['status_id'],
+                $status['status_label']
+            );
+
+            return new ProductFinancingResult(
+                false,
+                FinancingTerminalNavigationSupport::STEP_CP_TERMINAL_FAILED,
+                $localOrderId,
+                FinancingLeasingPresenter::CP_TERMINAL_FAILURE_MESSAGE,
+                false,
+                FinancingAttemptState::TERMINAL_FAILED,
+                null,
+                BankStatus::SEND_FAILED_CP,
+                (string) ($successRedirectUrl ?? ''),
+                false
+            );
+        }
+
         throw new ProductFinancingFlowException(
             $result->errorCode ?? 'cp_submit_failed',
             ControlPanelOrderLifecycleService::CUSTOMER_FAILURE_MESSAGE,

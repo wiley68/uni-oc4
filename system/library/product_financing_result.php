@@ -44,7 +44,9 @@ final class ProductFinancingResult
         if ($this->replay) {
             $payload['replay'] = true;
         }
-        if ($this->step === FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED) {
+        if ($this->step === FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED
+            || $this->step === FinancingTerminalNavigationSupport::STEP_CP_TERMINAL_FAILED
+        ) {
             $payload['terminal'] = true;
             $payload['bank_failure_known'] = true;
         }

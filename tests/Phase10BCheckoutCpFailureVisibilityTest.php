@@ -12,6 +12,7 @@ use MtUniCredit\Tests\Support\ProductFinancingTestHarness;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutCpFailureOrderVisibility;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutOrderCartParity;
 use Opencart\System\Library\Extension\MtUniCredit\CheckoutSessionOrderGuard;
+use Opencart\System\Library\Extension\MtUniCredit\BankStatus;
 use Opencart\System\Library\Extension\MtUniCredit\ControlPanelErrorClass;
 use Opencart\System\Library\Extension\MtUniCredit\CpHttpException;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
@@ -66,17 +67,18 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
         $orders = new InMemoryCheckoutOrderAdapter();
         $service = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport);
 
-        try {
-            $this->submitProduct($service);
-            self::fail('Expected CP rejection');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertSame(ControlPanelErrorClass::REJECTED, $exception->errorCode());
-            self::assertNotSame(ControlPanelErrorClass::TRANSPORT_FAILED, $exception->errorCode());
-        }
+        $result = $this->submitProduct($service);
+        self::assertFalse($result->success);
+        self::assertSame(
+            \Opencart\System\Library\Extension\MtUniCredit\FinancingTerminalNavigationSupport::STEP_CP_TERMINAL_FAILED,
+            $result->step
+        );
+        self::assertSame(BankStatus::SEND_FAILED_CP, $result->errorCode);
+        self::assertNotSame(ControlPanelErrorClass::TRANSPORT_FAILED, $result->errorCode);
 
         $row = $this->attempts->findByOrderId(ProductFinancingTestHarness::STORE_ID, $orders->lastOrderId());
         self::assertNotNull($row);
-        self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $row['state']);
+        self::assertSame(FinancingAttemptState::TERMINAL_FAILED, $row['state']);
         self::assertSame(ControlPanelErrorClass::REJECTED, $row['last_error_class']);
         self::assertNull($row['control_panel_order_id']);
     }

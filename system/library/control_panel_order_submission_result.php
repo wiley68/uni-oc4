@@ -13,17 +13,22 @@ final class ControlPanelOrderSubmissionResult
         public ?string $errorCode,
         public bool $recoverable,
         public ?int $httpStatus = null,
-        public bool $replay = false
+        public bool $replay = false,
+        public bool $definitiveFailure = false
     ) {
     }
 
     public static function ok(int $cpOrderId, bool $replay = false): self
     {
-        return new self(true, $cpOrderId, null, false, 200, $replay);
+        return new self(true, $cpOrderId, null, false, 200, $replay, false);
     }
 
-    public static function fail(string $errorCode, bool $recoverable, ?int $httpStatus = null): self
-    {
-        return new self(false, null, $errorCode, $recoverable, $httpStatus, false);
+    public static function fail(
+        string $errorCode,
+        bool $recoverable,
+        ?int $httpStatus = null,
+        bool $definitiveFailure = false
+    ): self {
+        return new self(false, null, $errorCode, $recoverable, $httpStatus, false, $definitiveFailure);
     }
 }

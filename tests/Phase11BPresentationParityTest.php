@@ -400,12 +400,14 @@ HTML;
 
     public function testMaterializationPersistsPresentationBeforeAddHistory(): void
     {
-        $src = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
-        self::assertMatchesRegularExpression(
-            '/persistPresentationBeforeMail[\s\S]*ensureInterimVisibleStatus/s',
-            $src
-        );
-        self::assertStringContainsString('Snapshot must exist before addHistory', $src);
+        $materialization = (string) file_get_contents(dirname(__DIR__) . '/system/library/order_materialization_service.php');
+        $product = (string) file_get_contents(dirname(__DIR__) . '/system/library/product_financing_submission_service.php');
+        $cart = (string) file_get_contents(dirname(__DIR__) . '/system/library/cart_financing_submission_service.php');
+        self::assertStringContainsString('persistPresentationBeforeMail', $materialization);
+        self::assertStringContainsString('Snapshot before mail-triggering addHistory', $materialization);
+        self::assertStringContainsString('applyProductCartVisibleStatus', $materialization);
+        self::assertStringContainsString('applyProductCartVisibleStatus', $product);
+        self::assertStringContainsString('applyProductCartVisibleStatus', $cart);
     }
 
     public function testAdditionalProcess2CustomerMailOmitsSensitive(): void

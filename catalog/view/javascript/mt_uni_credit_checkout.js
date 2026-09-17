@@ -598,6 +598,7 @@
       const isTerminalThankYou =
         json.terminal === true ||
         json.step === "smartucf_terminal_failed" ||
+        json.step === "cp_terminal_failed" ||
         (json.success && json.step === "process2_prepared");
       if (!isTerminalThankYou) {
         return false;
