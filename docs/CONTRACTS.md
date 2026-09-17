@@ -153,29 +153,36 @@ Implementations: `ModuleRequestSignatureProtocol`, `ModuleRequestAuthenticator`,
 
 ## 4. Речник на статусите
 
-### Изходящи bank status (модул → CP)
+**AUTHORITATIVE business rules** for public bank status, internal lifecycle state, leasing presentation, emails, and terminal UX: **`docs/BANK-STATUS-AND-PRESENTATION.md`**. That document overrides older wording in this section when they conflict.
 
-Точни низове от `src/Order/BankStatus.php` — **без** преименуване:
+### Изходящи standard bank status (модул → CP) — initial four only
 
-| `status_id`                 | `status_label`                        | Кога                                                               |
-| --------------------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| `bank_sent_process1`        | `Изпратен Банка - Процес 1`           | Phase 11: CP вече съществува **и** SmartUCF Process 1 успешен      |
-| `bank_sent_process2`        | `Изпратен Банка - Процес 2`           | Phase 11: Process 2 bank handoff (без SmartUCF)                    |
-| `bank_send_failed`          | `Неуспешно изпратен Банка`            | Phase 11 / legacy: bank send fail (Process 2 path)                 |
-| `bank_send_failed_cp`       | `Неуспешно изпратен Банка - КП`       | CP create fail (attempt taxonomy; not a bank-sent label on create) |
-| `bank_send_failed_smartucf` | `Неуспешно изпратен Банка - SmartUCF` | Phase 11: CP създадена **и** SmartUCF Process 1 fail               |
+Точни **публични** низове — **без** преименуване (общи за OC4 / Woo / PS8 / PS9 / CP):
+
+| `status_id`                 | `status_label` (AUTHORITATIVE)        | Кога                                                                   |
+| --------------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
+| `bank_send_failed_cp`       | `Неуспешно изпратен Банка - КП`       | Shop order exists; CP **не** е успешно създаден; SmartUCF не е успешен |
+| `bank_send_failed_smartucf` | `Неуспешно изпратен Банка - SmartUCF` | Shop + CP съществуват; SmartUCF create/send **definitive** fail        |
+| `bank_sent_process1`        | `Изпратен Банка - Процес 1`           | Shop + CP + успешен SmartUCF; Process 1                                |
+| `bank_sent_process2`        | `Изпратен Банка - Процес 2`           | Shop + CP; Process 2 (**без** изискване за SmartUCF доказателство)     |
+
+**Забранено като публичен банков статус:** `Неуспешно изпратен Банка` / `bank_send_failed` (generic). Process 1 и Process 2 при definitive CP failure ползват **само** `Неуспешно изпратен Банка - КП`.
+
+Ambiguous transport / timeout → internal lifecycle state only; **не** публикува автоматично failure bank status и **не** създава пети public status.
+
+Последващи статуси от SmartUCF (CP manual/periodic): записват се и се показват **точно както са върнати** — без rename / mapping / нормализация.
 
 Флаг: `ShopConfigurationFlags::isSecondaryProcess` → `(int) uni_proces === 1`. Името на процеса е **обърнато** спрямо числото.
 
 Phase 10B: POST `/api/v1/orders` **без** `status`/`status_id` за Process 1 и Process 2 → CP default `cp_sent`.  
 Process 1 (`uni_proces !== 1`): след Phase 10B → Phase 11 SmartUCF.  
-Process 2 (`uni_proces === 1`): след Phase 10B → Phase 11 native Process 2; ЕГН + `phone2` (deferred UI).
+Process 2 (`uni_proces === 1`): след Phase 10B → Phase 11 native Process 2; ЕГН + `phone2` (privacy: customer surfaces never show EGN).
 
-Inbound `orderbankstatus` **не** сменя storefront order state (`ps_order_state_changed: false`).
+Inbound `orderbankstatus` **не** сменя storefront order state (`ps_order_state_changed: false`). Later inbound/raw SmartUCF labels follow the raw-display rule above.
 
 ### CP enum (`app/Enums/OrderStatus.php`)
 
-API **не** форсира тези стойности. Default при create: `Създаден в КП Банка` / `cp_sent`. Пълният списък е в `tests/fixtures/status_vocabulary.json`.
+API **не** форсира тези стойности. Default при create: `Създаден в КП Банка` / `cp_sent`. Исторически списък: `tests/fixtures/status_vocabulary.json` (fixture may still list legacy `bank_send_failed`; that label is **not** a valid public bank status under the authoritative rules).
 
 ---
 

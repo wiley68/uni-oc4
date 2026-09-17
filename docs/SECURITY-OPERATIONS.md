@@ -30,6 +30,8 @@ Frozen `cp_payload` on the attempt row is required for idempotent recovery. Do n
 
 Process 2 EGN/phone2 live only in `process2_sensitive_enc` (encrypted). Never log them. Customer leasing email must not contain EGN. Retention redacts sensitive ciphertext after 180 days.
 
+Customer/business bank status and leasing presentation rules (what may appear on Thank You, emails, admin leasing panel vs diagnostic-only surfaces): **`docs/BANK-STATUS-AND-PRESENTATION.md`**.
+
 Process 2 encryption is **fail-closed**: if the deployment encryption secret cannot be resolved, sensitive fields are not persisted, Process 2 handoff does not claim `bank_sent_process2`, and no plaintext EGN/phone2 is written. Tests may inject an explicit secret; production never falls back to a predictable test value.
 
 Leasing presentation JSON (`leasing_presentation_json`) is redacted after **183 days (~6 months)** from attempt `created_at`. Bounded batch cleanup runs on presentation persist. Attempt rows and operational identifiers remain.

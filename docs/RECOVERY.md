@@ -1,5 +1,7 @@
 # Recovery — financing attempt / local order
 
+OpenCart cart/session/order recovery mechanics in this document are **implementation details**. They must not redefine business semantics for standard bank status, terminal results, emails, leasing presentation, or CP/SmartUCF outcomes. See **`docs/BANK-STATUS-AND-PRESENTATION.md`**.
+
 ## Crash window (Product / Cart)
 
 ```text
@@ -59,6 +61,8 @@ May re-POST frozen `cp_payload` only when the failure is proven local / pre-send
 Use when CP may have received/processed `POST /orders` but the module cannot prove the result. Preserve frozen `cp_payload` and local order identity. **Do not** automatically re-POST `/orders`, start SmartUCF, start Process 2, or write false `bank_send_failed_cp`. Operator / safe manual recovery only.
 
 Includes: transport timeout; connection failure after submission may have occurred; authentication failure after the request was sent; malformed response / malformed success / echo mismatch; HTTP 429; **HTTP 5xx**; unknown/noncanonical 4xx; malformed/noncanonical 409; persist race with known `cpId` before durable `control_panel_order_id` write.
+
+`cp_outcome_unknown` is an **internal/service lifecycle state**. It is not a public bank status and must not invent a fifth customer-facing bank-status label.
 
 Never invent a second shop `order_id`. CP has no GET-by-local-order lookup. See `docs/PHASE10B.md`.
 

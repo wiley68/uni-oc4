@@ -12,6 +12,21 @@ Each entry point eventually produces:
 validated context → usable local OC order → durable attempt/snapshot → CP lifecycle
 ```
 
+## Authoritative bank status & presentation
+
+Business rules for **standard bank status**, **internal/service lifecycle state**, leasing information, emails, terminal UX, and diagnostic visibility:
+
+→ **`docs/BANK-STATUS-AND-PRESENTATION.md`** (AUTHORITATIVE; overrides conflicting older phase notes)
+
+Initial public bank statuses (exact strings):
+
+```text
+Неуспешно изпратен Банка - КП
+Неуспешно изпратен Банка - SmartUCF
+Изпратен Банка - Процес 1
+Изпратен Банка - Процес 2
+```
+
 ## Current freeze boundaries
 
 | Phase              | Boundary                                              |

@@ -144,16 +144,19 @@ Lookup: `FinancingOrderResolver` — financing attempts for `(store_id, order_id
 
 P1↔P2 terminal conflict on UPSERT → **409** `semantic_conflict` (existing status retained).
 
-Accepted `status_id` vocabulary:
+Accepted `status_id` vocabulary (API accept list — not all values are valid **public** bank statuses for customer/business UI):
 
 - `cp_sent`, `smartucf_sent`
 - `bank_sent_process1`, `bank_sent_process2`
-- `bank_send_failed`, `bank_send_failed_cp`, `bank_send_failed_smartucf`
-- SmartUCF numeric codes: `^\d{1,3}$`
+- `bank_send_failed_cp`, `bank_send_failed_smartucf`
+- Legacy accept may still include `bank_send_failed` for compatibility; that generic label is **not** a valid public standard bank status (see `docs/BANK-STATUS-AND-PRESENTATION.md`)
+- SmartUCF numeric codes: `^\d{1,3}$` (and other raw SmartUCF status strings when returned later — store/display as returned)
 
 Unsupported status → **400** `unsupported_status`.
 Same status twice → idempotent success.
 OpenCart native order status is **not** changed (`oc_order_state_changed: false`).
+
+Later SmartUCF / CP status updates: persist and present the status **exactly as returned** — no rename/mapping into the four initial labels.
 
 **Success 200:**
 

@@ -48,6 +48,8 @@ Replay of `process2_prepared` reconciles bank status and does not duplicate mail
 
 ## Presentation parity (finalization)
 
+**Canonical field set and bank-status rules:** `docs/BANK-STATUS-AND-PRESENTATION.md`.
+
 Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amounts from attempt `leasing_presentation_json`, live bank status overlay):
 
 | Surface                            | Audience          | EGN / phone2       |
@@ -60,7 +62,16 @@ Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amo
 | Admin Order detail                 | admin_panel       | EGN + phone2 (PS9) |
 | Admin Orders list                  | status label only | —                  |
 
-Field order: Статус към банката → КП поръчка (ID) → КП shop order_id → Срок → КОП → amounts → ГЛП/ГПР → (audience-sensitive) → Съобщение (customer Process 2).
+Base leasing block field order (AUTHORITATIVE structure):
+
+```text
+Статус към банката → КП поръчка (ID) → КП shop order_id → Срок (месеци) → КОП
+→ Първоначална вноска → Сума на заема → Месечна вноска → Обща дължима сума → ГЛП / ГПР
+```
+
+Then optional audience-sensitive Process 2 fields (EGN/phone2/message) only where privacy rules allow. Do **not** append internal lifecycle / retry / SmartUCF diagnostic rows to this block.
+
+`process2_state` and similar values are **internal/service lifecycle states** — never shown as bank status on customer/business surfaces.
 
 ### Runtime placement (remediation)
 
@@ -80,4 +91,5 @@ Empty durable bank status does **not** invent `bank_sent_process*` labels (nativ
 - Zero `sucfOnlineSessionStart` calls under Process 2
 - Never write `bank_sent_process1` for Process 2 success
 - Do not use `bank_send_failed_smartucf` for Process 2 validation/mail failures
+- Definitive CP failure (Process 1 or 2) uses public status `Неуспешно изпратен Банка - КП` — never generic `Неуспешно изпратен Банка`
 - Version remains `2.0.2`
