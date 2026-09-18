@@ -126,7 +126,7 @@ final class Phase11AFinalizationRemediationTest extends TestCase
 
     public function testProcess1VocabularyAndVersionFrozen(): void
     {
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
         self::assertSame('bank_sent_process1', BankStatus::SENT_PROCESS1);
         self::assertSame('Изпратен Банка - Процес 1', BankStatus::LABEL_SENT_PROCESS1);
         self::assertSame('bank_sent_process2', BankStatus::SENT_PROCESS2);

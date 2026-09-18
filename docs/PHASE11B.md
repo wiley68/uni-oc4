@@ -92,4 +92,4 @@ Empty durable bank status does **not** invent `bank_sent_process*` labels (nativ
 - Never write `bank_sent_process1` for Process 2 success
 - Do not use `bank_send_failed_smartucf` for Process 2 validation/mail failures
 - Definitive CP failure (Process 1 or 2) uses public status `Неуспешно изпратен Банка - КП` — never generic `Неуспешно изпратен Банка`
-- Version remains `2.0.2`
+- Version remains `2.0.3`

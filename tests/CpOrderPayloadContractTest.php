@@ -19,7 +19,7 @@ final class CpOrderPayloadContractTest extends TestCase
         self::assertLessThanOrEqual(CpOrderPayloadConstraints::ORDER_ID_MAX, strlen($sample['order_id']));
         self::assertContains($sample['currency'], CpOrderPayloadConstraints::CURRENCIES);
         self::assertSame(1, preg_match(CpOrderPayloadConstraints::VERSION_PATTERN, $sample['version']));
-        self::assertSame('2.0.2', $sample['version']);
+        self::assertSame('2.0.3', $sample['version']);
         self::assertContains('order_id', $fixture['ps9_create_field_order']);
         self::assertSame(
             CpOrderPayloadConstraints::IDEMPOTENCY_SEMANTIC_FIELDS,

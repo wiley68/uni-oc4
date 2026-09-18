@@ -9,7 +9,9 @@ final class PostControlPanelLifecycleService
     public function __construct(
         private SmartUcfSessionCoordinator $coordinator,
         private ?ProcessTwoLifecycleCoordinator $process2Coordinator = null,
-        private ?string $successRedirectUrl = null
+        private ?string $successRedirectUrl = null,
+        private ?OrderBankStatusRepository $bankStatuses = null,
+        private ?SatrudnikFailureNotifier $satrudnikNotifier = null
     ) {}
 
     /**
@@ -44,6 +46,7 @@ final class PostControlPanelLifecycleService
             );
         }
 
+        $previousStatusId = $this->readPreviousBankStatusId($submission->storeId, $localOrderId);
         $result = $this->coordinator->run($attemptId, $shop, $submission, $localOrderId, $cpOrderId);
         if ($result->isCreated()) {
             return new ProductFinancingResult(
@@ -89,6 +92,18 @@ final class PostControlPanelLifecycleService
                 !$result->isRetryable()
                 && $result->errorClass() === SmartUcfFailureClassification::CLASS_REMOTE_REJECT
             ) {
+                if ($this->satrudnikNotifier !== null) {
+                    $status = BankStatus::smartUcfFailure();
+                    $this->satrudnikNotifier->notifyIfEligible(
+                        $shop,
+                        $localOrderId,
+                        $status['status_id'],
+                        $status['status_label'],
+                        $previousStatusId,
+                        $cpOrderId > 0 ? $cpOrderId : null
+                    );
+                }
+
                 return new ProductFinancingResult(
                     false,
                     FinancingTerminalNavigationSupport::STEP_SMARTUCF_TERMINAL_FAILED,
@@ -115,6 +130,27 @@ final class PostControlPanelLifecycleService
             $result->customerMessage() !== '' ? $result->customerMessage() : SmartUcfSessionCoordinator::CUSTOMER_FAILED,
             []
         );
+    }
+
+    private function readPreviousBankStatusId(int $storeId, int $orderId): ?string
+    {
+        if ($this->bankStatuses === null) {
+            return null;
+        }
+
+        try {
+            $previous = $this->bankStatuses->findCurrentStatus($storeId, $orderId);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (!is_array($previous)) {
+            return null;
+        }
+
+        $statusId = trim((string) ($previous['status_id'] ?? ''));
+
+        return $statusId !== '' ? $statusId : null;
     }
 
     /**

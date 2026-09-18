@@ -290,11 +290,11 @@ final class FinalAuditRemediation01Test extends TestCase
     public function testVersionRemainsFrozen(): void
     {
         self::assertSame(
-            '2.0.2',
+            '2.0.3',
             \Opencart\System\Library\Extension\MtUniCredit\ModuleConstants::VERSION
         );
         $install = json_decode((string) file_get_contents(dirname(__DIR__) . '/install.json'), true);
-        self::assertSame('2.0.2', $install['version'] ?? null);
+        self::assertSame('2.0.3', $install['version'] ?? null);
     }
 
     /**

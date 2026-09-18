@@ -31,7 +31,7 @@ final class Phase11AProcess1ContractTest extends TestCase
     {
         self::assertFalse(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 0]));
         self::assertTrue(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 1]));
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testPayloadHasNoProcess2IdentityFieldsAndKeepsEmptyPhone(): void

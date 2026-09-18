@@ -332,7 +332,7 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
 
     public function testVersionRemainsFrozen(): void
     {
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     private function successClient(string $sessionId = 'session-debug-902', int $orderId = 902): object

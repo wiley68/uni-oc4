@@ -249,7 +249,7 @@ final class Phase10BStaleCheckoutSessionOrderTest extends TestCase
         );
         self::assertStringContainsString('CheckoutSessionOrderGuard::reconcileSessionOrder', $src);
         self::assertStringContainsString('liveCheckoutGrandTotal()', $src);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testMerchandiseTotalIsNotOrderParityBase(): void

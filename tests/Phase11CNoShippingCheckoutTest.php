@@ -278,7 +278,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
 
     public function testModuleVersionRemains202(): void
     {
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testLoggedNoShippingCheckoutSubmitProcess1(): void

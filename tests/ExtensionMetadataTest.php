@@ -26,7 +26,7 @@ final class ExtensionMetadataTest extends TestCase
         self::assertSame([$expected['install_hook_json']], $install['install']);
         self::assertSame([$expected['uninstall_hook_json']], $install['uninstall']);
         self::assertSame(1, $install['status']);
-        self::assertSame('2.0.2', $install['version']);
+        self::assertSame('2.0.3', $install['version']);
     }
 
     public function testOpenCartNamespaceDerivationFromExtensionCode(): void

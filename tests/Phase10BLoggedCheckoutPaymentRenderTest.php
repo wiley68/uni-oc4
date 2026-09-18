@@ -133,7 +133,7 @@ final class Phase10BLoggedCheckoutPaymentRenderTest extends TestCase
     public function testSelectedPaymentOptionCodeUnchangedForLoggedAndGuest(): void
     {
         self::assertSame('mt_uni_credit.mt_uni_credit', PaymentIdentity::optionCode());
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testConfirmAjaxInsertsPaymentIntoCheckoutPaymentContainer(): void

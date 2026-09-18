@@ -60,7 +60,7 @@ final class DefinitiveCpCreateFailureRemediationTest extends TestCase
         $status = BankStatus::cpFailure();
         self::assertSame('bank_send_failed_cp', $status['status_id']);
         self::assertSame('Неуспешно изпратен Банка - КП', $status['status_label']);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testUnitEmailLeasingContainsExactCpFailureLabel(): void

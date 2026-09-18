@@ -17,7 +17,7 @@ final class Phase11CProductBuySchemePreselectTest extends TestCase
 {
     public function testVersionFrozen(): void
     {
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testStashPersistsNonDefaultSchemeKeyNotPreferredOfferDefault(): void

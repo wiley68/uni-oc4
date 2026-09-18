@@ -42,7 +42,7 @@ final class BridgeAInboundApiContractTest extends TestCase
             $doc
         );
         self::assertStringContainsString('operation', $doc);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testHmacMatchesFrozenVector(): void

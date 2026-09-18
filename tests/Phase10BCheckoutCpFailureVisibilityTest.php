@@ -186,7 +186,7 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
         self::assertStringContainsString('config_order_status_id', $model);
         $service = (string) file_get_contents(dirname(__DIR__) . '/system/library/checkout_financing_submission_service.php');
         self::assertStringContainsString('CheckoutCpFailureOrderVisibility', $service);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testProductCartModelsStillAvoidConfigOrderStatusFallback(): void

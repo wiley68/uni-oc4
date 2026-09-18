@@ -97,6 +97,6 @@ final class Phase11ARuntimeRemediationTest extends TestCase
             @rmdir($root);
         }
 
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 }

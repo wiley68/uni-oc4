@@ -35,7 +35,7 @@ final class Phase11CCheckoutProcess1RejectTest extends TestCase
 
     public function testVersionFrozen(): void
     {
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testCheckoutControllerAppliesPaymentStatusAndThankYouOnTerminalReject(): void

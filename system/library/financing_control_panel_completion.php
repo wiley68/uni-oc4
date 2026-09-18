@@ -53,11 +53,24 @@ final class FinancingControlPanelCompletion
 
         if ($result->definitiveFailure) {
             $status = BankStatus::cpFailure();
-            (new OrderBankStatusRepository($lifecycle->database()))->upsertAuthorizedLocal(
+            $bankStatuses = new OrderBankStatusRepository($lifecycle->database());
+            $previous = $bankStatuses->findCurrentStatus($submission->storeId, $localOrderId);
+            $previousStatusId = is_array($previous) ? trim((string) ($previous['status_id'] ?? '')) : '';
+
+            $bankStatuses->upsertAuthorizedLocal(
                 $submission->storeId,
                 $localOrderId,
                 $status['status_id'],
                 $status['status_label']
+            );
+
+            (new SatrudnikFailureNotifier(null, $lifecycle->database()))->notifyIfEligible(
+                $shop,
+                $localOrderId,
+                $status['status_id'],
+                $status['status_label'],
+                $previousStatusId !== '' ? $previousStatusId : null,
+                null
             );
 
             return new ProductFinancingResult(
@@ -164,6 +177,12 @@ final class FinancingControlPanelCompletion
             );
         }
 
-        return new PostControlPanelLifecycleService($coordinator, $process2, $successRedirectUrl);
+        return new PostControlPanelLifecycleService(
+            $coordinator,
+            $process2,
+            $successRedirectUrl,
+            new OrderBankStatusRepository($db),
+            new SatrudnikFailureNotifier(null, $db)
+        );
     }
 }

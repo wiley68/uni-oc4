@@ -256,7 +256,7 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
         self::assertNotFalse($thankYouPos);
         self::assertNotFalse($errorPos);
         self::assertLessThan($errorPos, $thankYouPos);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testCheckoutControllerAppliesStatusOnlyForTerminalOrSuccess(): void
@@ -272,6 +272,6 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             '/isSmartUcfTerminalFailure[\s\S]*?applyCheckoutUniCreditOrderStatus/s',
             $src
         );
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 }

@@ -227,7 +227,7 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
         $src = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php');
         self::assertStringNotContainsString('checkoutProcess1ToThankYou', $src);
         self::assertStringNotContainsString('isCheckoutProcess1Success', $src);
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
     }
 
     public function testProductCartPayloadKeepsBankUrl(): void

@@ -35,7 +35,7 @@ final class Phase11BProcess2ContractTest extends TestCase
     {
         self::assertTrue(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 1]));
         self::assertFalse(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 0]));
-        self::assertSame('2.0.2', ModuleConstants::VERSION);
+        self::assertSame('2.0.3', ModuleConstants::VERSION);
         self::assertSame(BankStatus::SENT_PROCESS2, BankStatus::process2Sent()['status_id']);
         self::assertSame(BankStatus::LABEL_SENT_PROCESS2, BankStatus::process2Sent()['status_label']);
     }
