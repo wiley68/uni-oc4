@@ -117,12 +117,12 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
         self::assertContains('module_mt_uni_credit_after_home_footer', EventRegistry::eventCodes());
     }
 
-    public function testHomeControllerUsesCacheOnlyShopConfiguration(): void
+    public function testHomeControllerUsesSharedPresentationResolver(): void
     {
         $controller = (string) file_get_contents(dirname(__DIR__) . '/catalog/controller/event/mt_uni_credit_home_controller.php');
         $resolver = (string) file_get_contents(dirname(__DIR__) . '/system/library/homepage_advertising_context_resolver.php');
         self::assertStringContainsString('HomepageAdvertisingContextResolver', $controller);
-        self::assertStringContainsString('getCachedOnly()', $resolver);
+        self::assertStringContainsString('getForPresentation()', $resolver);
         self::assertStringNotContainsString('->get(true)', $controller);
         self::assertStringNotContainsString('->refresh(', $controller);
         self::assertStringContainsString('ModuleAssetVersion::href', $controller);
@@ -197,9 +197,9 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
         $credentials1 = new ModuleCredentialsRepository($settings1, $cipher);
 
         $shop0 = $this->createMock(ShopConfigurationService::class);
-        $shop0->method('getCachedOnly')->willReturn($this->validShop());
+        $shop0->method('getForPresentation')->willReturn($this->validShop());
         $shop1 = $this->createMock(ShopConfigurationService::class);
-        $shop1->method('getCachedOnly')->willReturn(array_merge($this->validShop(), [
+        $shop1->method('getForPresentation')->willReturn(array_merge($this->validShop(), [
             'uni_container_txt1' => 'Store 1 title',
         ]));
 
@@ -232,7 +232,7 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
         $credentials = new ModuleCredentialsRepository($settings, $cipher);
 
         $shopService = $this->createMock(ShopConfigurationService::class);
-        $shopService->method('getCachedOnly')->willReturnOnConsecutiveCalls(
+        $shopService->method('getForPresentation')->willReturnOnConsecutiveCalls(
             $this->validShop(),
             array_merge($this->validShop(), ['uni_container_txt1' => 'Updated title'])
         );

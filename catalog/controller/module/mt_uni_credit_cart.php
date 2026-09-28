@@ -85,7 +85,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
             $this->assertPostWithCsrf();
             $model = $this->cartModel();
             $cartCountBefore = $model->countActiveCartProducts();
-            $shop = $model->getShopConfiguration();
+            $shop = $model->getShopConfigurationForSubmission();
             if ($shop === null) {
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }

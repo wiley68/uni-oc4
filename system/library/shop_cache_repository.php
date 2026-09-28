@@ -18,7 +18,7 @@ final class ShopCacheRepository
     }
 
     /**
-     * @return array{fetched_at: string, expires_at: string, is_fresh: bool}|null
+     * @return array{fetched_at: string, expires_at: string, usable_until: string, is_fresh: bool, stale_age_seconds: int, lkg_eligible: bool}|null
      */
     public function findMetadata(int $storeId, string $unicid): ?array
     {
@@ -42,13 +42,23 @@ final class ShopCacheRepository
         }
 
         $row = $result->row;
-        $now = $this->clock->formatUtc($this->clock->now());
+        $nowTimestamp = $this->clock->now();
+        $now = $this->clock->formatUtc($nowTimestamp);
         $expiresAt = (string) $row['expires_at'];
+        $expiresTimestamp = strtotime($expiresAt . ' UTC');
+        $staleAge = $expiresTimestamp === false ? 0 : max(0, $nowTimestamp - $expiresTimestamp);
+        $usableTimestamp = ($expiresTimestamp === false ? $nowTimestamp : $expiresTimestamp)
+            + SecurityConstants::SHOP_CACHE_LKG_SECONDS;
 
         return [
-            'fetched_at' => (string) $row['fetched_at'],
-            'expires_at' => $expiresAt,
-            'is_fresh'   => $expiresAt > $now,
+            'fetched_at'       => (string) $row['fetched_at'],
+            'expires_at'       => $expiresAt,
+            'usable_until'     => $this->clock->formatUtc($usableTimestamp),
+            'is_fresh'         => $expiresAt > $now,
+            'stale_age_seconds'=> $staleAge,
+            'lkg_eligible'     => $expiresTimestamp !== false
+                && $expiresTimestamp <= $nowTimestamp
+                && $nowTimestamp <= $usableTimestamp,
         ];
     }
 
@@ -220,10 +230,10 @@ final class ShopCacheRepository
     {
         $limit = max(1, min(1000, $limit));
         $table = $this->tableName();
-        $now = $this->clock->formatUtc($this->clock->now());
+        $usableCutoff = $this->clock->formatUtc($this->clock->now() - SecurityConstants::SHOP_CACHE_LKG_SECONDS);
         $this->db->query(
             "DELETE FROM `{$table}`
-             WHERE `expires_at` <= '" . $this->db->escape($now) . "'
+             WHERE `expires_at` < '" . $this->db->escape($usableCutoff) . "'
              LIMIT " . (int) $limit
         );
 

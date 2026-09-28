@@ -286,7 +286,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 return $this->errorPayload('checkout_order_missing', $this->language->get('error_order'));
             }
 
-            $shop = $model->getShopConfiguration();
+            $shop = $model->getShopConfigurationForSubmission();
             if ($shop === null) {
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }

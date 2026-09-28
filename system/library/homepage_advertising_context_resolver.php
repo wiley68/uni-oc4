@@ -57,8 +57,9 @@ final class HomepageAdvertisingContextResolver
             return null;
         }
 
-        $shop = $this->shopConfiguration->getCachedOnly();
-        if ($shop === null || $shop === []) {
+        try {
+            $shop = $this->shopConfiguration->getForPresentation();
+        } catch (\Throwable) {
             self::$requestCache[$cacheKey] = false;
 
             return null;

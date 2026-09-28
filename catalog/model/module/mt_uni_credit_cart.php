@@ -58,13 +58,33 @@ class MtUniCreditCart extends \Opencart\System\Engine\Model
         }
         try {
             $services = $this->createCpServices();
-            $shop = $services['shopConfiguration']->getCachedOnly();
+            $shop = $services['shopConfiguration']->getForPresentation();
             if ($shop !== null) {
                 $this->shopCacheMeta = [
                     'unicid'     => (string) ($shop['unicid'] ?? ''),
                     'fetched_at' => (string) ($services['presenter']->present()['cache_fetched_at'] ?? gmdate('Y-m-d H:i:s')),
                 ];
             }
+
+            return $shop;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getShopConfigurationForSubmission(): ?array
+    {
+        if (!defined('DB_PREFIX')) {
+            return null;
+        }
+        try {
+            $services = $this->createCpServices();
+            $shop = $services['shopConfiguration']->getForSubmission();
+            $this->shopCacheMeta = [
+                'unicid' => (string) ($shop['unicid'] ?? ''),
+                'fetched_at' => (string) ($services['presenter']->present()['cache_fetched_at'] ?? gmdate('Y-m-d H:i:s')),
+            ];
 
             return $shop;
         } catch (\Throwable) {

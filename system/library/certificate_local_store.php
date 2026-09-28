@@ -262,9 +262,39 @@ final class CertificateLocalStore
             );
         } finally {
             foreach ([$stageCert, $stageKey, $backupCert, $backupKey] as $path) {
-                @unlink($path);
+                $this->removeFileWithoutWarning($path);
             }
-            @rmdir($incoming);
+            $this->removeDirectoryWithoutWarning($incoming);
+        }
+    }
+
+    private function removeFileWithoutWarning(string $path): void
+    {
+        if (!is_file($path) && !is_link($path)) {
+            return;
+        }
+        set_error_handler(static function (): bool {
+            return true;
+        });
+        try {
+            unlink($path);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    private function removeDirectoryWithoutWarning(string $path): void
+    {
+        if (!is_dir($path)) {
+            return;
+        }
+        set_error_handler(static function (): bool {
+            return true;
+        });
+        try {
+            rmdir($path);
+        } finally {
+            restore_error_handler();
         }
     }
 

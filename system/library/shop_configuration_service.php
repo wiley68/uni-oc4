@@ -25,6 +25,10 @@ class ShopConfigurationService
 
     private int $storeId;
 
+    private ?DbConnection $db;
+
+    private PersistenceClock $clock;
+
     public function __construct(
         ModuleCredentialsRepository $credentials,
         ShopCacheRepository $cache,
@@ -33,7 +37,9 @@ class ShopConfigurationService
         int $storeId,
         SmartUcfCredentialRepository $smartUcfCredentials,
         SmartUcfCredentialPersistence $credentialPersistence,
-        ?ShopConfigurationSnapshotValidator $snapshotValidator = null
+        ?ShopConfigurationSnapshotValidator $snapshotValidator = null,
+        ?DbConnection $db = null,
+        ?PersistenceClock $clock = null
     ) {
         $this->credentials = $credentials;
         $this->cache = $cache;
@@ -43,10 +49,30 @@ class ShopConfigurationService
         $this->smartUcfCredentials = $smartUcfCredentials;
         $this->credentialPersistence = $credentialPersistence;
         $this->snapshotValidator = $snapshotValidator ?? new ShopConfigurationSnapshotValidator();
+        $this->db = $db;
+        $this->clock = $clock ?? new PersistenceClock();
     }
 
     /** @return array<string, mixed> */
     public function get(bool $forceRefresh = false): array
+    {
+        return $forceRefresh ? $this->getForSubmission() : $this->getForPresentation();
+    }
+
+    /** @return array<string, mixed> */
+    public function getForPresentation(): array
+    {
+        return $this->resolve(false);
+    }
+
+    /** @return array<string, mixed> */
+    public function getForSubmission(): array
+    {
+        return $this->resolve(true);
+    }
+
+    /** @return array<string, mixed> */
+    private function resolve(bool $submission): array
     {
         $unicid = $this->credentials->getUnicid($this->storeId);
         if ($unicid === '') {
@@ -54,14 +80,48 @@ class ShopConfigurationService
             throw new CpAuthenticationException('UNICID is required to load the shop configuration.');
         }
 
-        if (!$forceRefresh) {
-            $cached = $this->cache->findFresh($this->storeId, $unicid);
-            if ($cached !== null) {
-                return $this->hydrateRuntime($cached['shop_data']);
-            }
+        $fresh = $this->cache->findFresh($this->storeId, $unicid);
+        if ($fresh !== null) {
+            return $this->hydrateRuntime($fresh['shop_data']);
         }
 
-        return $this->hydrateRuntime($this->refresh($unicid));
+        $latest = $this->validatedLatest($unicid);
+        $lkgEligible = !$submission && $this->isLkgEligible($latest);
+        $lockName = 'mtuc_shop_' . substr(hash('sha256', $this->storeId . '|' . $unicid), 0, 40);
+
+        if (!$this->acquireRefreshLock($lockName, 0)) {
+            if ($lkgEligible) {
+                return $this->hydrateRuntime($latest['shop_data']);
+            }
+            if ($this->acquireRefreshLock($lockName, SecurityConstants::SHOP_REFRESH_LOCK_WAIT_SECONDS)) {
+                try {
+                    $fresh = $this->cache->findFresh($this->storeId, $unicid);
+                    if ($fresh !== null) {
+                        return $this->hydrateRuntime($fresh['shop_data']);
+                    }
+                } finally {
+                    $this->releaseRefreshLock($lockName);
+                }
+            }
+            throw new CpConnectionException('Shop configuration refresh is already in progress.');
+        }
+
+        try {
+            $fresh = $this->cache->findFresh($this->storeId, $unicid);
+            if ($fresh !== null) {
+                return $this->hydrateRuntime($fresh['shop_data']);
+            }
+            try {
+                return $this->hydrateRuntime($this->refresh($unicid));
+            } catch (CpException $exception) {
+                if ($lkgEligible && $exception->isTransient()) {
+                    return $this->hydrateRuntime($latest['shop_data']);
+                }
+                throw $exception;
+            }
+        } finally {
+            $this->releaseRefreshLock($lockName);
+        }
     }
 
     /**
@@ -154,9 +214,52 @@ class ShopConfigurationService
             }
 
             throw $exception;
-        } catch (CpInvalidPayloadException $exception) {
-            $this->purgePermanentFailure($unicid);
-            throw $exception;
+        }
+    }
+
+    /** @return array{shop_data: array<string, mixed>, fetched_at: string, expires_at: string}|null */
+    private function validatedLatest(string $unicid): ?array
+    {
+        $latest = $this->cache->findLatest($this->storeId, $unicid);
+        if ($latest === null) {
+            return null;
+        }
+        try {
+            $this->snapshotValidator->validate($latest['shop_data'], $unicid);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $latest;
+    }
+
+    /** @param array{expires_at: string}|null $latest */
+    private function isLkgEligible(?array $latest): bool
+    {
+        if ($latest === null) {
+            return false;
+        }
+        $expiresAt = strtotime($latest['expires_at'] . ' UTC');
+
+        return $expiresAt !== false
+            && $expiresAt <= $this->clock->now()
+            && $this->clock->now() <= $expiresAt + SecurityConstants::SHOP_CACHE_LKG_SECONDS;
+    }
+
+    private function acquireRefreshLock(string $name, int $waitSeconds): bool
+    {
+        if ($this->db === null) {
+            return true;
+        }
+        $result = $this->db->query("SELECT GET_LOCK('" . $this->db->escape($name) . "', " . $waitSeconds . ") AS `acquired`");
+
+        return is_object($result) && (int) ($result->row['acquired'] ?? 0) === 1;
+    }
+
+    private function releaseRefreshLock(string $name): void
+    {
+        if ($this->db !== null) {
+            $this->db->query("SELECT RELEASE_LOCK('" . $this->db->escape($name) . "')");
         }
     }
 

@@ -88,19 +88,23 @@ final class CpHttpException extends CpException
 
     public function isTransient(): bool
     {
-        return $this->statusCode >= 500;
+        return in_array($this->statusCode, [408, 429], true) || $this->statusCode >= 500;
     }
 
     public function isPermanentAuthOrConfiguration(): bool
     {
-        return in_array($this->statusCode, [400, 401, 403, 404], true);
+        if ($this->statusCode === 401 || $this->statusCode === 410) {
+            return true;
+        }
+        if (!in_array($this->statusCode, [403, 404], true)) {
+            return false;
+        }
+
+        return in_array($this->canonicalError, [
+            'forbidden', 'shop_disabled', 'shop_deleted', 'shop_not_found',
+            'credential_mismatch', 'unicid_mismatch', 'revoked',
+        ], true);
     }
 }
 
-final class CpInvalidPayloadException extends CpException
-{
-    public function isPermanentAuthOrConfiguration(): bool
-    {
-        return true;
-    }
-}
+final class CpInvalidPayloadException extends CpException {}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MtUniCredit\Tests\Support;
 
 use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
+use Opencart\System\Library\Extension\MtUniCredit\CpHttpTransport;
 use Opencart\System\Library\Extension\MtUniCredit\DbConnection;
 use Opencart\System\Library\Extension\MtUniCredit\InMemoryModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
@@ -55,7 +56,7 @@ final class Phase4TestHarness
      * @return array<string, mixed>
      */
     public static function services(
-        FakeCpHttpTransport $transport,
+        CpHttpTransport $transport,
         ?ModuleSettingStore $settings = null,
         ?DbConnection $db = null,
         int $storeId = self::TEST_STORE_ID,

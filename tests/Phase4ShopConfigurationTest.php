@@ -97,7 +97,12 @@ final class Phase4ShopConfigurationTest extends TestCase
         $stack['client']->login();
         $stack['shopConfiguration']->refreshRemote();
 
-        $transport->enqueueJson(403, ['error' => 'forbidden']);
+        $transport->enqueueJson(403, [
+            'success' => false,
+            'error' => 'forbidden',
+            'message' => 'disabled',
+            'data' => new \stdClass(),
+        ]);
         try {
             $stack['shopConfiguration']->refreshRemote();
             self::fail('Expected permanent HTTP failure');

@@ -58,10 +58,12 @@ final class Phase4TransportTest extends TestCase
 
     public function testHttp4xxAnd5xxClassification(): void
     {
-        $http4xx = new CpHttpException(403, ['error' => 'forbidden']);
+        $http4xx = new CpHttpException(403, ['error' => 'forbidden'], 'forbidden', true, 'forbidden');
+        $ambiguous4xx = new CpHttpException(403, ['error' => 'unknown']);
         $http5xx = new CpHttpException(503, []);
         self::assertTrue($http4xx->isPermanentAuthOrConfiguration());
         self::assertFalse($http4xx->isTransient());
+        self::assertFalse($ambiguous4xx->isPermanentAuthOrConfiguration());
         self::assertTrue($http5xx->isTransient());
     }
 

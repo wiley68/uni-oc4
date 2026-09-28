@@ -56,7 +56,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }
 
-            $context = $this->readSelectionContext($model);
+            $context = $this->readSelectionContext($model, $shop);
             $issuer = $model->createSubmissionIssuer();
             $attempt = $issuer->issueOrReuse(
                 $context['store_id'],
@@ -87,12 +87,12 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
             $cartCountBefore = 0;
             $model = $this->productModel();
             $cartCountBefore = $model->countActiveCartProducts();
-            $shop = $model->getShopConfiguration();
+            $shop = $model->getShopConfigurationForSubmission();
             if ($shop === null) {
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }
 
-            $context = $this->readSelectionContext($model);
+            $context = $this->readSelectionContext($model, $shop);
             $meta = $model->shopCacheMeta();
             $service = $model->createSubmissionService();
             try {
@@ -286,7 +286,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
      * @param ProductFinancingModel|\Opencart\System\Engine\Proxy $model
      * @return array<string, mixed>
      */
-    private function readSelectionContext(object $model): array
+    private function readSelectionContext(object $model, ?array $resolvedShop = null): array
     {
         $productId = (int) ($this->request->post['product_id'] ?? 0);
         $quantity = max(1, min(9999, (int) ($this->request->post['quantity'] ?? 1)));
@@ -303,7 +303,7 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
 
         $storeId = (int) $this->config->get('config_store_id');
         $currency = (string) ($this->session->data['currency'] ?? $this->config->get('config_currency'));
-        $shop = $model->getShopConfiguration();
+        $shop = $resolvedShop ?? $model->getShopConfiguration();
         if ($shop === null) {
             throw new ProductFinancingFlowException('validation', 'Shop configuration unavailable.');
         }

@@ -59,7 +59,10 @@ final class CpServiceFactory
             $tokens,
             $storeId,
             $smartUcfCredentials,
-            $credentialPersistence
+            $credentialPersistence,
+            null,
+            $db,
+            $clock
         );
         $presenter = new CpAdminHealthPresenter($credentials, $tokens, $shopConfiguration, $storeId);
         $credentialChange = new CredentialChangeHandler($tokens, $cache, $storeId);

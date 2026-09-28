@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MtUniCredit\Tests;
 
 use Opencart\System\Library\Extension\MtUniCredit\CertificateLocalStore;
+use Opencart\System\Library\Extension\MtUniCredit\CertificatePairValidator;
+use Opencart\System\Library\Extension\MtUniCredit\MtlsPrivateKeyPassphraseProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -114,6 +116,78 @@ final class CertificateChmodJsonContaminationTest extends TestCase
         self::assertTrue($decoded['success']);
         self::assertSame('bank_redirect', $decoded['step']);
         self::assertStringContainsString('sucf-online/Request/Start/', (string) $decoded['redirect_url']);
+    }
+
+    public function testSuccessfulProductRedirectJsonSurvivesMissingStagingFileCleanup(): void
+    {
+        $store = new CertificateLocalStore(sys_get_temp_dir() . '/mt-uni-cleanup-json-' . bin2hex(random_bytes(4)));
+        $remove = new \ReflectionMethod(CertificateLocalStore::class, 'removeFileWithoutWarning');
+        $remove->setAccessible(true);
+        $missing = sys_get_temp_dir() . '/certificate-missing-' . bin2hex(random_bytes(4)) . '.pem';
+        $payload = [
+            'success' => true,
+            'step' => 'bank_redirect',
+            'redirect_url' => 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-ok',
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        set_error_handler(static function (int $severity, string $message): bool {
+            echo 'Warning: ' . $message;
+
+            return false;
+        });
+        ob_start();
+        try {
+            $remove->invoke($store, $missing);
+            echo $json;
+            $body = (string) ob_get_clean();
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame($json, $body);
+        self::assertSame($payload, json_decode($body, true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testSuccessfulAtomicReplacementDoesNotContaminateProductRedirectJson(): void
+    {
+        $directory = sys_get_temp_dir() . '/mt-uni-replace-json-' . bin2hex(random_bytes(4));
+        $fixtures = __DIR__ . '/fixtures/certificates';
+        $certificate = (string) file_get_contents($fixtures . '/matching_cert.pem');
+        $privateKey = (string) file_get_contents($fixtures . '/matching_key.pem');
+        $validator = new CertificatePairValidator(new MtlsPrivateKeyPassphraseProvider(
+            null,
+            static fn(): array => ['passphrase' => 'phase2-fixture-secret']
+        ));
+        $store = new CertificateLocalStore($directory, $validator);
+        $payload = [
+            'success' => true,
+            'step' => 'bank_redirect',
+            'redirect_url' => 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/session-ok',
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        set_error_handler(static function (int $severity, string $message): bool {
+            echo 'Warning: ' . $message;
+
+            return false;
+        });
+        ob_start();
+        try {
+            $store->replacePair($certificate, $privateKey, [
+                'ssl_revision' => 'r1',
+                'certificate_sha256' => hash('sha256', $certificate),
+                'private_key_sha256' => hash('sha256', $privateKey),
+            ]);
+            echo $json;
+            $body = (string) ob_get_clean();
+        } finally {
+            restore_error_handler();
+            $this->removeTree($directory);
+        }
+
+        self::assertSame($json, $body);
+        self::assertSame($payload, json_decode($body, true, 512, JSON_THROW_ON_ERROR));
     }
 
     public function testHandledChmodFailureRemainsNonFatalForWritableStoreProbe(): void

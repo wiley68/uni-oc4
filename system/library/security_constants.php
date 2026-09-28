@@ -11,6 +11,8 @@ final class SecurityConstants
     public const NONCE_RETENTION_SECONDS = 900;
     public const OPERATION_LOCK_TTL_SECONDS = 45;
     public const SHOP_CACHE_TTL_SECONDS = 86400;
+    public const SHOP_CACHE_LKG_SECONDS = 21600;
+    public const SHOP_REFRESH_LOCK_WAIT_SECONDS = 2;
     public const FINANCING_ATTEMPT_ISSUED_TTL_SECONDS = 1800;
     public const SUBMISSION_TOKEN_BYTES = 32;
     public const LOCK_OWNER_TOKEN_BYTES = 16;
