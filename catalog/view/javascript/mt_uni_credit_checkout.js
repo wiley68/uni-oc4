@@ -422,7 +422,6 @@
       const map = {
         price:
           calculation.price_display?.primary ||
-          calculation.price_display?.secondary ||
           calculation.price,
         financed_amount:
           calculation.financed_amount_display?.primary ||

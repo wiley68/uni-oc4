@@ -197,7 +197,7 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
             new ProductSchemeList(new Calculator()),
             new InstallmentLabelFormatter()
         );
-        $payload = $presenter->present($shop, $line, 'BGN');
+        $payload = $presenter->present($shop, $line, 'EUR');
         self::assertNotNull($payload);
         self::assertArrayHasKey('standard', $payload['offers']);
         $schemes = $payload['offers']['standard']['schemes'];
@@ -238,7 +238,7 @@ final class Phase9CheckoutUxAndSchemeOrderingTest extends TestCase
             new CurrencyGate(),
             new InstallmentLabelFormatter()
         );
-        $payload = $presenter->present($shop, $cart, 'BGN');
+        $payload = $presenter->present($shop, $cart, 'EUR');
         self::assertNotNull($payload);
         self::assertArrayHasKey('standard', $payload['offers']);
         $schemes = $payload['offers']['standard']['schemes'];

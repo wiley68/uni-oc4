@@ -20,57 +20,57 @@ final class Phase8CartFingerprintDeterminismTest extends TestCase
     {
         $a = $this->cart([[1, [9, 7], 100.0, 2, [5, 3]]], 200.0);
         $b = $this->cart([[1, [9, 7], 100.0, 2, [5, 3]]], 200.0);
-        self::assertSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'bgn'));
+        self::assertSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'eur'));
     }
 
     public function testCategoryAndOptionOrderDoNotChangeFingerprint(): void
     {
         $ordered = $this->cart([[1, [7, 9], 100.0, 1, [3, 5]]], 100.0);
         $shuffled = $this->cart([[1, [9, 7], 100.0, 1, [5, 3]]], 100.0);
-        self::assertSame(CartFingerprint::hash($ordered, 'BGN'), CartFingerprint::hash($shuffled, 'BGN'));
+        self::assertSame(CartFingerprint::hash($ordered, 'EUR'), CartFingerprint::hash($shuffled, 'EUR'));
     }
 
     public function testEquivalentMonetaryRepresentationYieldsSameFingerprint(): void
     {
         $a = $this->cart([[1, [7], 99.996, 1, []]], 99.996);
         $b = $this->cart([[1, [7], 99.995999999, 1, []]], 99.995999999);
-        self::assertSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'BGN'));
+        self::assertSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'EUR'));
     }
 
     public function testQuantityChangeChangesFingerprint(): void
     {
         $a = $this->cart([[1, [7], 100.0, 1, []]], 100.0);
         $b = $this->cart([[1, [7], 100.0, 2, []]], 200.0);
-        self::assertNotSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'BGN'));
+        self::assertNotSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'EUR'));
     }
 
     public function testProductRemoveChangesFingerprint(): void
     {
         $a = $this->cart([[1, [7], 100.0, 1, []], [2, [7], 50.0, 1, []]], 150.0);
         $b = $this->cart([[1, [7], 100.0, 1, []]], 100.0);
-        self::assertNotSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'BGN'));
+        self::assertNotSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'EUR'));
     }
 
     public function testOptionChangeChangesFingerprint(): void
     {
         $a = $this->cart([[1, [7], 100.0, 1, [10]]], 100.0);
         $b = $this->cart([[1, [7], 100.0, 1, [11]]], 100.0);
-        self::assertNotSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'BGN'));
+        self::assertNotSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'EUR'));
     }
 
     public function testAuthoritativeTotalChangeChangesFingerprint(): void
     {
         $a = $this->cart([[1, [7], 100.0, 1, []]], 100.0);
         $b = $this->cart([[1, [7], 100.0, 1, []]], 90.0);
-        self::assertNotSame(CartFingerprint::hash($a, 'BGN'), CartFingerprint::hash($b, 'BGN'));
+        self::assertNotSame(CartFingerprint::hash($a, 'EUR'), CartFingerprint::hash($b, 'EUR'));
     }
 
     public function testSelectionHashUsesNormalizedFirstInstallment(): void
     {
         $fp = hash('sha256', 'fp');
         $actor = hash('sha256', 'actor');
-        $a = CartSelectionHash::hash(0, $fp, 'BGN', 500.0, 'k', 'standard', 'STD', 12, 1, 41.67, $actor);
-        $b = CartSelectionHash::hash(0, $fp, 'BGN', 500.0, 'k', 'standard', 'STD', 12, 1, 41.6700001, $actor);
+        $a = CartSelectionHash::hash(0, $fp, 'EUR', 500.0, 'k', 'standard', 'STD', 12, 1, 41.67, $actor);
+        $b = CartSelectionHash::hash(0, $fp, 'EUR', 500.0, 'k', 'standard', 'STD', 12, 1, 41.6700001, $actor);
         self::assertSame($a, $b);
     }
 

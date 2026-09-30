@@ -239,7 +239,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
             1,
             'bg',
             1,
-            'BGN',
+            'EUR',
             1.0
         );
         $payload = (new OpenCartOrderDataBuilder())->build($draft);
@@ -255,6 +255,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         $submission->customer = new FinancingCustomerData(42, 1, 'Logged', 'In', 'logged@example.com', '');
         $submission->billingAddress = new FinancingAddressData(0, 'Logged', 'In', '', 'ул. Клиент 5', '', 'Варна', '9000', 'Bulgaria', 33, 'Varna', 2);
         $submission->shippingAddress = null;
+        $submission->eurOrderProof = new \Opencart\System\Library\Extension\MtUniCredit\DurableEurOrderProof(5001, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
 
         $payload = $builder->build($submission, 5001, ProductFinancingTestHarness::shop());
         self::assertStringContainsString('ул. Клиент 5', $payload['address']);
@@ -452,7 +453,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
 
         $orderSnapshot = $this->loggedNoShippingOrderSnapshot();
         $orderSnapshot['customer_group_id'] = 1;
-        $orderSnapshot['currency_code'] = 'BGN';
+        $orderSnapshot['currency_code'] = 'EUR';
         $orderSnapshot['language_id'] = 1;
         $orderSnapshot['language_code'] = 'bg-bg';
         $orderSnapshot['currency_id'] = 1;
@@ -477,7 +478,9 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
                 'shipping_address_1' => '',
                 'shipping_method'  => [],
                 'total'            => 1000.0,
-                'currency_code'    => 'BGN',
+                'currency_code'    => 'EUR',
+                'currency_id'      => 1,
+                'currency_value'   => 1.0,
                 'payment_method'   => PaymentIdentity::paymentMethod(),
                 'products'         => [['product_id' => 42, 'quantity' => 1, 'name' => 'Virtual', 'price' => 1000, 'total' => 1000]],
                 'totals'           => [['code' => 'total', 'value' => 1000.0]],
@@ -486,7 +489,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         }
 
         $cart = new CartContext([mt_uni_credit_cart_line(42, [10], 1000.0)], 1000.0);
-        $currency = 'BGN';
+        $currency = 'EUR';
         $scheme = ProductFinancingTestHarness::defaultSchemeSelection();
         $storeId = ProductFinancingTestHarness::STORE_ID;
         $actor = CartActorBinding::hash($storeId, 42, CartActorBinding::sessionFingerprint('sess-no-ship'));

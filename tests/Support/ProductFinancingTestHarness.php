@@ -109,7 +109,7 @@ final class ProductFinancingTestHarness
         int $filterId,
         float $firstInstallment,
         string $actorBinding,
-        string $currency = 'BGN',
+        string $currency = 'EUR',
         int $storeId = self::STORE_ID
     ): string {
         return ProductSelectionHash::hash(

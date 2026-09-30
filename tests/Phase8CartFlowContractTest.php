@@ -62,10 +62,10 @@ final class Phase8CartFlowContractTest extends TestCase
     public function testFingerprintAndOperationIdentityAreCartScoped(): void
     {
         $cart = new CartContext([mt_uni_credit_cart_line(1, [7], 500.0, 2, 500.0)], 500.0);
-        $fp = CartFingerprint::hash($cart, 'BGN');
-        $op = CartOperationIdentity::hash(0, 'BGN', $fp);
+        $fp = CartFingerprint::hash($cart, 'EUR');
+        $op = CartOperationIdentity::hash(0, 'EUR', $fp);
         $actor = CartActorBinding::hash(0, 0, CartActorBinding::sessionFingerprint('sess'));
-        $selection = CartSelectionHash::hash(0, $fp, 'BGN', 500.0, 'k', 'standard', 'STD', 12, 0, 0.0, $actor);
+        $selection = CartSelectionHash::hash(0, $fp, 'EUR', 500.0, 'k', 'standard', 'STD', 12, 0, 0.0, $actor);
 
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $fp);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $op);
@@ -73,7 +73,7 @@ final class Phase8CartFlowContractTest extends TestCase
         self::assertNotSame($op, $selection);
 
         $changed = new CartContext([mt_uni_credit_cart_line(1, [7], 500.0, 3, 500.0)], 500.0);
-        self::assertNotSame($fp, CartFingerprint::hash($changed, 'BGN'));
+        self::assertNotSame($fp, CartFingerprint::hash($changed, 'EUR'));
     }
 
     public function testPresenterReturnsNullWhenIntersectionEmpty(): void
@@ -85,7 +85,7 @@ final class Phase8CartFlowContractTest extends TestCase
             new CurrencyGate(),
             new InstallmentLabelFormatter()
         );
-        $empty = $presenter->present($shop, new CartContext([], 0.0), 'BGN');
+        $empty = $presenter->present($shop, new CartContext([], 0.0), 'EUR');
         self::assertNull($empty);
 
         $noCommon = $presenter->present(
@@ -94,7 +94,7 @@ final class Phase8CartFlowContractTest extends TestCase
                 mt_uni_credit_cart_line(1, [], 1000.0),
                 mt_uni_credit_cart_line(2, [99999], 1000.0),
             ], 1000.0),
-            'BGN'
+            'EUR'
         );
         // Category filter 99999 typically yields empty intersection for promo filters; standard may still intersect.
         // Authoritative check: resolver empty schemes ⇒ presenter null.
@@ -103,7 +103,7 @@ final class Phase8CartFlowContractTest extends TestCase
             mt_uni_credit_cart_line(1, [], 50.0),
         ], 50.0));
         self::assertSame([], $resolution->standardSchemes);
-        self::assertNull($presenter->present($shop, new CartContext([mt_uni_credit_cart_line(1, [], 50.0)], 50.0), 'BGN'));
+        self::assertNull($presenter->present($shop, new CartContext([mt_uni_credit_cart_line(1, [], 50.0)], 50.0), 'EUR'));
         unset($noCommon);
     }
 
@@ -119,7 +119,7 @@ final class Phase8CartFlowContractTest extends TestCase
         $cart = new CartContext([mt_uni_credit_cart_line(1, [], 1000.0)], 1000.0);
 
         $this->expectException(UnavailableSchemeException::class);
-        $calc->calculate($shop, $cart, 'BGN', 'standard', 'standard', 'MISSING', 12, 0, 'bad', 0.0);
+        $calc->calculate($shop, $cart, 'EUR', 'standard', 'standard', 'MISSING', 12, 0, 'bad', 0.0);
     }
 
     public function testOrderProductsBuilderMapsOptionsQtyAndTotals(): void

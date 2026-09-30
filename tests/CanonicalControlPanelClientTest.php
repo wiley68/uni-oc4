@@ -66,6 +66,7 @@ final class CanonicalControlPanelClientTest extends TestCase
             'order_id' => '12345',
             'unicid' => Phase4TestHarness::TEST_UNICID,
             'phone' => '0888000000',
+            'currency' => 'EUR',
         ]);
         self::assertSame(42, (int) $response['data']['id']);
         self::assertSame('12345', (string) $response['data']['order_id']);

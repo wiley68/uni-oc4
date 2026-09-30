@@ -72,42 +72,12 @@ final class CartFinancingSubmissionService
         ?int $cartId = null
     ): ProductFinancingResult {
         $posted = $this->popupFormNormalizer->normalize($posted, $storeAddressDefaults);
-        $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
-        if ($attemptRow === null) {
-            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
-        }
-        if ((string) ($attemptRow['entry_point'] ?? '') !== OperationEntryPoint::CART) {
-            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
-        }
-        if (!hash_equals((string) ($attemptRow['actor_binding_hash'] ?? ''), $actorBindingHash)) {
-            throw new ProductFinancingFlowException('attempt_conflict', 'Заявката не принадлежи на текущата сесия.');
-        }
-        if ($this->isExpired($attemptRow)) {
-            throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
-        }
-
-        $boundOrderId = isset($attemptRow['order_id']) ? (int) $attemptRow['order_id'] : 0;
-        $existingCpId = isset($attemptRow['control_panel_order_id']) ? (int) $attemptRow['control_panel_order_id'] : 0;
-        if ($boundOrderId > 0
-            && $existingCpId > 0
-            && (string) ($attemptRow['state'] ?? '') === FinancingAttemptState::CP_CREATED
-        ) {
-            $resume = ResumeSubmissionFactory::create(
-                OperationEntryPoint::CART,
-                $storeId,
-                $submissionToken,
-                (string) ($attemptRow['operation_key_hash'] ?? ''),
-                $boundOrderId
-            );
-
-            return FinancingControlPanelCompletion::resumeExistingCp(
-                $this->cpLifecycle,
-                (int) $attemptRow['attempt_id'],
-                $resume,
-                $boundOrderId,
-                $existingCpId,
-                $shop
-            );
+        $attemptRow = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
+        $recovered = FinancingControlPanelCompletion::resumeBoundAttempt(
+            $this->cpLifecycle, $this->materialization, $attemptRow, $storeId, $shop, $lockOwnerToken
+        );
+        if ($recovered !== null) {
+            return $recovered;
         }
 
         if ($cart->lines === [] || $cart->total <= 0.0) {
@@ -342,6 +312,41 @@ final class CartFinancingSubmissionService
         $this->materialization->applyProductCartVisibleStatus($created, $submission->entryPoint);
 
         return $result;
+    }
+
+    /** Recover an authenticated bound attempt before storefront pricing/fingerprint work. */
+    public function resume(
+        array $shop,
+        int $storeId,
+        string $submissionToken,
+        string $actorBindingHash,
+        string $lockOwnerToken
+    ): ?ProductFinancingResult {
+        $row = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
+
+        return FinancingControlPanelCompletion::resumeBoundAttempt(
+            $this->cpLifecycle, $this->materialization, $row, $storeId, $shop, $lockOwnerToken
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function authorizedAttempt(int $storeId, string $submissionToken, string $actorBindingHash): array
+    {
+        $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
+        if ($attemptRow === null) {
+            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
+        }
+        if ((string) ($attemptRow['entry_point'] ?? '') !== OperationEntryPoint::CART) {
+            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
+        }
+        if (!hash_equals((string) ($attemptRow['actor_binding_hash'] ?? ''), $actorBindingHash)) {
+            throw new ProductFinancingFlowException('attempt_conflict', 'Заявката не принадлежи на текущата сесия.');
+        }
+        if ($this->isExpired($attemptRow)) {
+            throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
+        }
+
+        return $attemptRow;
     }
 
     /** @param array<string, mixed> $row */

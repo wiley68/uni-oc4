@@ -69,6 +69,8 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
             'telephone'        => (string) ($orderData['telephone'] ?? ''),
             'total'            => (float) ($orderData['total'] ?? 0.0),
             'currency_code'    => (string) ($orderData['currency_code'] ?? ''),
+            'currency_id'      => (int) ($orderData['currency_id'] ?? 0),
+            'currency_value'   => (float) ($orderData['currency_value'] ?? 0.0),
             'payment_method'   => $paymentMethod,
             'order_status_id'  => 0,
             'tracking'         => (string) ($orderData['tracking'] ?? ''),
@@ -92,6 +94,17 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
         }
 
         $this->totals[$orderId] = $orderData['totals'] ?? [];
+        if (PersistenceIntegrationHarness::enabled()) {
+            PersistenceIntegrationHarness::seedNativeOrder(
+                $orderId,
+                (int) $this->orders[$orderId]['store_id'],
+                (float) $this->orders[$orderId]['total'],
+                (string) $this->orders[$orderId]['currency_code'],
+                (int) $this->orders[$orderId]['currency_id'],
+                (float) $this->orders[$orderId]['currency_value'],
+                $orderData
+            );
+        }
 
         return $orderId;
     }
@@ -102,6 +115,17 @@ final class InMemoryCheckoutOrderAdapter implements CheckoutOrderModelPort
         $this->products[$orderId] = $products;
         $this->totals[$orderId] = $totals;
         $this->nextOrderId = max($this->nextOrderId, $orderId + 1);
+        if (PersistenceIntegrationHarness::enabled()) {
+            PersistenceIntegrationHarness::seedNativeOrder(
+                $orderId,
+                (int) ($orderRow['store_id'] ?? 0),
+                (float) ($orderRow['total'] ?? 0.0),
+                (string) ($orderRow['currency_code'] ?? ''),
+                (int) ($orderRow['currency_id'] ?? 0),
+                (float) ($orderRow['currency_value'] ?? 0.0),
+                $orderRow + ['products' => $products]
+            );
+        }
     }
 
     public function getOrder(int $orderId): array

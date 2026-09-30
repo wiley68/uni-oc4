@@ -32,7 +32,7 @@ final class CanonicalCpFailureEnvelopeRemediationTest extends TestCase
 
         $client = $this->client($transport);
         try {
-            $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+            $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
             self::fail('Expected CpHttpException');
         } catch (CpHttpException $exception) {
             self::assertTrue($exception->isCanonicalFailure());
@@ -49,7 +49,7 @@ final class CanonicalCpFailureEnvelopeRemediationTest extends TestCase
 
         $client = $this->client($transport);
         $this->expectException(CpInvalidPayloadException::class);
-        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     public function testBareJsonNon2xxIsMalformedOrInvalid(): void
@@ -60,7 +60,7 @@ final class CanonicalCpFailureEnvelopeRemediationTest extends TestCase
 
         $client = $this->client($transport);
         $this->expectException(CpMalformedJsonException::class);
-        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     public function testStringIdRejectedByCreateIdentity(): void
@@ -82,7 +82,7 @@ final class CanonicalCpFailureEnvelopeRemediationTest extends TestCase
 
         $client = $this->client($transport);
         $this->expectException(CpInvalidPayloadException::class);
-        $client->createOrder(['order_id' => '123', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '123', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     private function client(FakeCpHttpTransport $transport): ControlPanelClient

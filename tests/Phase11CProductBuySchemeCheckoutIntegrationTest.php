@@ -52,7 +52,7 @@ final class Phase11CProductBuySchemeCheckoutIntegrationTest extends TestCase
             $calc,
             new CurrencyGate(),
             new InstallmentLabelFormatter()
-        ))->present($shop, $cart, 'BGN');
+        ))->present($shop, $cart, 'EUR');
         self::assertIsArray($checkoutPresenter);
 
         $defaultKey = (string) $checkoutPresenter['offers']['standard']['preferred_scheme_key'];

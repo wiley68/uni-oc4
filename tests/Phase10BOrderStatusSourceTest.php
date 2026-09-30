@@ -63,6 +63,7 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             new FinancingAttemptContext($row),
             LockOwnerTokenGenerator::generate()
         );
+        $service->applyProductCartVisibleStatus($created, $submission->entryPoint);
         self::assertSame($paymentStatus, $orders->lastOrderStatusId());
         self::assertSame($paymentStatus, $created->orderStatusId);
     }
@@ -99,6 +100,7 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             new FinancingAttemptContext($row),
             LockOwnerTokenGenerator::generate()
         );
+        $service->applyProductCartVisibleStatus($created, $submission->entryPoint);
         self::assertSame($paymentStatus, $created->orderStatusId);
     }
 

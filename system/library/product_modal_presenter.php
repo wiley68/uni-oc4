@@ -27,7 +27,6 @@ final class ProductModalPresenter
             'banner_url'        => $this->url($shop['uni_picture'] ?? ''),
             'banner_url_mobile' => $this->url($shop['uni_picturem'] ?? ''),
             'banner_link'       => $bannerLink,
-            'currency_mode'     => (int) ($shop['uni_eur'] ?? 0),
             'button_action'     => $action,
             'secondary_label'   => $action === 'buy' ? 'Купи' : 'Добави в количката',
             'process2'          => ShopConfigurationFlags::isSecondaryProcess($shop),

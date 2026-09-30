@@ -15,39 +15,12 @@ use PHPUnit\Framework\TestCase;
  */
 final class Phase7ProductRuntimeRemediationTest extends TestCase
 {
-    public function testEurInstallmentLabelUsesEvroNotSymbol(): void
+    public function testSingleEurInstallmentLabel(): void
     {
-        $formatter = new InstallmentLabelFormatter(new CurrencyDisplayLabel());
-        $label = $formatter->format(12, 85.55, 3);
-
-        self::assertSame('12 x 85.55 евро', $label);
-        self::assertStringNotContainsString('€', $label);
-        self::assertStringContainsString('евро', $label);
-    }
-
-    public function testBgnInstallmentLabelUsesLevSuffix(): void
-    {
-        $formatter = new InstallmentLabelFormatter(new CurrencyDisplayLabel());
-        $label = $formatter->format(12, 97.49, 0);
-
-        self::assertSame('12 x 97.49 лв.', $label);
-    }
-
-    public function testDualCurrencyInstallmentLabelUsesLevaAndEvro(): void
-    {
-        $formatter = new InstallmentLabelFormatter(new CurrencyDisplayLabel());
-        $label = $formatter->format(12, 97.49, 1);
-
-        self::assertStringContainsString('лева', $label);
-        self::assertStringContainsString('евро', $label);
-        self::assertStringNotContainsString('€', $label);
-    }
-
-    public function testCurrencyDisplayLabelIsoCodesRemainInternal(): void
-    {
-        $labels = new CurrencyDisplayLabel();
-        self::assertSame('евро', $labels->forAmount('EUR'));
-        self::assertSame('лв.', $labels->forAmount('BGN'));
+        $formatter = new InstallmentLabelFormatter();
+        self::assertSame('12 x 85.55 евро', $formatter->format(12, 85.55));
+        self::assertSame('12 x 97.49 евро', $formatter->format(12, 97.49));
+        self::assertSame('евро', (new CurrencyDisplayLabel())->forAmount('EUR'));
     }
 
     public function testOptionChangeAffectsAuthoritativeFinancingPrice(): void
@@ -158,12 +131,12 @@ final class Phase7ProductRuntimeRemediationTest extends TestCase
         $one = $presenter->present(
             $shop,
             ProductFinancingTestHarness::factory()->create(ProductFinancingTestHarness::STORE_ID, 42, 1, []),
-            'BGN'
+            'EUR'
         );
         $two = $presenter->present(
             $shop,
             ProductFinancingTestHarness::factory()->create(ProductFinancingTestHarness::STORE_ID, 42, 2, []),
-            'BGN'
+            'EUR'
         );
 
         self::assertNotNull($one);

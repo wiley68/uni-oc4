@@ -175,7 +175,7 @@ final class CheckoutFinancingSubmissionService
             $existingOrderId,
             $fingerprint,
             $currencyCode,
-            $orderTotal,
+            EurFinancingAmount::fromOrder($orderTotal, $currencyCode, $currencyId, $currencyValue),
             $schemeKey,
             $schemeType,
             $kopCode,

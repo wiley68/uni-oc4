@@ -81,8 +81,8 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `parva`                    | optional numeric min 0, default **0**                                              |
 | `products_*`               | optional string; CP **без** max; DB `text`                                         |
 | `type_client`              | 0–255, default **0**; PS9: `0` ако `_is_mobile`, иначе `1`                         |
-| `currency`                 | max 3, **`in:BGN,EUR`**, API default **BGN**; DB default **EUR**                   |
-| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.2**                       |
+| `currency`                 | CP historical validation accepts BGN/EUR; OC4 explicitly sends **EUR** and rejects any other value before HTTP                   |
+| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.3**                       |
 | `status` / `status_id`     | optional string max 255, **не** са enum; default `Създаден в КП Банка` / `cp_sent` |
 
 Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `status` / `status_id` — CP прилага default `cp_sent`.  
@@ -90,7 +90,7 @@ Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `
 
 Идемпотентност (`app/Support/IdempotentOrderCreator.php`): ключ `(shop_id, order_id)`. Същият semantic hash → HTTP **200**; различен hash → **409**. Semantic полетата са замразени в `tests/fixtures/cp_order_payload.json`.
 
-**Разминаване:** съобщението за `currency.in` споменава USD, правилото приема само BGN и EUR.
+**Исторически CP contract:** старият валидатор приема BGN/EUR и съобщението му споменава USD. Това не е OC4 financing policy; текущият OC4 винаги изисква и изпраща EUR.
 
 ### OC4 Checkout phone handoff (frozen for Phase 10+)
 
@@ -214,7 +214,7 @@ Golden вектори: `tests/fixtures/calculator_golden.json`.
 
 `uni_promo_meseci_znak`: буквално `eq` или `greateq`.
 
-Валута: `uni_eur ∈ {2,3}` очаква EUR, иначе BGN. Display курс **1.95583**.
+Валута (текущ OC4 договор): финансирането приема само избрана транзакционна валута `EUR`. `uni_eur` в CP snapshot е съвместимо поле и се игнорира, независимо дали липсва, е `3` или има историческа стойност. Няма вторична валута или фиксиран display курс. Продуктовата цена се конвертира еднократно чрез OpenCart `currency->convert`. Сумите на количката са в базовата валута и се конвертират чрез същата native API преди калкулатора. Native поръчката запазва базовите си суми и `currency_code/id/value`; историческото EUR финансиране се изчислява от записаните `total * currency_value`. Durable guard проверява EUR code, ID mapping, положителен factor, връзката с опита и съответствието със запазения CP payload преди replay или външно изпращане. При CP-created Process 1 resume със започната банкова сесия се връща доказаният redirect; ако сесията още не е започнала, необходимите данни за SmartUCF се възстановяват само от същата native поръчка и запазения leasing snapshot. Липсващи или несъгласувани данни спират изпращането преди claim/HTTP.
 
 ---
 
@@ -420,7 +420,7 @@ Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POS
 | Context DTOs      | `ProductContext`, `CartContext`, `CartLine`                       |
 | Cart intersection | `CartSchemeResolver`, key `type\|kopCode\|months`                 |
 | GPR split         | OfferFactory vs calculateScheme (0% promo: 0.01 vs 0.0)           |
-| Currency          | BGN/EUR via `CurrencyGate`; display rate 1.95583                  |
+| Currency          | EUR only via `CurrencyGate`; native amount normalization          |
 | Parity            | `tests/fixtures/calculator_golden.json`, `Phase5GoldenParityTest` |
 
 ## 16. Phase 8 Cart financing entry point
@@ -457,3 +457,13 @@ Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POS
 | Lifecycle stop   | `cp_order_prepared` / attempt `cp_created` (Phase 10B)                                             |
 | Success event    | `catalog/view/common/success/before` (enrich `text_message` inside body)                           |
 | Deferred         | SmartUCF / Process execution (Phase 11+)                                                           |
+
+### EUR monetary boundaries and historical recovery (EUR-OC4-004)
+
+OpenCart native `order.total`, `order_product.price`, `order_product.total`, and per-unit `order_product.tax` remain in base units. Native order material retains OpenCart's four-decimal storage precision. Live cart amounts are converted with native currency conversion before the existing two-decimal financing boundary; calculator rules remain unchanged. Checkout issuance and verification both hash the EUR financing amount, while the draft retains the native total.
+
+SmartUCF `singlePrice` is `(native line total / quantity + native unit tax) × saved order currency_value`, formatted to two decimals. The line total is net of tax; tax is per unit. `totalPrice`, `initialPayment`, and `monthlyPayment` are EUR financing values. Merchandise need not equal the grand total: shipping, discounts, order-level adjustments, and per-unit rounding can account for a difference. These differences do not justify omitting item tax.
+
+Product/cart submission authenticates the token, actor, entry point and store before attempting bound-order recovery. Bound recovery proves native order association and historical EUR metadata, then uses existing materialization/CP locks and post-CP claims. It bypasses live price/fingerprint construction; unbound submissions still require current pricing and selection/fingerprint validation. Saved CP request evidence and ambiguous-outcome no-repost rules remain authoritative.
+
+`DurableEurResumeHydrator` reconstructs frozen calculation and native product inputs after durable proof. Customer/address interpretation delegates to `CheckoutOrderCustomerAdapter` and `CheckoutCustomerValidator`, with native billing-to-shipping fallback and no session/address fallback. Its residual product checks only ensure usable durable rows (identity, quantity, positive total, name); it does not resolve current catalogue eligibility or recalculate financing terms.

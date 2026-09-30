@@ -164,6 +164,7 @@ final class Phase11ACertificateSyncTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 921);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 921, $submission);
 
         [$synchronizer, $transport, , , , $controlPanel] = $this->synchronizer();
         $transport->enqueueJson(200, Phase4TestHarness::loginSuccessPayload());

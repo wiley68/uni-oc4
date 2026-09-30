@@ -298,21 +298,12 @@ final class Phase5GoldenParityTest extends TestCase
 
     public function testCurrencyGateGoldenVector(): void
     {
-        $expect = $this->cases['currency_gate']['expect'];
         $gate = new CurrencyGate();
-        foreach ([0, 1] as $mode) {
-            $shop = CalculatorTestHarness::defaultShop(['uni_eur' => $mode]);
-            self::assertSame($expect['uni_eur_0_or_1_expected_iso'], $gate->expectedIso($shop));
-            self::assertTrue($gate->supports($shop, 'BGN'));
-            self::assertFalse($gate->supports($shop, 'EUR'));
+        self::assertTrue($gate->supports('EUR'));
+        self::assertTrue($gate->supports(' eur '));
+        foreach (['BGN', 'USD', 'GBP', '', 'invalid'] as $unsupported) {
+            self::assertFalse($gate->supports($unsupported));
         }
-        foreach ([2, 3] as $mode) {
-            $shop = CalculatorTestHarness::defaultShop(['uni_eur' => $mode]);
-            self::assertSame($expect['uni_eur_2_or_3_expected_iso'], $gate->expectedIso($shop));
-            self::assertTrue($gate->supports($shop, 'EUR'));
-            self::assertFalse($gate->supports($shop, 'BGN'));
-        }
-        self::assertSame($expect['display_rate'], \Opencart\System\Library\Extension\MtUniCredit\AmountDisplayFormatter::DISPLAY_RATE);
     }
 
     public function testDisabledMonthCalculateThrows(): void

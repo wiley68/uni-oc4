@@ -59,7 +59,7 @@ final class Phase6OrderMaterializationTest extends TestCase
         $this->orders->seedExistingOrder(88001, [
             'store_id'        => PersistenceIntegrationHarness::TEST_STORE_ID,
             'total'           => 1200.0,
-            'currency_code'   => 'BGN',
+            'currency_code'   => 'EUR',
             'payment_method'  => PaymentIdentity::paymentMethod(),
             'order_status_id' => 0,
             'tracking'        => 'REAL-CARRIER-123',
@@ -92,7 +92,7 @@ final class Phase6OrderMaterializationTest extends TestCase
         $this->orders->seedExistingOrder(88002, [
             'store_id'        => PersistenceIntegrationHarness::TEST_STORE_ID,
             'total'           => 1200.0,
-            'currency_code'   => 'BGN',
+            'currency_code'   => 'EUR',
             'payment_method'  => PaymentIdentity::paymentMethod(),
             'order_status_id' => OrderMaterializationTestHarness::TEST_VOID_STATUS_ID,
             'tracking'        => 'KEEP',
@@ -125,7 +125,7 @@ final class Phase6OrderMaterializationTest extends TestCase
         $this->orders->seedExistingOrder(88003, [
             'store_id'        => PersistenceIntegrationHarness::TEST_STORE_ID,
             'total'           => 1200.0,
-            'currency_code'   => 'BGN',
+            'currency_code'   => 'EUR',
             'payment_method'  => PaymentIdentity::paymentMethod(),
             'order_status_id' => 2,
         ], [

@@ -92,43 +92,53 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Controller
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }
 
-            $context = $this->readSelectionContext($model, $shop);
-            $meta = $model->shopCacheMeta();
             $service = $model->createSubmissionService();
+            $lockOwnerToken = LockOwnerTokenGenerator::generate();
             try {
-                $result = $service->submit(
+                $result = $service->resume(
                     $shop,
-                    $context['store_id'],
+                    (int) $this->config->get('config_store_id'),
                     trim((string) ($this->request->post['submission_token'] ?? '')),
-                    $context['actor_binding_hash'],
-                    ProductActorBinding::sessionFingerprint((string) $this->session->getId()),
-                    $this->customer->isLogged() ? (int) $this->customer->getId() : 0,
-                    (int) $this->config->get('config_customer_group_id'),
-                    $context['product_id'],
-                    $context['quantity'],
-                    $context['options'],
-                    $context['currency'],
-                    $context['popup_type'],
-                    $context['scheme_type'],
-                    $context['kop_code'],
-                    $context['months'],
-                    $context['filter_id'],
-                    $context['scheme_key'],
-                    $context['first_installment'],
-                    $this->request->post,
-                    (string) ($meta['unicid'] ?? ''),
-                    (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
-                    (int) $this->config->get('config_language_id'),
-                    (string) $this->config->get('config_language'),
-                    (int) $this->currency->getId($context['currency']),
-                    (float) $this->currency->getValue($context['currency']),
-                    (string) $this->config->get('config_name'),
-                    (string) ($this->config->get('config_url') ?? ''),
-                    (string) ($this->config->get('config_invoice_prefix') ?? ''),
-                    LockOwnerTokenGenerator::generate(),
-                    (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
-                    $model->storeAddressDefaults()
+                    $model->actorBindingHash(),
+                    $lockOwnerToken
                 );
+                if ($result === null) {
+                    $context = $this->readSelectionContext($model, $shop);
+                    $meta = $model->shopCacheMeta();
+                    $result = $service->submit(
+                        $shop,
+                        $context['store_id'],
+                        trim((string) ($this->request->post['submission_token'] ?? '')),
+                        $context['actor_binding_hash'],
+                        ProductActorBinding::sessionFingerprint((string) $this->session->getId()),
+                        $this->customer->isLogged() ? (int) $this->customer->getId() : 0,
+                        (int) $this->config->get('config_customer_group_id'),
+                        $context['product_id'],
+                        $context['quantity'],
+                        $context['options'],
+                        $context['currency'],
+                        $context['popup_type'],
+                        $context['scheme_type'],
+                        $context['kop_code'],
+                        $context['months'],
+                        $context['filter_id'],
+                        $context['scheme_key'],
+                        $context['first_installment'],
+                        $this->request->post,
+                        (string) ($meta['unicid'] ?? ''),
+                        (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
+                        (int) $this->config->get('config_language_id'),
+                        (string) $this->config->get('config_language'),
+                        (int) $this->currency->getId($context['currency']),
+                        (float) $this->currency->getValue($context['currency']),
+                        (string) $this->config->get('config_name'),
+                        (string) ($this->config->get('config_url') ?? ''),
+                        (string) ($this->config->get('config_invoice_prefix') ?? ''),
+                        $lockOwnerToken,
+                        (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
+                        $model->storeAddressDefaults()
+                    );
+                }
             } catch (ProductFinancingFlowException $exception) {
                 http_response_code($exception->httpStatus());
 

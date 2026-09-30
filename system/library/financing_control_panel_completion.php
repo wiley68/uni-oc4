@@ -9,6 +9,53 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  */
 final class FinancingControlPanelCompletion
 {
+    /**
+     * A bound order owns recovery amounts. Keep existing materialization/CP locks and
+     * post-CP claims; rebuild only from native rows and the frozen financing snapshot.
+     * @param array<string, mixed> $row Already authorized by the entrypoint service.
+     */
+    public static function resumeBoundAttempt(
+        ControlPanelOrderLifecycleService $lifecycle,
+        OrderMaterializationService $materialization,
+        array $row,
+        int $storeId,
+        array $shop,
+        string $lockOwnerToken
+    ): ?ProductFinancingResult {
+        $orderId = (int) ($row['order_id'] ?? 0);
+        if ($orderId <= 0) {
+            return null;
+        }
+        $attemptId = (int) $row['attempt_id'];
+        $resume = ResumeSubmissionFactory::create(
+            (string) $row['entry_point'], $storeId, $row['submission_token'] ?? null,
+            (string) $row['operation_key_hash'], $orderId
+        );
+        if ((string) $row['state'] === FinancingAttemptState::CP_CREATED) {
+            return self::resumeExistingCp(
+                $lifecycle, $attemptId, $resume, $orderId,
+                (int) ($row['control_panel_order_id'] ?? 0), $shop
+            );
+        }
+        $proof = (new DurableEurOrderGuard($lifecycle->database()))->prove($attemptId, $storeId, $orderId);
+        (new DurableEurResumeHydrator($lifecycle->database()))->hydrate($attemptId, $resume, $proof, true);
+        try {
+            $created = $materialization->materializeAndBind($resume, new FinancingAttemptContext($row), $lockOwnerToken);
+        } catch (OrderMaterializationException $exception) {
+            throw new ProductFinancingFlowException('order_materialization', 'Поръчката не може да бъде възстановена.', [], $exception);
+        }
+        $fresh = (new FinancingAttemptRepository($lifecycle->database()))->findById($attemptId) ?? $row;
+        try {
+            $result = self::apply($lifecycle, new FinancingAttemptContext($fresh), $resume, $orderId, $shop, $lockOwnerToken);
+        } catch (ProductFinancingFlowException $exception) {
+            $materialization->applyProductCartVisibleStatus($created, $resume->entryPoint);
+            throw $exception;
+        }
+        $materialization->applyProductCartVisibleStatus($created, $resume->entryPoint);
+
+        return $result;
+    }
+
     public static function apply(
         ControlPanelOrderLifecycleService $lifecycle,
         FinancingAttemptContext $attempt,
@@ -20,6 +67,7 @@ final class FinancingControlPanelCompletion
         ?string $successRedirectUrl = null,
         ?ProcessTwoMailPort $process2Mailer = null
     ): ProductFinancingResult {
+        self::proveOrder($lifecycle, $attempt->attemptId(), $submission, $localOrderId);
         $row = $attempt->row();
         $existingCp = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
         if ($existingCp > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
@@ -112,6 +160,8 @@ final class FinancingControlPanelCompletion
         ?string $successRedirectUrl = null,
         ?ProcessTwoMailPort $process2Mailer = null
     ): ProductFinancingResult {
+        self::proveOrder($lifecycle, $attemptId, $submission, $localOrderId, true);
+
         return self::postControlPanel($lifecycle, null, $successRedirectUrl, $process2Mailer, $shop)->handle(
             $attemptId,
             $submission,
@@ -120,6 +170,32 @@ final class FinancingControlPanelCompletion
             $shop,
             true
         );
+    }
+
+    private static function proveOrder(
+        ControlPanelOrderLifecycleService $lifecycle,
+        int $attemptId,
+        ValidatedFinancingSubmission $submission,
+        int $orderId,
+        bool $cpSuccess = false
+    ): void {
+        $proof = (new DurableEurOrderGuard($lifecycle->database()))->prove(
+            $attemptId,
+            $submission->storeId,
+            $orderId,
+            $cpSuccess
+        );
+        $draft = $submission->orderDraft;
+        if ($submission->submissionSource !== 'resume') {
+            if (!(new CurrencyGate())->supports($draft->currencyCode)
+                || $draft->currencyId !== $proof->currencyId
+                || abs($draft->currencyValue - $proof->currencyValue) > 0.000001
+                || abs($draft->orderTotal - $proof->baseTotal) > 0.02
+                || abs($submission->financingCalculation->price - $proof->eurTotal) > 0.02) {
+                throw DurableEurOrderGuard::failure();
+            }
+        }
+        $submission->eurOrderProof = $proof;
     }
 
     /**

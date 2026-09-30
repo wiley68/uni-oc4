@@ -78,7 +78,7 @@ final class Phase11CProductBuyCheckoutRerenderHandoffTest extends TestCase
             $calc,
             new CurrencyGate(),
             new InstallmentLabelFormatter()
-        ))->present($shop, $cart, 'BGN');
+        ))->present($shop, $cart, 'EUR');
         self::assertIsArray($presenter);
 
         $schemes = ProductBuyCheckoutPreference::collectPresenterSchemes($presenter);

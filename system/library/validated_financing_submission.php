@@ -43,6 +43,8 @@ final class ValidatedFinancingSubmission
 
     public ?ProcessTwoSensitiveData $process2Sensitive = null;
 
+    public ?DurableEurOrderProof $eurOrderProof = null;
+
     public function __construct(
         string $entryPoint,
         int $storeId,

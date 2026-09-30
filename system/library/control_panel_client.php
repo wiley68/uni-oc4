@@ -172,6 +172,9 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
      */
     public function createOrder(array $order): array
     {
+        if (($order['currency'] ?? null) !== 'EUR') {
+            throw new CpInvalidPayloadException('Financing currency must be EUR.');
+        }
         $response = $this->authenticatedRequest('POST', '/orders', $order);
         $this->assertCreateOrderIdentity($response, $order);
 

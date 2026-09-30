@@ -24,7 +24,7 @@ final class ProductFinancingAvailability
         if (!$moduleEnabled || $shop === null || $line === null) {
             return false;
         }
-        if (!$this->currencyGate->supports($shop, $currencyIso)) {
+        if (!$this->currencyGate->supports($currencyIso)) {
             return false;
         }
         if ($line->financingPrice <= 0) {

@@ -120,7 +120,7 @@ class MtUniCreditProductView extends \Opencart\System\Engine\Controller
         $availability = $model->createAvailabilityGate();
         if (!$availability->isCalculatorVisible($model->isModuleEnabled(), $shop, $currency, $line)) {
             $gate = new \Opencart\System\Library\Extension\MtUniCredit\CurrencyGate();
-            if (!$gate->supports($shop, $currency)) {
+            if (!$gate->supports($currency)) {
                 $reason = 'unsupported currency ' . strtoupper($currency);
             } elseif ($line->financingPrice <= 0) {
                 $reason = 'non-positive financing price';

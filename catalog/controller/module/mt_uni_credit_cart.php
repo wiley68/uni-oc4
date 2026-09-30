@@ -90,48 +90,58 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }
 
-            $context = $this->readSelectionContext($model);
-            $materials = $model->buildOrderMaterials();
-            $meta = $model->shopCacheMeta();
             $service = $model->createSubmissionService();
+            $lockOwnerToken = LockOwnerTokenGenerator::generate();
             try {
-                $result = $service->submit(
+                $result = $service->resume(
                     $shop,
-                    $context['store_id'],
+                    (int) $this->config->get('config_store_id'),
                     trim((string) ($this->request->post['submission_token'] ?? '')),
-                    $context['actor_binding_hash'],
-                    \Opencart\System\Library\Extension\MtUniCredit\CartActorBinding::sessionFingerprint((string) $this->session->getId()),
-                    $this->customer->isLogged() ? (int) $this->customer->getId() : 0,
-                    (int) $this->config->get('config_customer_group_id'),
-                    $context['cart'],
-                    $context['cart_fingerprint'],
-                    $context['currency'],
-                    $context['popup_type'],
-                    $context['scheme_type'],
-                    $context['kop_code'],
-                    $context['months'],
-                    $context['filter_id'],
-                    $context['scheme_key'],
-                    $context['first_installment'],
-                    $this->request->post,
-                    $materials['products'],
-                    $materials['totals'],
-                    $materials['order_total'],
-                    $materials['shipping_required'],
-                    (string) ($meta['unicid'] ?? ''),
-                    (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
-                    (int) $this->config->get('config_language_id'),
-                    (string) $this->config->get('config_language'),
-                    (int) $this->currency->getId($context['currency']),
-                    (float) $this->currency->getValue($context['currency']),
-                    (string) $this->config->get('config_name'),
-                    (string) ($this->config->get('config_url') ?? ''),
-                    (string) ($this->config->get('config_invoice_prefix') ?? ''),
-                    LockOwnerTokenGenerator::generate(),
-                    (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
-                    $model->storeAddressDefaults(),
-                    null
+                    $model->actorBindingHash(),
+                    $lockOwnerToken
                 );
+                if ($result === null) {
+                    $context = $this->readSelectionContext($model);
+                    $materials = $model->buildOrderMaterials();
+                    $meta = $model->shopCacheMeta();
+                    $result = $service->submit(
+                        $shop,
+                        $context['store_id'],
+                        trim((string) ($this->request->post['submission_token'] ?? '')),
+                        $context['actor_binding_hash'],
+                        \Opencart\System\Library\Extension\MtUniCredit\CartActorBinding::sessionFingerprint((string) $this->session->getId()),
+                        $this->customer->isLogged() ? (int) $this->customer->getId() : 0,
+                        (int) $this->config->get('config_customer_group_id'),
+                        $context['cart'],
+                        $context['cart_fingerprint'],
+                        $context['currency'],
+                        $context['popup_type'],
+                        $context['scheme_type'],
+                        $context['kop_code'],
+                        $context['months'],
+                        $context['filter_id'],
+                        $context['scheme_key'],
+                        $context['first_installment'],
+                        $this->request->post,
+                        $materials['products'],
+                        $materials['totals'],
+                        $materials['order_total'],
+                        $materials['shipping_required'],
+                        (string) ($meta['unicid'] ?? ''),
+                        (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
+                        (int) $this->config->get('config_language_id'),
+                        (string) $this->config->get('config_language'),
+                        (int) $this->currency->getId($context['currency']),
+                        (float) $this->currency->getValue($context['currency']),
+                        (string) $this->config->get('config_name'),
+                        (string) ($this->config->get('config_url') ?? ''),
+                        (string) ($this->config->get('config_invoice_prefix') ?? ''),
+                        $lockOwnerToken,
+                        (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
+                        $model->storeAddressDefaults(),
+                        null
+                    );
+                }
             } catch (ProductFinancingFlowException $exception) {
                 http_response_code($exception->httpStatus());
 

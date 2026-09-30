@@ -90,6 +90,7 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, $orderId, $submission, 99001);
 
         $transport = new \MtUniCredit\Tests\Support\FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();
@@ -175,6 +176,7 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, $orderId, $submission, 99002);
 
         $transport = new \MtUniCredit\Tests\Support\FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();

@@ -27,7 +27,7 @@ final class CheckoutFinancingEligibility
         if (!$moduleEnabled || !$paymentEnabled) {
             return false;
         }
-        if (!$this->currencyGate->supports($shop, $currencyCode)) {
+        if (!$this->currencyGate->supports($currencyCode)) {
             return false;
         }
         if ($cart->lines === [] || $cart->total <= 0.0) {

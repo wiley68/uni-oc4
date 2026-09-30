@@ -12,6 +12,15 @@ final class SmartUcfPayloadBuilder
      */
     public function build(ValidatedFinancingSubmission $submission, array $shop, int $localOrderId): array
     {
+        $proof = $submission->eurOrderProof;
+        if ($proof === null || $proof->orderId !== $localOrderId
+            || !(new CurrencyGate())->supports($submission->orderDraft->currencyCode)
+            || $submission->orderDraft->currencyId !== $proof->currencyId
+            || abs($submission->orderDraft->currencyValue - $proof->currencyValue) > 0.000001
+            || abs($submission->orderDraft->orderTotal - $proof->baseTotal) > 0.02
+            || abs($submission->financingCalculation->price - $proof->eurTotal) > 0.02) {
+            throw DurableEurOrderGuard::failure();
+        }
         $calculation = $submission->financingCalculation;
         $address = $submission->billingAddress;
         $deliveryAddress = trim(implode(', ', array_filter([
@@ -35,7 +44,7 @@ final class SmartUcfPayloadBuilder
             'initialPayment' => $this->formatAmount($calculation->firstInstallment->amount),
             'installmentCount' => $calculation->scheme->months,
             'monthlyPayment' => $this->formatAmount($calculation->monthlyInstallment),
-            'items' => $this->buildItems($submission->orderDraft->products, $shop, $submission->orderDraft->currencyCode),
+            'items' => $this->buildItems($submission->orderDraft->products, $proof),
         ];
 
         if ($payload['user'] === '' || $payload['pass'] === '') {
@@ -53,21 +62,22 @@ final class SmartUcfPayloadBuilder
 
     /**
      * @param list<array<string, mixed>> $lines
-     * @param array<string, mixed> $shop
      * @return list<array<string, mixed>>
      */
-    private function buildItems(array $lines, array $shop, string $currencyIso): array
+    private function buildItems(array $lines, DurableEurOrderProof $proof): array
     {
         $items = [];
         foreach ($lines as $line) {
             $quantity = max(1, (int) ($line['quantity'] ?? 1));
-            $unitPrice = ((float) ($line['total'] ?? $line['price'] ?? 0)) / $quantity;
-            $uniEur = (int) ($shop['uni_eur'] ?? 0);
-            if ($uniEur === 1 && strtoupper($currencyIso) === 'EUR') {
-                $unitPrice *= 1.95583;
-            } elseif (in_array($uniEur, [2, 3], true) && strtoupper($currencyIso) === 'BGN') {
-                $unitPrice /= 1.95583;
-            }
+            // OpenCart total is the net line amount; tax is per unit, both in base units.
+            // Merchandise excludes shipping/order-level adjustments in totalPrice.
+            $unitPrice = EurFinancingAmount::fromOrder(
+                (isset($line['total']) ? (float) $line['total'] / $quantity : (float) ($line['price'] ?? 0))
+                    + (float) ($line['tax'] ?? 0),
+                'EUR',
+                $proof->currencyId,
+                $proof->currencyValue
+            );
             $items[] = [
                 'name' => $this->clean((string) ($line['name'] ?? '')),
                 'code' => (int) ($line['product_id'] ?? 0),

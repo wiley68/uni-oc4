@@ -24,6 +24,11 @@ final class OrderMaterializationService
         FinancingAttemptContext $attempt,
         string $lockOwnerToken
     ): CreatedOpenCartOrder {
+        $draft = $submission->orderDraft;
+        if (!(new CurrencyGate())->supports($draft->currencyCode)
+            || $draft->currencyId <= 0 || !is_finite($draft->currencyValue) || $draft->currencyValue <= 0.0) {
+            throw new OrderMaterializationException('EUR order draft currency provenance is invalid.');
+        }
         if ($attempt->storeId() !== $submission->storeId) {
             throw new OrderMaterializationException('Attempt store scope mismatch.');
         }

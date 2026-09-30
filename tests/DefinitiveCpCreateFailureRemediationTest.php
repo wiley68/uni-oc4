@@ -303,7 +303,7 @@ final class DefinitiveCpCreateFailureRemediationTest extends TestCase
             $transport->enqueue($status, 'Not Found');
             $client = $this->client($transport);
             try {
-                $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+                $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
                 self::fail('Expected CpHttpException for HTTP ' . $status);
             } catch (CpHttpException $exception) {
                 self::assertSame($status, $exception->getStatusCode());
@@ -319,7 +319,7 @@ final class DefinitiveCpCreateFailureRemediationTest extends TestCase
         $transport->enqueue(500, 'not-json');
         $client = $this->client($transport);
         $this->expectException(CpMalformedJsonException::class);
-        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '1', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     private function client(FakeCpHttpTransport $transport): ControlPanelClient
@@ -356,7 +356,7 @@ final class DefinitiveCpCreateFailureRemediationTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new PersistenceClock()))
             ->issueOrReuse(
                 ProductFinancingTestHarness::STORE_ID,
@@ -387,7 +387,7 @@ final class DefinitiveCpCreateFailureRemediationTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],

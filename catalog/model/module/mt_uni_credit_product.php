@@ -360,6 +360,16 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
                 return (float) $model->tax->calculate($price, $taxClassId, (bool) $model->config->get('config_tax'));
             },
             function (float $price, string $from, string $to) use ($model): float {
+                if (!(new \Opencart\System\Library\Extension\MtUniCredit\CurrencyGate())->supports($to)
+                    || $model->currency->getId($from) <= 0 || $model->currency->getId($to) <= 0
+                    || !is_finite((float) $model->currency->getValue($from)) || !is_finite((float) $model->currency->getValue($to))
+                    || $model->currency->getValue($from) <= 0 || $model->currency->getValue($to) <= 0) {
+                    throw new \Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException(
+                        'currency_unavailable',
+                        'Финансирането не е налично за избраната валута.'
+                    );
+                }
+
                 return (float) $model->currency->convert($price, $from, $to);
             }
         );

@@ -166,10 +166,8 @@ final class CalculatorGoldenFixturesTest extends TestCase
     public function testCurrencyGate(): void
     {
         $expect = $this->cases['currency_gate']['expect'];
-        self::assertSame('BGN', $expect['uni_eur_0_or_1_expected_iso']);
-        self::assertSame('EUR', $expect['uni_eur_2_or_3_expected_iso']);
-        self::assertSame(['BGN', 'EUR'], $expect['supported_iso']);
-        self::assertSame(1.95583, $expect['display_rate']);
+        self::assertSame(['EUR'], $expect['supported_iso']);
+        self::assertSame(['BGN', 'USD', 'GBP', '', 'invalid'], $expect['rejected_iso']);
     }
 
     public function testShopFixtureHasRequiredCoefficientRows(): void

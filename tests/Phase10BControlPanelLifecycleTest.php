@@ -14,6 +14,7 @@ use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderLifecycleServ
 use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilder;
 use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptContext;
+use Opencart\System\Library\Extension\MtUniCredit\DurableEurOrderProof;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptState;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingCustomerData;
@@ -51,22 +52,25 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
     {
         $builder = new ControlPanelOrderPayloadBuilder();
         $submission = OrderMaterializationTestHarness::productSubmission();
+        $submission->eurOrderProof = new DurableEurOrderProof(12345, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
         $payload = $builder->build($submission, 12345, ProductFinancingTestHarness::shop());
         self::assertSame('12345', $payload['order_id']);
         self::assertSame('0888000000', $payload['phone']);
         self::assertSame(ModuleConstants::VERSION, $payload['version']);
-        self::assertSame('BGN', $payload['currency']);
+        self::assertSame('EUR', $payload['currency']);
         self::assertArrayNotHasKey('status_id', $payload);
 
         // Checkout may send phone='' — builder must not invent a placeholder.
         $checkout = OrderMaterializationTestHarness::productSubmission();
         $checkout->customer = new FinancingCustomerData(0, 1, 'Ivan', 'Petrov', 'ivan@example.test', '');
+        $checkout->eurOrderProof = new DurableEurOrderProof(99, $checkout->storeId, 1, 1.0, 1200.0, 1200.0);
         $emptyPhone = $builder->build($checkout, 99, ProductFinancingTestHarness::shop());
         self::assertSame('', $emptyPhone['phone']);
         self::assertSame(ModuleConstants::VERSION, $emptyPhone['version']);
 
         $process2Shop = ProductFinancingTestHarness::shop();
         $process2Shop['uni_proces'] = 1;
+        $submission->eurOrderProof = new DurableEurOrderProof(1, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
         $p2 = $builder->build($submission, 1, $process2Shop);
         self::assertArrayNotHasKey('status', $p2);
         self::assertArrayNotHasKey('status_id', $p2);
@@ -296,7 +300,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attempt = $this->attempts->issueWithSubmissionToken(
-            ProductFinancingTestHarness::STORE_ID,
+            $submission->storeId,
             'product',
             str_repeat('a', 64),
             str_repeat('b', 64),
@@ -307,16 +311,17 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $this->attempts->transitionFromStates((int) $attempt['attempt_id'], [FinancingAttemptState::ISSUED], FinancingAttemptState::ORDER_CREATED);
         $this->attempts->persistControlPanelOrderId((int) $attempt['attempt_id'], 88);
         $this->attempts->transitionFromStates((int) $attempt['attempt_id'], [FinancingAttemptState::ORDER_CREATED], FinancingAttemptState::CP_CREATED);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $attempt['attempt_id'], 55, $submission, 88);
 
         $transport = new FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate(99);
         $settings = Phase4TestHarness::settings();
-        Phase4TestHarness::prepareCredentials($settings, ProductFinancingTestHarness::STORE_ID);
+        Phase4TestHarness::prepareCredentials($settings, $submission->storeId);
         $db = PersistenceIntegrationHarness::connection();
         $cp = CpServiceFactory::create(
             $db,
             $settings,
-            ProductFinancingTestHarness::STORE_ID,
+            $submission->storeId,
             Phase4TestHarness::TEST_SHOP_URL,
             Phase4TestHarness::TEST_SHOP_URL,
             $transport,
@@ -378,7 +383,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         if ($token === null) {
             $attempt = (new ProductSubmissionIssuer($this->attempts, new PersistenceClock()))
                 ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
@@ -402,7 +407,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],

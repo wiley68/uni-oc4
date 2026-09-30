@@ -102,6 +102,8 @@ final class Phase11BProcess2ContractTest extends TestCase
             \Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptState::CP_CREATED
         ));
 
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 9011, $submission, 777001, true);
+
         ProcessTwoSubmissionSupport::validateAndPersist(
             ['uni_proces' => 1],
             ['egn' => '1990011599', 'phone2' => '0888123456'],
@@ -212,6 +214,16 @@ final class Phase11BProcess2ContractTest extends TestCase
         self::assertSame($mailCount, count($mailer->sent));
         $p2row = (new ProcessTwoLifecycleRepository($db))->findByAttempt($attemptId);
         self::assertSame(ProcessTwoLifecycleStates::PREPARED, $p2row['process2_state']);
+
+        PersistenceIntegrationHarness::seedNativeOrder(9011, $submission->storeId, 1200.0, 'BGN', 2, 1.0);
+        try {
+            $lifecycle->handle($attemptId, $submission, 9011, 777001, $shop, true);
+            self::fail('Prepared Process 2 replay accepted a stale BGN order.');
+        } catch (ProductFinancingFlowException $expected) {
+            self::assertSame('currency_unavailable', $expected->errorCode());
+        }
+        self::assertSame(0, $smartClient->calls);
+        self::assertSame($mailCount, count($mailer->sent));
     }
 
     public function testMissingEgnLeavesCpSentSemanticsWithoutBankProcess2(): void

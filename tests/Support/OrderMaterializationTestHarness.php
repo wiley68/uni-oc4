@@ -109,7 +109,7 @@ final class OrderMaterializationTestHarness
             1,
             'bg-bg',
             1,
-            'BGN',
+            'EUR',
             1.0
         );
 
@@ -187,7 +187,7 @@ final class OrderMaterializationTestHarness
             1,
             'bg-bg',
             1,
-            'BGN',
+            'EUR',
             1.0,
             ['name' => 'Flat Rate', 'code' => 'flat.flat']
         );

@@ -66,7 +66,8 @@ final class OpenCartCartOrderProductsBuilder
             ];
         }
 
-        $orderTotal = round($subTotal + $taxTotal, 2);
+        // Match native order DECIMAL(15,4); transaction rounding happens after conversion.
+        $orderTotal = round($subTotal + $taxTotal, 4);
         $totals = [
             ['extension' => 'opencart', 'code' => 'sub_total', 'title' => 'Sub-Total', 'value' => round($subTotal, 4), 'sort_order' => 1],
         ];

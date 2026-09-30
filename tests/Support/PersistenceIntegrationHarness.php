@@ -69,6 +69,7 @@ final class PersistenceIntegrationHarness
         self::$connection = new MysqliDbConnection($mysqli, $config['prefix']);
         self::$activePrefix = $config['prefix'];
         (new PersistenceSchemaInstaller(self::$connection))->installAll();
+        self::ensureNativeProofTables(self::$connection);
         self::registerShutdownCleanup();
 
         return self::$connection;
@@ -85,9 +86,138 @@ final class PersistenceIntegrationHarness
         $db = self::connection();
         // Idempotent: recreate if a prior teardown/drop removed tables mid-suite.
         (new PersistenceSchemaInstaller($db))->installAll();
+        self::ensureNativeProofTables($db);
+        $db->query('TRUNCATE TABLE `' . $db->getPrefix() . 'order_product`');
+        $db->query('TRUNCATE TABLE `' . $db->getPrefix() . 'order`');
         foreach (PersistenceTableNames::allPersistenceTables() as $table) {
             $db->query('TRUNCATE TABLE `' . $db->getPrefix() . $table . '`');
         }
+    }
+
+    /** Native proof fixtures use only the isolated integration prefix. */
+    private static function ensureNativeProofTables(DbConnection $db): void
+    {
+        $prefix = $db->getPrefix();
+        self::assertSafeIntegrationPrefix($prefix);
+        $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}order` (
+            `order_id` INT NOT NULL PRIMARY KEY,
+            `store_id` INT NOT NULL,
+            `total` DECIMAL(15,4) NOT NULL,
+            `currency_code` VARCHAR(3) NOT NULL,
+            `currency_id` INT NOT NULL,
+            `currency_value` DECIMAL(15,8) NOT NULL,
+            `customer_id` INT NOT NULL DEFAULT 0,
+            `customer_group_id` INT NOT NULL DEFAULT 0,
+            `firstname` VARCHAR(64) NOT NULL DEFAULT '',
+            `lastname` VARCHAR(64) NOT NULL DEFAULT '',
+            `email` VARCHAR(128) NOT NULL DEFAULT '',
+            `telephone` VARCHAR(45) NOT NULL DEFAULT '',
+            `payment_company` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_address_1` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_address_2` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_city` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_postcode` VARCHAR(32) NOT NULL DEFAULT '',
+            `payment_country` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_country_id` INT NOT NULL DEFAULT 0,
+            `payment_zone` VARCHAR(128) NOT NULL DEFAULT '',
+            `payment_zone_id` INT NOT NULL DEFAULT 0,
+            `shipping_firstname` VARCHAR(64) NOT NULL DEFAULT '',
+            `shipping_lastname` VARCHAR(64) NOT NULL DEFAULT '',
+            `shipping_company` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_address_1` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_address_2` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_city` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_postcode` VARCHAR(32) NOT NULL DEFAULT '',
+            `shipping_country` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_country_id` INT NOT NULL DEFAULT 0,
+            `shipping_zone` VARCHAR(128) NOT NULL DEFAULT '',
+            `shipping_zone_id` INT NOT NULL DEFAULT 0
+        )");
+        $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}order_product` (
+            `order_product_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `order_id` INT NOT NULL,
+            `product_id` INT NOT NULL,
+            `name` VARCHAR(255) NOT NULL,
+            `model` VARCHAR(64) NOT NULL DEFAULT '',
+            `quantity` INT NOT NULL,
+            `price` DECIMAL(15,4) NOT NULL,
+            `total` DECIMAL(15,4) NOT NULL,
+            `tax` DECIMAL(15,4) NOT NULL DEFAULT 0
+        )");
+        $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}currency` (
+            `currency_id` INT NOT NULL PRIMARY KEY,
+            `code` VARCHAR(3) NOT NULL
+        )");
+        $db->query("REPLACE INTO `{$prefix}currency` (`currency_id`, `code`) VALUES (1, 'EUR'), (2, 'BGN')");
+    }
+
+    public static function seedNativeOrder(int $orderId, int $storeId, float $baseTotal, string $code = 'EUR', int $currencyId = 1, float $value = 1.0, array $nativeData = []): void
+    {
+        $db = self::connection();
+        self::ensureNativeProofTables($db);
+        $db->query("REPLACE INTO `" . $db->getPrefix() . "order`
+            (`order_id`, `store_id`, `total`, `currency_code`, `currency_id`, `currency_value`)
+            VALUES (" . $orderId . ", " . $storeId . ", " . $baseTotal . ", '" . $db->escape($code) . "', " . $currencyId . ", " . $value . ")");
+        $fields = ['customer_id', 'customer_group_id', 'firstname', 'lastname', 'email', 'telephone'];
+        foreach (['payment', 'shipping'] as $kind) {
+            foreach (['company', 'address_1', 'address_2', 'city', 'postcode', 'country', 'country_id', 'zone', 'zone_id'] as $field) {
+                $fields[] = $kind . '_' . $field;
+            }
+        }
+        $fields = array_merge($fields, ['shipping_firstname', 'shipping_lastname']);
+        $values = [];
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $nativeData)) {
+                $values[] = "`{$field}` = '" . $db->escape((string) $nativeData[$field]) . "'";
+            }
+        }
+        if ($values !== []) {
+            $db->query("UPDATE `" . $db->getPrefix() . "order` SET " . implode(', ', $values) . " WHERE `order_id` = {$orderId}");
+        }
+        if (isset($nativeData['products'])) {
+            $db->query("DELETE FROM `" . $db->getPrefix() . "order_product` WHERE `order_id` = {$orderId}");
+            foreach ($nativeData['products'] as $line) {
+                $values = ["`order_id` = {$orderId}"];
+                foreach (['product_id', 'name', 'model', 'quantity', 'price', 'total', 'tax'] as $field) {
+                    $value = $line[$field] ?? (in_array($field, ['name', 'model'], true) ? '' : 0);
+                    $values[] = "`{$field}` = '" . $db->escape((string) $value) . "'";
+                }
+                $db->query("INSERT INTO `" . $db->getPrefix() . "order_product` SET " . implode(', ', $values));
+            }
+        }
+    }
+
+    public static function seedSuccessfulEurAttempt(int $attemptId, int $orderId, \Opencart\System\Library\Extension\MtUniCredit\ValidatedFinancingSubmission $submission, int $cpId = 901, bool $process2 = false): void
+    {
+        $db = self::connection();
+        self::seedNativeOrder(
+            $orderId,
+            $submission->storeId,
+            $submission->orderDraft->orderTotal,
+            'EUR',
+            $submission->orderDraft->currencyId,
+            $submission->orderDraft->currencyValue
+        );
+        $calc = $submission->financingCalculation;
+        $payload = [
+            'order_id' => substr((string) $orderId, 0, 13),
+            'currency' => 'EUR',
+            'price' => $calc->financedAmount,
+            'parva' => $calc->firstInstallment->amount,
+            'vnoska' => $calc->monthlyInstallment,
+        ];
+        $snapshot = \Opencart\System\Library\Extension\MtUniCredit\FinancingPresentationSnapshot::fromSubmission(
+            $submission,
+            $orderId,
+            $process2,
+            $cpId
+        )->toArray();
+        $table = $db->getPrefix() . \Opencart\System\Library\Extension\MtUniCredit\PersistenceTableNames::FINANCING_ATTEMPT;
+        $db->query("UPDATE `{$table}` SET `state` = 'cp_created',
+            `control_panel_order_id` = " . $cpId . ",
+            `cp_payload` = '" . $db->escape(json_encode($payload, JSON_THROW_ON_ERROR)) . "',
+            `leasing_presentation_json` = '" . $db->escape(json_encode($snapshot, JSON_THROW_ON_ERROR)) . "'
+            WHERE `attempt_id` = " . $attemptId);
     }
 
     /**
@@ -107,6 +237,9 @@ final class PersistenceIntegrationHarness
             $full = $prefix . $table;
             self::$connection->query('DROP TABLE IF EXISTS `' . $full . '`');
         }
+        self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'order_product`');
+        self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'order`');
+        self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'currency`');
     }
 
     /**

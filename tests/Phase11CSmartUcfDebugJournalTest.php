@@ -32,7 +32,8 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
     {
         [$coordinator, $attemptId, $submission, $db] = $this->coordinatorHarness(
             debugEnabled: false,
-            client: $this->successClient()
+            client: $this->successClient(),
+            orderId: 901
         );
 
         self::assertTrue(
@@ -210,6 +211,7 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
         );
         $orderId = 906;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $orderId, $submission);
 
         $journal->recordSmartUcfSession(
             $storeId,
@@ -252,6 +254,7 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $shopOrderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $shopOrderId, $submission);
         $journal->recordSmartUcfSession(
             $storeId,
             $shopOrderId,
@@ -385,6 +388,7 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $orderId, $submission);
 
         $transport = new FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();

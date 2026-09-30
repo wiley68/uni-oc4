@@ -42,6 +42,7 @@ final class ProcessTwoLifecycleCoordinator
         array $orderContext,
         ?string $successRedirectUrl = null
     ): ProductFinancingResult {
+        (new DurableEurOrderGuard($this->lifecycle->database()))->prove($attemptId, $storeId, $localOrderId, true);
         $row = $this->lifecycle->findByAttempt($attemptId);
         if ($row === null) {
             throw new ProductFinancingFlowException(

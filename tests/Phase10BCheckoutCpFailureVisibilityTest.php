@@ -213,7 +213,7 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
         $token = (string) $attempt['submission_token'];
@@ -229,7 +229,7 @@ final class Phase10BCheckoutCpFailureVisibilityTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],

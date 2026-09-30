@@ -47,7 +47,7 @@ final class Phase7ProductFlowTest extends TestCase
     public function testPreferredOfferOrderingIsServerAuthoritative(): void
     {
         $line = ProductFinancingTestHarness::factory()->create(ProductFinancingTestHarness::STORE_ID, 42, 1, []);
-        $presented = ProductFinancingTestHarness::presenter()->present(ProductFinancingTestHarness::shop(), $line, 'BGN');
+        $presented = ProductFinancingTestHarness::presenter()->present(ProductFinancingTestHarness::shop(), $line, 'EUR');
         self::assertNotNull($presented);
         self::assertArrayHasKey('standard', $presented['offers']);
         self::assertSame('standard|KOPSTD|12|0', $presented['offers']['standard']['preferred_scheme_key']);

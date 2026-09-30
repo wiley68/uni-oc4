@@ -173,7 +173,7 @@ final class Phase9SchemePresentationOrderTest extends TestCase
             new ProductSchemeList(new Calculator(CalculatorTestHarness::FIXED_TODAY)),
             new InstallmentLabelFormatter()
         );
-        $productPayload = $productPresenter->present($shop, $line, 'BGN');
+        $productPayload = $productPresenter->present($shop, $line, 'EUR');
         self::assertNotNull($productPayload);
         $productSchemes = $productPayload['offers']['standard']['schemes'];
         $this->assertCanonicalFinalOrder($productSchemes);
@@ -189,7 +189,7 @@ final class Phase9SchemePresentationOrderTest extends TestCase
             new CurrencyGate(),
             new InstallmentLabelFormatter()
         );
-        $cartPayload = $cartPresenter->present($shop, $cart, 'BGN');
+        $cartPayload = $cartPresenter->present($shop, $cart, 'EUR');
         self::assertNotNull($cartPayload);
         $cartSchemes = $cartPayload['offers']['standard']['schemes'];
         $this->assertCanonicalFinalOrder($cartSchemes);

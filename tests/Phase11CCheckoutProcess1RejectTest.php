@@ -253,6 +253,7 @@ final class Phase11CCheckoutProcess1RejectTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, $orderId, $submission);
 
         $transport = new \MtUniCredit\Tests\Support\FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();

@@ -17,6 +17,7 @@ use Opencart\System\Library\Extension\MtUniCredit\CheckoutSubmissionIssuer;
 use Opencart\System\Library\Extension\MtUniCredit\ConsentResolver;
 use Opencart\System\Library\Extension\MtUniCredit\CpServiceFactory;
 use Opencart\System\Library\Extension\MtUniCredit\CurrencyGate;
+use Opencart\System\Library\Extension\MtUniCredit\EurFinancingAmount;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAddressData;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingCustomerData;
@@ -124,20 +125,37 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
 
     public function createCartContext(): CartContext
     {
+        $from = (string) $this->config->get('config_currency');
+        $to = (string) ($this->session->data['currency'] ?? $from);
+        if (!(new CurrencyGate())->supports($to)
+            || $this->currency->getId($from) <= 0 || $this->currency->getId($to) <= 0
+            || !is_finite((float) $this->currency->getValue($from)) || !is_finite((float) $this->currency->getValue($to))
+            || $this->currency->getValue($from) <= 0 || $this->currency->getValue($to) <= 0) {
+            return new CartContext([], 0.0);
+        }
+
         return $this->createCartContextFactory()->create(
             $this->cart->getProducts(),
-            (float) $this->cart->getTotal()
+            (float) $this->cart->getTotal(),
+            fn(float $amount): float => (float) $this->currency->convert($amount, $from, $to)
         );
     }
 
     /**
-     * Cart lines for scheme resolution with financing amount = order total.
+     * Cart lines normalized with the saved order factor; the financing total is already EUR.
      */
-    public function createCartContextForOrderTotal(float $orderTotal): CartContext
+    public function createCartContextForOrderTotal(float $eurTotal, float $orderCurrencyValue): CartContext
     {
-        $base = $this->createCartContext();
+        if (!is_finite($orderCurrencyValue) || $orderCurrencyValue <= 0.0) {
+            return new CartContext([], 0.0);
+        }
+        $converted = $this->createCartContextFactory()->create(
+            $this->cart->getProducts(),
+            (float) $this->cart->getTotal(),
+            static fn(float $amount): float => $amount * $orderCurrencyValue
+        );
 
-        return new CartContext($base->lines, $orderTotal, $base->checkoutState);
+        return new CartContext($converted->lines, $eurTotal, $converted->checkoutState);
     }
 
     public function createCartContextFactory(): OpenCartCartContextFactory
@@ -322,6 +340,14 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             }
         }
 
+        // The order, rather than the current session, owns checkout financing currency.
+        if (!(new CurrencyGate())->supports((string) ($order['currency_code'] ?? ''))
+            || (int) ($order['currency_id'] ?? 0) <= 0
+            || !is_finite((float) ($order['currency_value'] ?? 0.0))
+            || (float) ($order['currency_value'] ?? 0.0) <= 0.0) {
+            return null;
+        }
+
         // Defense in depth: refuse Voided/stale order when live cart has moved on.
         // Grand total must match confirm (includes shipping) — not cart->getTotal().
         $orderProducts = $this->model_checkout_order->getProducts($orderId) ?: [];
@@ -363,7 +389,12 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
     /** @param array<string, mixed> $order */
     public function financingAmountForOrder(array $order): float
     {
-        return round((float) ($order['total'] ?? 0.0), 2);
+        return EurFinancingAmount::fromOrder(
+            (float) ($order['total'] ?? 0.0),
+            (string) ($order['currency_code'] ?? ''),
+            (int) ($order['currency_id'] ?? 0),
+            (float) ($order['currency_value'] ?? 0.0)
+        );
     }
 
     /**

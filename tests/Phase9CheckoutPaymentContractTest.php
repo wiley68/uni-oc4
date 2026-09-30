@@ -102,7 +102,7 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
             0,
             10,
             hash('sha256', 'fp'),
-            'BGN',
+            'EUR',
             1200.0,
             'standard|KOP|12|0',
             'standard',
@@ -116,7 +116,7 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
             0,
             10,
             hash('sha256', 'fp'),
-            'BGN',
+            'EUR',
             1200.0,
             'standard|KOP|12|0',
             'standard',
@@ -130,7 +130,7 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
             0,
             10,
             hash('sha256', 'fp'),
-            'BGN',
+            'EUR',
             1200.01,
             'standard|KOP|12|0',
             'standard',
@@ -144,7 +144,7 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
             0,
             10,
             hash('sha256', 'fp'),
-            'BGN',
+            'EUR',
             1200.0,
             'standard|KOP|12|0',
             'standard',
@@ -169,8 +169,9 @@ final class Phase9CheckoutPaymentContractTest extends TestCase
         $cart = new CartContext([], 0.0);
         $shop = ['uni_status' => 1, 'uni_minstojnost' => 100, 'uni_maxstojnost' => 100000, 'uni_eur' => 3];
 
-        self::assertFalse($eligibility->isEligible($shop, $cart, 'BGN', false, true));
-        self::assertFalse($eligibility->isEligible($shop, $cart, 'BGN', true, false));
+        self::assertFalse($eligibility->isEligible($shop, $cart, 'EUR', false, true));
+        self::assertFalse($eligibility->isEligible($shop, $cart, 'EUR', true, false));
+        self::assertFalse($eligibility->isEligible($shop, $cart, 'BGN', true, true));
         self::assertFalse($eligibility->isEligible($shop, $cart, 'USD', true, true));
     }
 

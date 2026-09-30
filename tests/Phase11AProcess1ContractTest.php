@@ -9,6 +9,7 @@ use MtUniCredit\Tests\Support\OrderMaterializationTestHarness;
 use MtUniCredit\Tests\Support\PersistenceIntegrationHarness;
 use MtUniCredit\Tests\Support\Phase4TestHarness;
 use Opencart\System\Library\Extension\MtUniCredit\BankStatus;
+use Opencart\System\Library\Extension\MtUniCredit\DurableEurOrderProof;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingCustomerData;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
@@ -38,6 +39,7 @@ final class Phase11AProcess1ContractTest extends TestCase
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
         $submission->customer = new FinancingCustomerData(0, 1, 'Ivan', 'Petrov', 'ivan@example.test', '');
+        $submission->eurOrderProof = new DurableEurOrderProof(123, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
         $payload = (new SmartUcfPayloadBuilder())->build($submission, mt_uni_credit_valid_shop_snapshot(), 123);
 
         self::assertSame('123', $payload['orderNo']);
@@ -46,6 +48,87 @@ final class Phase11AProcess1ContractTest extends TestCase
         foreach (array_keys($payload) as $key) {
             self::assertDoesNotMatchRegularExpression('/egn|phone2/i', (string) $key);
         }
+    }
+
+    public static function durableAddresses(): array
+    {
+        return ['billing' => ['billing'], 'shipping fallback' => ['shipping'], 'no durable address' => ['missing']];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('durableAddresses')]
+    public function testCpCreatedResumeHydratesNativeEurOrderBeforeBankSend(string $addressSource): void
+    {
+        $bank = new class {
+            public int $calls = 0;
+            public function createSession(array $shop, object $submission, int $orderId): array
+            {
+                ++$this->calls;
+                $payload = (new SmartUcfPayloadBuilder())->build($submission, $shop, $orderId);
+                \PHPUnit\Framework\Assert::assertSame('600.00', $payload['totalPrice']);
+                \PHPUnit\Framework\Assert::assertSame('300.00', $payload['items'][0]['singlePrice']);
+                \PHPUnit\Framework\Assert::assertSame(600.0, (float) $payload['items'][0]['singlePrice'] * $payload['items'][0]['count']);
+                \PHPUnit\Framework\Assert::assertSame('Ivan', $payload['clientFirstName']);
+                return [
+                    'session_id' => 'resume-850',
+                    'redirect_url' => 'https://onlinetest.ucfin.bg/sucf-online/Request/Start/resume-850',
+                    'http_code' => 200,
+                ];
+            }
+        };
+        [$coordinator, $attemptId, $submission, $db] = $this->coordinatorWithClient($bank, 850, true, 0.5);
+        $prefix = $db->getPrefix();
+        $db->query("UPDATE `{$prefix}order` SET `firstname` = 'Ivan', `lastname` = 'Petrov',
+            `email` = 'ivan@example.test', `telephone` = '0888000000',
+            `payment_address_1` = 'Test 1', `payment_city` = 'Sofia'
+            WHERE `order_id` = 850");
+        $db->query("INSERT INTO `{$prefix}order_product`
+            (`order_product_id`, `order_id`, `product_id`, `name`, `model`, `quantity`, `price`, `total`, `tax`)
+            VALUES (8501, 850, 42, 'Test Product', 'SKU-42', 2, 500, 1000, 100)");
+        if ($addressSource !== 'billing') {
+            $shipping = $addressSource === 'shipping' ? 'Test 1' : '';
+            $db->query("UPDATE `{$prefix}order` SET `payment_address_1` = '', `shipping_address_1` = '{$shipping}' WHERE `order_id` = 850");
+        }
+        $row = (new FinancingAttemptRepository($db))->findById($attemptId);
+        $resume = \Opencart\System\Library\Extension\MtUniCredit\ResumeSubmissionFactory::create(
+            $submission->entryPoint, $submission->storeId, null,
+            (string) $row['operation_key_hash'], 850
+        );
+        if ($addressSource === 'missing') {
+            try {
+                $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $resume, 850, 901);
+                self::fail('Missing durable address must fail before a bank claim.');
+            } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $exception) {
+                self::assertSame('currency_unavailable', $exception->errorCode());
+            }
+            self::assertSame(0, $bank->calls);
+            self::assertSame(SmartUcfLifecycleStates::NOT_STARTED, (new SmartUcfLifecycleRepository($db))->findByAttempt($attemptId)['smartucf_state']);
+            return;
+        }
+        $result = $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $resume, 850, 901);
+        self::assertTrue($result->isCreated());
+        self::assertSame(1, $bank->calls);
+        self::assertSame('EUR', $resume->orderDraft->currencyCode);
+        self::assertSame(600.0, $resume->financingCalculation->price);
+
+        $replay = \Opencart\System\Library\Extension\MtUniCredit\ResumeSubmissionFactory::create(
+            $submission->entryPoint, $submission->storeId, null,
+            (string) $row['operation_key_hash'], 850
+        );
+        self::assertTrue($coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $replay, 850, 901)->isCreated());
+        self::assertSame(1, $bank->calls);
+
+        PersistenceIntegrationHarness::seedNativeOrder(850, $submission->storeId, 1200.0, 'BGN', 2, 1.0);
+        $stale = \Opencart\System\Library\Extension\MtUniCredit\ResumeSubmissionFactory::create(
+            $submission->entryPoint, $submission->storeId, null,
+            (string) $row['operation_key_hash'], 850
+        );
+        try {
+            $coordinator->run($attemptId, mt_uni_credit_valid_shop_snapshot(), $stale, 850, 901);
+            self::fail('Old non-EUR order replayed under the current EUR shop snapshot.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
+            self::assertSame('currency_unavailable', $expected->errorCode());
+        }
+        self::assertSame(1, $bank->calls);
     }
 
     public function testEndpointPolicyTrustsOnlyKnownUcfinHosts(): void
@@ -218,7 +301,7 @@ final class Phase11AProcess1ContractTest extends TestCase
     /**
      * @return array{SmartUcfSessionCoordinator, int, object, object, FakeCpHttpTransport}
      */
-    private function coordinatorWithClient(object $client, int $orderId = 811, bool $reset = true): array
+    private function coordinatorWithClient(object $client, int $orderId = 811, bool $reset = true, float $currencyValue = 1.0): array
     {
         if (!PersistenceIntegrationHarness::enabled()) {
             self::markTestSkipped('Integration database is unavailable.');
@@ -229,6 +312,10 @@ final class Phase11AProcess1ContractTest extends TestCase
         $db = PersistenceIntegrationHarness::connection();
         (new \Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller($db))->installAll();
         $submission = OrderMaterializationTestHarness::productSubmission();
+        if ($currencyValue !== 1.0) {
+            $submission->orderDraft->currencyValue = $currencyValue;
+            $submission->financingCalculation = OrderMaterializationTestHarness::calculation(1200.0 * $currencyValue);
+        }
         $attempts = new FinancingAttemptRepository($db);
         $row = $attempts->issueWithSubmissionToken(
             $submission->storeId,
@@ -239,6 +326,7 @@ final class Phase11AProcess1ContractTest extends TestCase
             PersistenceIntegrationHarness::TEST_UNICID
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $orderId, $submission);
         $transport = new FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();
         $services = Phase4TestHarness::services($transport, null, $db, $submission->storeId);

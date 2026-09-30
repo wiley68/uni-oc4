@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MtUniCredit\Tests;
 
 use Opencart\System\Library\Extension\MtUniCredit\ControlPanelOrderPayloadBuilder;
+use Opencart\System\Library\Extension\MtUniCredit\DurableEurOrderProof;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use MtUniCredit\Tests\Support\OrderMaterializationTestHarness;
 use MtUniCredit\Tests\Support\ProductFinancingTestHarness;
@@ -34,8 +35,10 @@ final class ModuleVersionFreezeTest extends TestCase
 
     public function testControlPanelPayloadUsesAuthoritativeVersion(): void
     {
+        $submission = OrderMaterializationTestHarness::productSubmission();
+        $submission->eurOrderProof = new DurableEurOrderProof(12345, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
         $payload = (new ControlPanelOrderPayloadBuilder())->build(
-            OrderMaterializationTestHarness::productSubmission(),
+            $submission,
             12345,
             ProductFinancingTestHarness::shop()
         );

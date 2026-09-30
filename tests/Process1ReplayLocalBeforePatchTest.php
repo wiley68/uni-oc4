@@ -31,6 +31,32 @@ use PHPUnit\Framework\TestCase;
  */
 final class Process1ReplayLocalBeforePatchTest extends TestCase
 {
+    public function testResumePlaceholderWithoutNativeDetailsDoesNotClaimOrSend(): void
+    {
+        $db = new Process1ReplayFakeDb();
+        $db->seedAttempt(40, [
+            'smartucf_state' => SmartUcfLifecycleStates::NOT_STARTED,
+            'order_id' => 9040,
+        ]);
+        $smartUcf = $this->blockingSmartUcf();
+        $coordinator = $this->coordinator($db, new RecordingStatusPort(), $smartUcf);
+        $submission = \Opencart\System\Library\Extension\MtUniCredit\ResumeSubmissionFactory::create(
+            \Opencart\System\Library\Extension\MtUniCredit\OperationEntryPoint::PRODUCT,
+            OrderMaterializationTestHarness::productSubmission()->storeId,
+            null,
+            hash('sha256', 'resume-placeholder'),
+            9040
+        );
+        try {
+            $coordinator->run(40, mt_uni_credit_valid_shop_snapshot(), $submission, 9040, 900);
+            self::fail('Incomplete historical order was accepted for bank send.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
+            self::assertSame('currency_unavailable', $expected->errorCode());
+        }
+        self::assertSame(0, $smartUcf->calls);
+        self::assertSame(SmartUcfLifecycleStates::NOT_STARTED, $db->attempts[40]['smartucf_state']);
+    }
+
     public function testReplayRestoresMissingLocalFactBeforePatch(): void
     {
         $db = new Process1ReplayFakeDb();
@@ -188,8 +214,12 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
         $coordinator = $this->coordinator($db, $port, $this->blockingSmartUcf());
         $submission = OrderMaterializationTestHarness::productSubmission();
 
-        $result = $coordinator->run(21, mt_uni_credit_valid_shop_snapshot(), $submission, 124, 521);
-        self::assertTrue($result->isCreated());
+        try {
+            $coordinator->run(21, mt_uni_credit_valid_shop_snapshot(), $submission, 124, 521);
+            self::fail('Invalid durable association was accepted.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $exception) {
+            self::assertSame('currency_unavailable', $exception->errorCode());
+        }
         self::assertSame(0, $port->calls);
         self::assertSame(ControlPanelStatusSyncStates::NOT_NEEDED, $db->attempts[21]['cp_status_sync_state']);
         self::assertNull($db->attempts[21]['cp_status_sync_status_id']);
@@ -352,8 +382,12 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
         self::assertNotSame($db->attempts[30]['store_id'], $submission->storeId);
 
         $createsBefore = $transport->countOrderCreates();
-        $result = $coordinator->run(30, mt_uni_credit_valid_shop_snapshot(), $submission, 9030, 530);
-        self::assertTrue($result->isCreated());
+        try {
+            $coordinator->run(30, mt_uni_credit_valid_shop_snapshot(), $submission, 9030, 530);
+            self::fail('Invalid durable association was accepted.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $exception) {
+            self::assertSame('currency_unavailable', $exception->errorCode());
+        }
         self::assertSame(0, $smartUcf->calls);
         self::assertSame(0, $port->calls);
         self::assertSame($createsBefore, $transport->countOrderCreates());
@@ -553,6 +587,16 @@ final class Process1ReplayFakeDb implements DbConnection
         }
         $this->attempts[$attemptId] = [
             'attempt_id' => $attemptId,
+            'state' => 'cp_created',
+            'control_panel_order_id' => 900,
+            'cp_payload' => json_encode([
+                'order_id' => substr((string) ($overrides['order_id'] ?? $attemptId), 0, 13),
+                'currency' => 'EUR', 'price' => 1200.0, 'parva' => 0.0, 'vnoska' => 100.0,
+            ], JSON_THROW_ON_ERROR),
+            'leasing_presentation_json' => json_encode([
+                'shop_order_id' => (int) ($overrides['order_id'] ?? $attemptId),
+                'financed_amount' => 1200.0, 'first_installment' => 0.0, 'monthly_installment' => 100.0,
+            ], JSON_THROW_ON_ERROR),
             'store_id' => $overrides['store_id']
                 ?? OrderMaterializationTestHarness::productSubmission()->storeId,
             'order_id' => $overrides['order_id'] ?? $attemptId,
@@ -579,6 +623,23 @@ final class Process1ReplayFakeDb implements DbConnection
 
     public function query(string $sql): object
     {
+        if (preg_match('/FROM `oc_order`[\s\S]*WHERE `order_id` = (\d+)/', $sql, $m)) {
+            $orderId = (int) $m[1];
+            foreach ($this->attempts as $attempt) {
+                if ((int) ($attempt['order_id'] ?? 0) === $orderId) {
+                    return $this->result([[
+                        'order_id' => $orderId,
+                        'store_id' => $attempt['store_id'],
+                        'total' => 1200.0, 'currency_code' => 'EUR',
+                        'currency_id' => 1, 'currency_value' => 1.0,
+                    ]]);
+                }
+            }
+            return $this->result([]);
+        }
+        if (preg_match('/FROM `oc_currency`[\s\S]*WHERE `currency_id` = 1/', $sql)) {
+            return $this->result([['code' => 'EUR']]);
+        }
         if (preg_match('/FROM `[^`]+' . preg_quote(PersistenceTableNames::FINANCING_ATTEMPT, '/') . '`[\s\S]*WHERE `attempt_id` = (\d+)/', $sql, $m)
             && preg_match('/^\s*SELECT/i', $sql)
         ) {

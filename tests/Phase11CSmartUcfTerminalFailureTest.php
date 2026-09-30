@@ -53,6 +53,7 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 821);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 821, $submission);
 
         $coordinator = new SmartUcfSessionCoordinator(
             new SmartUcfLifecycleRepository($db),
@@ -121,6 +122,7 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 822);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 822, $submission);
 
         $coordinator = new SmartUcfSessionCoordinator(
             new SmartUcfLifecycleRepository($db),
@@ -185,6 +187,7 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 823);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 823, $submission);
 
         $coordinator = new SmartUcfSessionCoordinator(
             new SmartUcfLifecycleRepository($db),
@@ -350,6 +353,7 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 820);
+        PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 820, $submission);
         $lifecycle = new SmartUcfLifecycleRepository($db);
         $lifecycle->markFailed($attemptId, SmartUcfFailureClassification::CLASS_REMOTE_REJECT, false);
 

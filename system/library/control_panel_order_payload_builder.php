@@ -42,9 +42,14 @@ final class ControlPanelOrderPayloadBuilder
             $address2 = '-';
         }
 
-        $currency = strtoupper(trim($submission->orderDraft->currencyCode));
-        if ($currency !== 'BGN' && $currency !== 'EUR') {
-            $currency = 'BGN';
+        $proof = $submission->eurOrderProof;
+        if ($proof === null || $proof->orderId !== $localOrderId
+            || !(new CurrencyGate())->supports($submission->orderDraft->currencyCode)
+            || $submission->orderDraft->currencyId !== $proof->currencyId
+            || abs($submission->orderDraft->currencyValue - $proof->currencyValue) > 0.000001
+            || abs($submission->orderDraft->orderTotal - $proof->baseTotal) > 0.02
+            || abs($calc->price - $proof->eurTotal) > 0.02) {
+            throw DurableEurOrderGuard::failure();
         }
 
         $payload = [
@@ -63,13 +68,15 @@ final class ControlPanelOrderPayloadBuilder
             'products_name' => substr(implode('_', $names), 0, 255),
             'products_q' => implode('_', $quantities),
             'type_client' => !empty($shop['_is_mobile']) ? 0 : 1,
-            'currency' => $currency,
+            'currency' => 'EUR',
             'version' => ModuleConstants::VERSION,
         ];
 
         // Phase 10B: omit status/status_id for all shops. CP StoreOrderRequest defaults to
         // "Създаден в КП Банка" / cp_sent. bank_sent_process1|2 and bank_send_failed_smartucf
         // are Phase 11 bank-side outcomes only — CP create ≠ sent to bank.
+
+        DurableEurOrderGuard::assertCpPayload($payload, $proof);
 
         return $payload;
     }

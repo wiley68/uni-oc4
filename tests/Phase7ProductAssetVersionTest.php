@@ -49,28 +49,23 @@ final class Phase7ProductAssetVersionTest extends TestCase
 
     public function testDifferentAssetMtimesProduceDifferentVersions(): void
     {
-        $jsPath = ModuleAssetVersion::absolutePath(self::JS);
-        $cssPath = ModuleAssetVersion::absolutePath(self::CSS);
-        $originalJs = (int) filemtime($jsPath);
-        $originalCss = (int) filemtime($cssPath);
-
+        $jsPath = tempnam(__DIR__, 'asset_js_');
+        $cssPath = tempnam(__DIR__, 'asset_css_');
+        self::assertIsString($jsPath);
+        self::assertIsString($cssPath);
         try {
-            touch($jsPath, $originalJs - 200);
-            touch($cssPath, $originalCss - 50);
+            touch($jsPath, time() - 200);
+            touch($cssPath, time() - 50);
             clearstatcache(true, $jsPath);
             clearstatcache(true, $cssPath);
-
-            $jsVer = ModuleAssetVersion::forRelativePath(self::JS);
-            $cssVer = ModuleAssetVersion::forRelativePath(self::CSS);
-
+            $jsVer = ModuleAssetVersion::forRelativePath('tests/' . basename($jsPath));
+            $cssVer = ModuleAssetVersion::forRelativePath('tests/' . basename($cssPath));
             self::assertNotSame($jsVer, $cssVer);
             self::assertSame((string) filemtime($jsPath), $jsVer);
             self::assertSame((string) filemtime($cssPath), $cssVer);
         } finally {
-            touch($jsPath, $originalJs);
-            touch($cssPath, $originalCss);
-            clearstatcache(true, $jsPath);
-            clearstatcache(true, $cssPath);
+            unlink($jsPath);
+            unlink($cssPath);
         }
     }
 
@@ -87,20 +82,20 @@ final class Phase7ProductAssetVersionTest extends TestCase
     public function testModuleVersionIsNotRequiredToChangeWhenAssetChanges(): void
     {
         $releaseBefore = ModuleConstants::VERSION;
-        $jsPath = ModuleAssetVersion::absolutePath(self::JS);
-        $original = (int) filemtime($jsPath);
-        $verBefore = ModuleAssetVersion::forRelativePath(self::JS);
-
+        $assetPath = tempnam(__DIR__, 'asset_version_');
+        self::assertIsString($assetPath);
+        $relative = 'tests/' . basename($assetPath);
         try {
-            touch($jsPath, $original + 15);
-            clearstatcache(true, $jsPath);
-            $verAfter = ModuleAssetVersion::forRelativePath(self::JS);
-
+            touch($assetPath, time() - 100);
+            clearstatcache(true, $assetPath);
+            $verBefore = ModuleAssetVersion::forRelativePath($relative);
+            touch($assetPath, time() - 50);
+            clearstatcache(true, $assetPath);
+            $verAfter = ModuleAssetVersion::forRelativePath($relative);
             self::assertSame($releaseBefore, ModuleConstants::VERSION);
             self::assertNotSame($verBefore, $verAfter);
         } finally {
-            touch($jsPath, $original);
-            clearstatcache(true, $jsPath);
+            unlink($assetPath);
         }
     }
 

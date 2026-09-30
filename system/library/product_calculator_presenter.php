@@ -20,7 +20,7 @@ final class ProductCalculatorPresenter
      */
     public function present(array $shop, OpenCartProductLine $line, string $currencyIso): ?array
     {
-        if (!$this->currencyGate->supports($shop, $currencyIso)) {
+        if (!$this->currencyGate->supports($currencyIso)) {
             return null;
         }
 
@@ -72,8 +72,7 @@ final class ProductCalculatorPresenter
                 'monthly_installment'  => $preferred[$type]->monthlyInstallment,
                 'installment_label'    => $this->labels->format(
                     $preferred[$type]->months,
-                    $preferred[$type]->monthlyInstallment,
-                    (int) ($shop['uni_eur'] ?? 0)
+                    $preferred[$type]->monthlyInstallment
                 ),
                 'schemes'              => $schemes,
             ];

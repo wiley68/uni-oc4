@@ -34,7 +34,7 @@ final class OpenCartOrderIntegrationHarness
 
         $config = self::loadOpenCartDatabaseConfig();
         $mysqli = new \mysqli(
-            $config['hostname'],
+            $config['hostname'] === 'localhost' ? '127.0.0.1' : $config['hostname'],
             $config['username'],
             $config['password'],
             $config['database'],

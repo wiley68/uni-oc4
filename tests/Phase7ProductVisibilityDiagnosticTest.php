@@ -44,8 +44,8 @@ final class Phase7ProductVisibilityDiagnosticTest extends TestCase
 
         $gate = new CurrencyGate();
         $shop = ['uni_eur' => 3];
-        self::assertTrue($gate->supports($shop, 'EUR'));
-        self::assertFalse($gate->supports($shop, 'BGN'));
+        self::assertTrue($gate->supports('EUR'));
+        self::assertFalse($gate->supports('BGN'));
     }
 
     public function testOc4103StandardThemeButtonCartPlacementInjectsFragment(): void
@@ -123,7 +123,6 @@ HTML;
     {
         $shop = ['uni_status' => 1, 'uni_eur' => 3, 'uni_minstojnost' => 1, 'uni_maxstojnost' => 99999, 'uni_typekop' => 0];
         $gate = new CurrencyGate();
-        self::assertFalse($gate->supports($shop, 'USD'));
-        self::assertSame('EUR', $gate->expectedIso($shop));
+        self::assertFalse($gate->supports('USD'));
     }
 }

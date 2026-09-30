@@ -93,7 +93,7 @@ final class CanonicalCreate401NoReplayTest extends TestCase
 
         $client = $this->client($transport);
         try {
-            $client->createOrder(['order_id' => '41', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+            $client->createOrder(['order_id' => '41', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
             self::fail('Expected noncanonical 401 rejection');
         } catch (CpMalformedJsonException|CpInvalidPayloadException $exception) {
             self::assertNotInstanceOf(CpAuthenticationException::class, $exception);
@@ -109,7 +109,7 @@ final class CanonicalCreate401NoReplayTest extends TestCase
 
         $client = $this->client($transport);
         $this->expectException(CpInvalidPayloadException::class);
-        $client->createOrder(['order_id' => '42', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '42', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     public function testMalformedJson401OnCreateIsNotAuthEvidence(): void
@@ -120,7 +120,7 @@ final class CanonicalCreate401NoReplayTest extends TestCase
 
         $client = $this->client($transport);
         $this->expectException(CpMalformedJsonException::class);
-        $client->createOrder(['order_id' => '43', 'unicid' => Phase4TestHarness::TEST_UNICID]);
+        $client->createOrder(['order_id' => '43', 'unicid' => Phase4TestHarness::TEST_UNICID, 'currency' => 'EUR']);
     }
 
     public function testLegacyFailFirstCreate401FlagNoLongerReplays(): void
@@ -240,7 +240,7 @@ final class CanonicalCreate401NoReplayTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new PersistenceClock()))
             ->issueOrReuse(
                 ProductFinancingTestHarness::STORE_ID,
@@ -266,7 +266,7 @@ final class CanonicalCreate401NoReplayTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],

@@ -28,6 +28,11 @@ final class ProcessTwoLifecycleRepository
         }
     }
 
+    public function database(): DbConnection
+    {
+        return $this->db;
+    }
+
     /** @return array<string, mixed>|null */
     public function findByAttempt(int $attemptId): ?array
     {

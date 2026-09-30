@@ -44,8 +44,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         }
 
         $orderTotal = $model->financingAmountForOrder($order);
-        $cart = $model->createCartContextForOrderTotal($orderTotal);
-        $currency = (string) ($order['currency_code'] ?? $this->session->data['currency'] ?? $this->config->get('config_currency'));
+        $cart = $model->createCartContextForOrderTotal($orderTotal, (float) ($order['currency_value'] ?? 0.0));
+        $currency = (string) ($order['currency_code'] ?? '');
         $presenter = $model->createCalculatorPresenter()->present($shop, $cart, $currency);
         if ($presenter === null) {
             return '';
@@ -213,12 +213,12 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             }
 
             $orderTotal = $model->financingAmountForOrder($order);
-            $cart = $model->createCartContextForOrderTotal($orderTotal);
+            $cart = $model->createCartContextForOrderTotal($orderTotal, (float) ($order['currency_value'] ?? 0.0));
             if ($cart->lines === [] || $cart->total <= 0.0) {
                 return $this->errorPayload('checkout_order_changed', $this->language->get('error_order_changed'));
             }
 
-            $currency = (string) ($order['currency_code'] ?? $this->session->data['currency'] ?? $this->config->get('config_currency'));
+            $currency = (string) ($order['currency_code'] ?? '');
             $presenter = $model->createCalculatorPresenter()->present($shop, $cart, $currency);
             if ($presenter === null) {
                 return $this->errorPayload('no_schemes', 'Няма налични схеми за тази поръчка.');
@@ -324,8 +324,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                     (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
                     (int) ($order['language_id'] ?? $this->config->get('config_language_id')),
                     (string) ($order['language_code'] ?? $this->config->get('config_language')),
-                    (int) ($order['currency_id'] ?? $this->currency->getId($context['currency'])),
-                    (float) ($order['currency_value'] ?? $this->currency->getValue($context['currency'])),
+                    (int) ($order['currency_id'] ?? 0),
+                    (float) ($order['currency_value'] ?? 0.0),
                     (string) ($order['store_name'] ?? $this->config->get('config_name')),
                     (string) ($order['store_url'] ?? $this->config->get('config_url') ?? ''),
                     (string) ($order['invoice_prefix'] ?? $this->config->get('config_invoice_prefix') ?? ''),
@@ -513,14 +513,14 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             : 0.0;
 
         $storeId = (int) $this->config->get('config_store_id');
-        $currency = (string) ($order['currency_code'] ?? $this->session->data['currency'] ?? $this->config->get('config_currency'));
+        $currency = (string) ($order['currency_code'] ?? '');
         $shop = $model->getShopConfiguration();
         if ($shop === null) {
             throw new ProductFinancingFlowException('validation', 'Shop configuration unavailable.');
         }
 
         $orderTotal = $model->financingAmountForOrder($order);
-        $cart = $model->createCartContextForOrderTotal($orderTotal);
+        $cart = $model->createCartContextForOrderTotal($orderTotal, (float) ($order['currency_value'] ?? 0.0));
         if ($cart->lines === [] || $cart->total <= 0.0) {
             throw new ProductFinancingFlowException(
                 'checkout_order_changed',

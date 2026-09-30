@@ -100,9 +100,21 @@ class MtUniCreditCart extends \Opencart\System\Engine\Model
 
     public function createCartContext(): CartContext
     {
+        $from = (string) $this->config->get('config_currency');
+        $to = (string) ($this->session->data['currency'] ?? $from);
+        if (!(new CurrencyGate())->supports($to)) {
+            return new CartContext([], 0.0);
+        }
+        if ($this->currency->getId($from) <= 0 || $this->currency->getId($to) <= 0
+            || !is_finite((float) $this->currency->getValue($from)) || !is_finite((float) $this->currency->getValue($to))
+            || $this->currency->getValue($from) <= 0 || $this->currency->getValue($to) <= 0) {
+            return new CartContext([], 0.0);
+        }
+
         return $this->createCartContextFactory()->create(
             $this->cart->getProducts(),
-            (float) $this->cart->getTotal()
+            (float) $this->cart->getTotal(),
+            fn(float $amount): float => (float) $this->currency->convert($amount, $from, $to)
         );
     }
 

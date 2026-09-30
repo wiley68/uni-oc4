@@ -55,6 +55,12 @@ final class SmartUcfSessionCoordinator
         int $localOrderId,
         int $cpOrderId
     ): SmartUcfCoordinationResult {
+        $submission->eurOrderProof = (new DurableEurOrderGuard($this->lifecycle->database()))->prove(
+            $attemptId,
+            $submission->storeId,
+            $localOrderId,
+            true
+        );
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
             return SmartUcfCoordinationResult::process2();
         }
@@ -66,6 +72,9 @@ final class SmartUcfSessionCoordinator
                 true,
                 SmartUcfFailureClassification::CLASS_PRE_SEND
             );
+        }
+        if ($submission->submissionSource === 'resume') {
+            $submission->shopUnicid = trim((string) ($row['unicid'] ?? ''));
         }
         $known = $this->resultFromState($row);
         if ($known !== null) {
@@ -80,6 +89,14 @@ final class SmartUcfSessionCoordinator
             }
 
             return $known;
+        }
+
+        if ($submission->submissionSource === 'resume') {
+            (new DurableEurResumeHydrator($this->lifecycle->database()))->hydrate(
+                $attemptId,
+                $submission,
+                $submission->eurOrderProof
+            );
         }
 
         // Fail-before-network: require hydrated SmartUCF credentials before claim or cURL.

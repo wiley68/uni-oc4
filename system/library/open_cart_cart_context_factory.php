@@ -26,9 +26,11 @@ final class OpenCartCartContextFactory
 
     /**
      * @param list<array<string, mixed>> $cartProducts
+     * @param callable(float): float|null $currencyConverter Native amount to transaction amount, before rounding.
      */
-    public function create(array $cartProducts, float $cartTotal): CartContext
+    public function create(array $cartProducts, float $cartTotal, ?callable $currencyConverter = null): CartContext
     {
+        $currencyConverter ??= static fn(float $amount): float => $amount;
         $lines = [];
         foreach ($cartProducts as $product) {
             $productId = (int) ($product['product_id'] ?? 0);
@@ -37,7 +39,7 @@ final class OpenCartCartContextFactory
             }
             $quantity = max(1, (int) ($product['quantity'] ?? 1));
             $unit = ($this->taxCalculator)((float) ($product['price'] ?? 0.0), (int) ($product['tax_class_id'] ?? 0));
-            $lineTotal = round($unit * $quantity, 2);
+            $lineTotal = round($currencyConverter($unit * $quantity), 2);
             $categories = ($this->categoryLoader)($productId);
             $categories = array_values(array_unique(array_map('intval', $categories)));
             sort($categories);
@@ -63,6 +65,6 @@ final class OpenCartCartContextFactory
             );
         }
 
-        return new CartContext($lines, round($cartTotal, 2));
+        return new CartContext($lines, $currencyConverter($cartTotal));
     }
 }

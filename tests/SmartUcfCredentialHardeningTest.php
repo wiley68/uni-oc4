@@ -322,7 +322,9 @@ final class SmartUcfCredentialHardeningTest extends TestCase
         $shop = mt_uni_credit_valid_shop_snapshot();
         unset($shop['uni_user'], $shop['uni_password']);
         $this->expectException(\InvalidArgumentException::class);
-        $builder->build(OrderMaterializationTestHarness::productSubmission(), $shop, 1);
+        $submission = OrderMaterializationTestHarness::productSubmission();
+        $submission->eurOrderProof = new \Opencart\System\Library\Extension\MtUniCredit\DurableEurOrderProof(1, $submission->storeId, 1, 1.0, 1200.0, 1200.0);
+        $builder->build($submission, $shop, 1);
     }
 
     public function testDiagnosticsRedactCredentialsButKeepSessionId(): void
@@ -509,6 +511,16 @@ final class SmartUcfCredentialLifecycleFakeDb implements DbConnection
     {
         $this->attempts[$attemptId] = [
             'attempt_id' => $attemptId,
+            'state' => 'cp_created',
+            'control_panel_order_id' => 500 + $attemptId,
+            'cp_payload' => json_encode([
+                'order_id' => (string) (9000 + $attemptId), 'currency' => 'EUR',
+                'price' => 1200.0, 'parva' => 0.0, 'vnoska' => 100.0,
+            ], JSON_THROW_ON_ERROR),
+            'leasing_presentation_json' => json_encode([
+                'shop_order_id' => 9000 + $attemptId,
+                'financed_amount' => 1200.0, 'first_installment' => 0.0, 'monthly_installment' => 100.0,
+            ], JSON_THROW_ON_ERROR),
             'store_id' => Phase4TestHarness::TEST_STORE_ID,
             'order_id' => 9000 + $attemptId,
             'unicid' => 'test-unicid',
@@ -531,6 +543,15 @@ final class SmartUcfCredentialLifecycleFakeDb implements DbConnection
 
     public function query(string $sql): object
     {
+        if (preg_match('/FROM `oc_order`[\s\S]*WHERE `order_id` = (\d+)/', $sql, $m)) {
+            return $this->result([[
+                'order_id' => (int) $m[1], 'store_id' => Phase4TestHarness::TEST_STORE_ID,
+                'total' => 1200.0, 'currency_code' => 'EUR', 'currency_id' => 1, 'currency_value' => 1.0,
+            ]]);
+        }
+        if (preg_match('/FROM `oc_currency`[\s\S]*WHERE `currency_id` = 1/', $sql)) {
+            return $this->result([['code' => 'EUR']]);
+        }
         if (preg_match('/WHERE `attempt_id` = (\d+)/', $sql, $m) && preg_match('/^\s*SELECT/i', $sql)) {
             $row = $this->attempts[(int) $m[1]] ?? null;
 

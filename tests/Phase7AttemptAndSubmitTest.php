@@ -43,7 +43,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             0.0,
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $issuer = new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock());
         $row = $issuer->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
         self::assertSame(OperationEntryPoint::PRODUCT, $row['entry_point']);
@@ -67,7 +67,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             0.0,
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $issuer = new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock());
         $first = $issuer->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
         $second = $issuer->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
@@ -91,7 +91,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
 
@@ -106,7 +106,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],
@@ -141,7 +141,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],
@@ -183,7 +183,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $staleSelection, null, PersistenceIntegrationHarness::TEST_UNICID);
 
@@ -199,7 +199,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             43,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],
@@ -236,7 +236,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['first_installment'],
             $actor
         );
-        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
             ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
         $service = ProductFinancingTestHarness::submissionService($this->attempts);
@@ -253,7 +253,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],
@@ -292,10 +292,10 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             $scheme['filter_id'],
             $scheme['first_installment'],
             $actor,
-            'BGN',
+            'EUR',
             $storeId
         );
-        $operation = ProductOperationIdentity::hash($storeId, 42, [], 1, 'BGN');
+        $operation = ProductOperationIdentity::hash($storeId, 42, [], 1, 'EUR');
         $owner = LockOwnerTokenGenerator::generate();
 
         $attempt = (new ProductSubmissionIssuer($this->attempts, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock()))
@@ -313,7 +313,7 @@ final class Phase7AttemptAndSubmitTest extends TestCase
             42,
             1,
             [],
-            'BGN',
+            'EUR',
             'standard',
             $scheme['scheme_type'],
             $scheme['kop_code'],
