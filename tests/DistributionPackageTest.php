@@ -48,7 +48,7 @@ final class DistributionPackageTest extends TestCase
     {
         $path = $this->packager->build();
         self::assertSame($this->root . '/dist/mt_uni_credit.ocmod.zip', $path);
-        $manifest = $this->packager->sourceFiles();
+        $manifest = $this->packager->packageFiles();
         self::assertSame(count($manifest), $this->packager->verify($path));
         $zip = new \ZipArchive();
         self::assertTrue($zip->open($path) === true);
@@ -65,8 +65,8 @@ final class DistributionPackageTest extends TestCase
         mkdir($this->root . '/unpacked', 0700);
         self::assertTrue($zip->extractTo($this->root . '/unpacked'));
         $zip->close();
-        foreach ($manifest as $relative) {
-            self::assertTrue(file_get_contents($this->root . '/' . $relative)
+        foreach ($manifest as $relative => $source) {
+            self::assertTrue(file_get_contents($this->root . '/' . $source)
                 === file_get_contents($this->root . '/unpacked/' . $relative), 'Unpacked source parity: ' . $relative);
         }
         foreach (['config/environment.php', 'secrets/smartucf-key.php', 'secrets/.htaccess'] as $relative) {
@@ -117,7 +117,7 @@ final class DistributionPackageTest extends TestCase
         $zip = new \ZipArchive();
         self::assertTrue($zip->open($archive) === true);
         for ($i = 0; $i < $zip->numFiles; ++$i) {
-            self::assertContains($zip->getNameIndex($i), $this->packager->sourceFiles());
+            self::assertArrayHasKey($zip->getNameIndex($i), $this->packager->packageFiles());
         }
         foreach (['composer.json', 'composer.lock', 'vendor/autoload.php', 'scripts/package-files.json',
             'scripts/build-package.php', 'secrets/another-key.php', 'keys/private.pem', 'config/environment.dist.php',
@@ -125,6 +125,119 @@ final class DistributionPackageTest extends TestCase
             self::assertFalse($zip->locateName($path), $path);
         }
         $zip->close();
+    }
+
+    public function testBulgarianVariantsHaveIdenticalFileSetsAndBytesAndEnglishIsPreserved(): void
+    {
+        $before = $this->fingerprints();
+        $archive = $this->packager->build();
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($archive) === true);
+        try {
+            foreach (['admin' => 2, 'catalog' => 4] as $area => $count) {
+                $variants = ['bg-bg' => [], 'bg' => [], 'bulgaria' => []];
+                for ($index = 0; $index < $zip->numFiles; ++$index) {
+                    $path = $zip->getNameIndex($index);
+                    if (preg_match('~\A' . $area . '/language/(bg-bg|bg|bulgaria)/(.+)\z~D', $path, $matches)) {
+                        $variants[$matches[1]][$matches[2]] = $zip->getFromIndex($index);
+                    }
+                }
+                foreach ($variants as &$files) {
+                    ksort($files, SORT_STRING);
+                }
+                unset($files);
+                self::assertCount($count, $variants['bg-bg']);
+                foreach (['bg', 'bulgaria'] as $alias) {
+                    self::assertSame(array_keys($variants['bg-bg']), array_keys($variants[$alias]), $area . '/' . $alias);
+                    self::assertSame($variants['bg-bg'], $variants[$alias], $area . '/' . $alias . ' byte parity');
+                    self::assertDirectoryDoesNotExist($this->root . '/' . $area . '/language/' . $alias);
+                }
+                foreach ($variants['bg-bg'] as $relative => $bytes) {
+                    self::assertSame(file_get_contents($this->root . '/' . $area . '/language/bg-bg/' . $relative), $bytes);
+                }
+            }
+            $englishCount = 0;
+            foreach ($this->packager->sourceFiles() as $path) {
+                if (preg_match('~\A(?:admin|catalog)/language/en-gb/~', $path)) {
+                    ++$englishCount;
+                    self::assertSame(file_get_contents($this->root . '/' . $path), $zip->getFromName($path), $path);
+                }
+            }
+            self::assertSame(6, $englishCount);
+        } finally {
+            $zip->close();
+        }
+        self::assertTrue($before === $this->fingerprints(), 'Build preserves all source bytes, including English');
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function invalidBulgarianAliasCases(): iterable
+    {
+        foreach (['admin', 'catalog'] as $area) {
+            foreach (['bg', 'bulgaria'] as $alias) {
+                foreach (['missing-directory', 'missing-file', 'changed-file', 'extra-file', 'renamed-file'] as $case) {
+                    yield $area . '/' . $alias . '/' . $case => [$area, $alias, $case];
+                }
+            }
+        }
+    }
+
+    #[DataProvider('invalidBulgarianAliasCases')]
+    public function testVerifierRejectsMissingOrDivergentBulgarianAliases(string $area, string $alias, string $case): void
+    {
+        $archive = $this->packager->build();
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($archive) === true);
+        $prefix = $area . '/language/' . $alias . '/';
+        $path = $prefix . 'payment/mt_uni_credit.php';
+        if ($case === 'missing-directory') {
+            for ($index = $zip->numFiles - 1; $index >= 0; --$index) {
+                if (str_starts_with($zip->getNameIndex($index), $prefix)) {
+                    self::assertTrue($zip->deleteIndex($index));
+                }
+            }
+        } elseif ($case === 'missing-file') {
+            self::assertTrue($zip->deleteName($path));
+        } elseif ($case === 'changed-file') {
+            $bytes = $zip->getFromName($path);
+            self::assertIsString($bytes);
+            // Change one byte without changing size: size-only verification must not pass.
+            $bytes[0] = $bytes[0] === '<' ? '!' : '<';
+            self::assertTrue($zip->addFromString($path, $bytes));
+        } elseif ($case === 'extra-file') {
+            self::assertTrue($zip->addFromString($prefix . 'payment/unexpected.php', '<?php // divergent translation'));
+        } else {
+            self::assertTrue($zip->renameName($path, $prefix . 'payment/renamed.php'));
+        }
+        self::assertTrue($zip->close());
+        $this->expectException(\RuntimeException::class);
+        $this->packager->verify($archive);
+    }
+
+    public function testNewCanonicalBulgarianFilesAutomaticallyGetBothAliases(): void
+    {
+        $manifest = $this->packager->sourceFiles();
+        foreach (['admin', 'catalog'] as $area) {
+            $path = $area . '/language/bg-bg/module/nested/future.php';
+            mkdir(dirname($this->root . '/' . $path), 0700, true);
+            file_put_contents($this->root . '/' . $path, "<?php // Bulgarian fixture\r\n");
+            $this->runFixtureCommand(['git', '-C', $this->root, 'add', $path]);
+            $manifest[] = $path;
+        }
+        sort($manifest, SORT_STRING);
+        file_put_contents($this->root . '/scripts/package-files.json', json_encode($manifest));
+        $archive = $this->packager->build();
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($archive) === true);
+        try {
+            foreach (['admin', 'catalog'] as $area) {
+                foreach (['bg-bg', 'bg', 'bulgaria'] as $code) {
+                    self::assertSame("<?php // Bulgarian fixture\r\n", $zip->getFromName($area . '/language/' . $code . '/module/nested/future.php'));
+                }
+            }
+        } finally {
+            $zip->close();
+        }
     }
 
     /** @return iterable<string, array{string}> */

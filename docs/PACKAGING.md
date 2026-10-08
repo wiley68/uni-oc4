@@ -61,16 +61,31 @@ missing manifest files also fail. Unrelated untracked files are never selected.
 When adding runtime files, review and update this manifest explicitly. Do not
 automatically collect arbitrary local files or broaden secret inclusion.
 
+Bulgarian translations have one authoritative source: `admin/language/bg-bg/`
+and `catalog/language/bg-bg/`. Keep only these Bulgarian paths in the source
+manifest. For every canonical file, the builder generates exact copies under
+both `bg/` and `bulgaria/` in the staging tree and final ZIP. The resulting
+installer supports all three OpenCart language codes without directory renaming.
+Aliases are not stored in the source tree or maintained separately, and alias
+paths in the source manifest are rejected. Newly audited `bg-bg` files, including
+nested paths, automatically receive both aliases. English files are copied
+unchanged.
+
 The builder creates a private temporary staging tree under ignored `dist/`, copies
-the audited files, builds the ZIP there, verifies it, and atomically replaces the
-final installer. It removes the staging tree on success and ordinary exceptions.
+the audited files and generates the aliases, builds the ZIP there, verifies it,
+and atomically replaces the final installer. It removes the staging tree on
+success and ordinary exceptions.
 A failed build does not replace a previous installer. A forcibly killed process
 may leave a private `.build-*` directory that must be removed manually.
 
 The verifier independently reopens the archive, checks its exact filename and
 inventory, rejects unsafe paths, unexpected entries, ZIP symlinks and malformed
 archives, and compares **every packaged file** byte-for-byte with the current
-source. Secret comparisons report only pass/fail. No generated archive manifest
+source (generated aliases are compared with their corresponding `bg-bg` source).
+The expected ZIP inventory includes both aliases for every canonical Bulgarian
+file. Missing alias directories or files, different bytes, renamed files and
+unexpected alias entries fail verification and prevent publication of the build.
+Secret comparisons report only pass/fail. No generated archive manifest
 is needed: the reviewed source inventory and exact byte comparisons provide
 manifest/source parity without adding installer metadata or exposing secret
 hashes. Verification therefore requires the matching source checkout and local
@@ -109,6 +124,9 @@ cover the mandatory filename, root layout, complete runtime inventory, independe
 extraction, deployment parity, missing/unreadable/symlinked inputs, protection,
 excluded local/dev files, malformed/tampered archives, nonzero CLI failures,
 cleanup and repeatable output. They never replace or delete the real local key.
+Bulgarian regressions cover all three language variants in both admin and catalog,
+identical relative file sets and bytes, rejection of missing/divergent/extra alias
+files, automatic aliases for new canonical files, and preservation of English.
 
 Also run `composer validate --strict`, PHP 8.2 lint for the packaging PHP files,
 `composer lint:php82`, standalone verification and `git diff --check` before

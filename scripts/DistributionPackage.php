@@ -64,6 +64,9 @@ final class DistributionPackage
             if (!is_string($path) || !self::isRuntimePath($path)) {
                 throw new RuntimeException('Package source manifest contains a forbidden path.');
             }
+            if (preg_match('~\A(?:admin|catalog)/language/(?:bg|bulgaria)/~', $path)) {
+                throw new RuntimeException('Bulgarian aliases must be generated from bg-bg, not maintained in the source manifest.');
+            }
         }
         $sorted = $manifest;
         sort($sorted, SORT_STRING);
@@ -124,10 +127,26 @@ final class DistributionPackage
         return $manifest;
     }
 
+    /** @return array<string, string> Sorted ZIP path => authoritative source path, including generated aliases. */
+    public function packageFiles(): array
+    {
+        $files = [];
+        foreach ($this->sourceFiles() as $path) {
+            $files[$path] = $path;
+            if (preg_match('~\A((?:admin|catalog)/language/)bg-bg/(.+)\z~D', $path, $matches)) {
+                foreach (['bg', 'bulgaria'] as $alias) {
+                    $files[$matches[1] . $alias . '/' . $matches[2]] = $path;
+                }
+            }
+        }
+        ksort($files, SORT_STRING);
+        return $files;
+    }
+
     public function build(): string
     {
         $this->requireZip();
-        $files = $this->sourceFiles();
+        $files = $this->packageFiles();
         // Stable default rather than wall-clock time. A caller may select another stable epoch.
         $epoch = getenv('SOURCE_DATE_EPOCH');
         $epoch = $epoch === false ? '946684800' : $epoch;
@@ -159,10 +178,10 @@ final class DistributionPackage
         $temporaryZip = $stage . '/' . self::FILENAME;
         try {
             $tree = $stage . '/runtime';
-            foreach ($files as $path) {
+            foreach ($files as $path => $source) {
                 $target = $tree . '/' . $path;
                 $this->mkdir(dirname($target));
-                $this->writePrivate($target, $this->readSource($path));
+                $this->writePrivate($target, $this->readSource($source));
             }
             $zip = new ZipArchive();
             if ($zip->open($temporaryZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -171,7 +190,7 @@ final class DistributionPackage
             $timezone = date_default_timezone_get();
             date_default_timezone_set('UTC');
             try {
-                foreach ($files as $path) {
+                foreach ($files as $path => $source) {
                     if (!$zip->addFile($tree . '/' . $path, $path)
                         || !$zip->setMtimeName($path, (int) $epoch)
                         || !$zip->setExternalAttributesName($path, ZipArchive::OPSYS_UNIX, 0100644 << 16)
@@ -204,7 +223,8 @@ final class DistributionPackage
         if (basename($archive) !== self::FILENAME) {
             throw new RuntimeException('Installer filename must be exactly ' . self::FILENAME . '.');
         }
-        $expected = $this->sourceFiles();
+        $files = $this->packageFiles();
+        $expected = array_keys($files);
         $zip = new ZipArchive();
         if (is_link($archive) || !is_file($archive)
             || $zip->open($archive, ZipArchive::RDONLY | ZipArchive::CHECKCONS) !== true) {
@@ -221,7 +241,7 @@ final class DistributionPackage
                     || (($attributes >> 16) & 0170000) === 0120000) {
                     throw new RuntimeException('Installer contains invalid attributes or a symlink.');
                 }
-                $source = $this->readSource($path);
+                $source = $this->readSource($files[$path]);
                 $stat = $zip->statIndex($index);
                 if ($stat === false || $stat['size'] !== strlen($source) || ($stat['encryption_method'] ?? 0) !== 0) {
                     throw new RuntimeException('Installer source parity failed: ' . $path);
