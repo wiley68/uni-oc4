@@ -15,6 +15,7 @@
     }
   },
   "scripts": {
+    "package": "@php scripts/build-package.php",
     "test": "phpunit --colors=always",
     "test:php84": "/usr/bin/php8.4 vendor/bin/phpunit --colors=always",
     "lint:php82": "bash scripts/lint-php82.sh"

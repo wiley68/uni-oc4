@@ -50,4 +50,13 @@ Phase 12B does **not** add upgrade scripts. Presentation retention, Thank You id
 
 Final Audit Remediation 01 likewise adds no upgrade scripts: Process 2 encryption fail-closed, exact store-scoped bank status, and bounded diagnostic prune (+ idempotent `created_at` index ensure) stay on install/reinstall / `PersistenceSchemaInstaller::installAll()`.
 
-Draft operator-facing notes: `docs/RELEASE-NOTES-v2.0.2.md`. Tagging / packaging / GitHub release are **out of scope** until independent final audit approval.
+Draft operator-facing notes: `docs/RELEASE-NOTES-v2.0.2.md`. Tagging / GitHub release are **out of scope** until independent final audit approval.
+
+### Installer packaging
+
+Run `composer package` to generate exactly `dist/mt_uni_credit.ocmod.zip`.
+See [PACKAGING.md](PACKAGING.md) for the OpenCart 4.x layout, input requirements,
+standalone verification and regression checks. `dist/` and the local
+`secrets/smartucf-key.php` remain ignored and untracked. The ZIP contains the
+SmartUCF secret and is a sensitive deployment artifact: **do not commit it**.
+Packaging preserves `config/environment.php` and the local key byte-for-byte.
