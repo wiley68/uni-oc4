@@ -266,7 +266,6 @@ final class Phase11ACertificateSyncTest extends TestCase
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
             Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1',
             static fn(): int => 1_700_000_000
         );
     }
@@ -312,6 +311,11 @@ final class Phase11ACertificateSyncTest extends TestCase
     {
         file_put_contents($directory . '/' . CertificateLocalPaths::CERT_FILENAME, $certificate);
         file_put_contents($directory . '/' . CertificateLocalPaths::KEY_FILENAME, $privateKey);
+        file_put_contents($directory . '/' . CertificateLocalStore::STATE_FILENAME, json_encode([
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
+            'certificate_sha256' => hash('sha256', $certificate),
+            'private_key_sha256' => hash('sha256', $privateKey),
+        ], JSON_THROW_ON_ERROR));
     }
 
     private function bundleRequestCount(FakeCpHttpTransport $transport): int

@@ -10,12 +10,17 @@ final class CurlCpHttpTransport implements CpHttpTransport
 
     private int $timeout;
 
+    /** @var callable(string): array|false|null DNS record seam, never a destination override. */
+    private $dnsQuery;
+
     public function __construct(
         int $connectTimeout = CpHttpConstants::CONNECT_TIMEOUT_SECONDS,
-        int $timeout = CpHttpConstants::TOTAL_TIMEOUT_SECONDS
+        int $timeout = CpHttpConstants::TOTAL_TIMEOUT_SECONDS,
+        ?callable $dnsQuery = null
     ) {
         $this->connectTimeout = $connectTimeout;
         $this->timeout = $timeout;
+        $this->dnsQuery = $dnsQuery;
     }
 
     /**
@@ -24,6 +29,15 @@ final class CurlCpHttpTransport implements CpHttpTransport
      */
     public function request(string $method, string $url, array $headers, ?array $payload): CpHttpResponse
     {
+        $environment = new ModuleDeploymentEnvironment();
+        // Freeze one configuration read for URL authorization, DNS lookup and pinning.
+        $destination = $environment->destination();
+        $base = $destination['api_base'];
+        if (!str_starts_with($url, $base . '/') || preg_match('/[?#\\\\\x00-\x20\x7f]/', $url)) {
+            throw new CpException('Control Panel transport requires the canonical API destination.');
+        }
+        $host = $destination['host'];
+        $addresses = (new CpDestinationPolicy())->resolve($host, $this->dnsQuery);
         if (!function_exists('curl_init')) {
             throw new CpConnectionException('The cURL PHP extension is not available.');
         }
@@ -47,6 +61,11 @@ final class CurlCpHttpTransport implements CpHttpTransport
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => $headerLines,
+            CURLOPT_PROXY => '',
+            CURLOPT_NOPROXY => '*',
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_RESOLVE => [$host . ':443:' . (str_contains($addresses[0], ':') ? '[' . $addresses[0] . ']' : $addresses[0])],
         ];
 
         if ($payload !== null) {
@@ -58,7 +77,10 @@ final class CurlCpHttpTransport implements CpHttpTransport
             }
         }
 
-        curl_setopt_array($handle, $options);
+        if (!curl_setopt_array($handle, $options)) {
+            curl_close($handle);
+            throw new CpConnectionException('Control Panel secure transport options could not be applied.');
+        }
         $body = curl_exec($handle);
 
         if ($body === false) {

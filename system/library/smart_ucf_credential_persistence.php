@@ -42,8 +42,12 @@ final class SmartUcfCredentialPersistence
      * @param array<string, mixed> $shopData full ingress snapshot (may include uni_user/uni_password)
      * @return array<string, mixed> sanitized shop_data written to general cache (no credentials)
      */
-    public function persistValidatedSnapshot(int $storeId, string $unicid, array $shopData): array
+    public function persistValidatedSnapshot(int $storeId, string $unicid, array $shopData, ?string $expectedOrigin = null): array
     {
+        $origin = $expectedOrigin ?? CpOriginGuard::current();
+        if (!CpOriginGuard::matches($origin)) {
+            throw new CpException('Control Panel deployment changed before shop persistence.');
+        }
         $state = SmartUcfCredentialPairClassifier::classify($shopData);
         $process2 = ((int) ($shopData['uni_proces'] ?? 0)) === 1;
 
@@ -68,14 +72,15 @@ final class SmartUcfCredentialPersistence
         $encryptedPassword = null;
         if ($rotatePair) {
             // Encrypt outside the transaction so crypto work does not hold the lock longer than needed.
-            $encryptedUser = $this->cipher->encrypt(trim((string) $shopData['uni_user']));
-            $encryptedPassword = $this->cipher->encrypt(trim((string) $shopData['uni_password']));
+            $encryptedUser = $this->cipher->encrypt(CpOriginGuard::encodeValue(trim((string) $shopData['uni_user']), $origin));
+            $encryptedPassword = $this->cipher->encrypt(CpOriginGuard::encodeValue(trim((string) $shopData['uni_password']), $origin));
         }
 
         $lockName = DbMutationBoundary::smartUcfCredentialLockName($storeId, $unicid);
 
         return $this->boundary->runExclusive($lockName, function () use (
             $storeId,
+            $origin,
             $unicid,
             $sanitized,
             $rotatePair,
@@ -89,7 +94,7 @@ final class SmartUcfCredentialPersistence
                     (string) $encryptedPassword
                 );
             }
-            $this->cache->replaceValidated($storeId, $unicid, $sanitized);
+            $this->cache->replaceValidated($storeId, $unicid, $sanitized, $origin);
 
             return $sanitized;
         });

@@ -110,6 +110,8 @@ final class ControlPanelOrderLifecycleService
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
         }
 
+        CpOriginGuard::assertAttempt($row);
+
         $existingCpId = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
         if ($existingCpId > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
             $this->log('cp_replay_local', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $existingCpId, null, null);
@@ -148,6 +150,9 @@ final class ControlPanelOrderLifecycleService
 
         if (!$this->enterSubmitting($attemptId, (string) ($row['state'] ?? ''))) {
             $fresh = $this->attempts->findById($attemptId);
+            if ($fresh !== null) {
+                CpOriginGuard::assertAttempt($fresh);
+            }
             $freshCp = isset($fresh['control_panel_order_id']) ? (int) $fresh['control_panel_order_id'] : 0;
             if ($fresh !== null && $freshCp > 0 && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
                 return ControlPanelOrderSubmissionResult::ok($freshCp, true);

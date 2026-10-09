@@ -21,6 +21,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $store = new InMemoryStatusSyncStore();
         $store->rows[1] = [
             'attempt_id' => 1,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::NOT_NEEDED,
             'cp_status_sync_status_id' => null,
             'cp_status_sync_status' => null,
@@ -41,6 +42,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $status = BankStatus::process2Sent();
         $store->rows[2] = [
             'attempt_id' => 2,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::PENDING,
             'cp_status_sync_status_id' => $status['status_id'],
             'cp_status_sync_status' => $status['status_label'],
@@ -62,6 +64,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $store = new InMemoryStatusSyncStore();
         $store->rows[3] = [
             'attempt_id' => 3,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::PENDING,
             'cp_status_sync_status_id' => BankStatus::SENT_PROCESS1,
             'cp_status_sync_status' => BankStatus::LABEL_SENT_PROCESS1,
@@ -79,6 +82,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $status = BankStatus::process1Sent();
         $store->rows[4] = [
             'attempt_id' => 4,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::PENDING,
             'cp_status_sync_status_id' => $status['status_id'],
             'cp_status_sync_status' => $status['status_label'],
@@ -107,6 +111,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $store = new InMemoryStatusSyncStore();
         $store->rows[10] = [
             'attempt_id' => 10,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => $currentState,
             'cp_status_sync_status_id' => $currentStatusId,
             'cp_status_sync_status' => $currentStatus,
@@ -141,6 +146,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $status = BankStatus::process1Sent();
         $store->rows[11] = [
             'attempt_id' => 11,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::CONFIRMED,
             'cp_status_sync_status_id' => $status['status_id'],
             'cp_status_sync_status' => $status['status_label'],
@@ -158,6 +164,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
         $status = BankStatus::process1Sent();
         $store->rows[12] = [
             'attempt_id' => 12,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::PENDING,
             'cp_status_sync_status_id' => $status['status_id'],
             'cp_status_sync_status' => $status['status_label'],

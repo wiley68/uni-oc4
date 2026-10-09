@@ -12,6 +12,7 @@ final class PersistenceSchemaInstaller
     /** @var list<string> */
     private const REQUIRED_FINANCING_ATTEMPT_COLUMNS = [
         'unicid',
+        'cp_origin',
         'process2_mail_state',
         'process2_mail_claimed_at',
         'process2_mail_claim_token',
@@ -53,6 +54,7 @@ final class PersistenceSchemaInstaller
 
         $columns = [
             'unicid' => 'VARCHAR(64) NULL',
+            'cp_origin' => 'VARCHAR(320) NULL',
             'smartucf_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
             'smartucf_session_id' => 'VARCHAR(128) NULL',
             'smartucf_redirect_url' => 'VARCHAR(768) NULL',
@@ -334,6 +336,7 @@ final class PersistenceSchemaInstaller
                 `attempt_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `store_id` INT UNSIGNED NOT NULL,
                 `unicid` VARCHAR(64) NULL,
+                `cp_origin` VARCHAR(320) NULL,
                 `entry_point` VARCHAR(16) NOT NULL,
                 `submission_token` CHAR(64) NULL,
                 `operation_key_hash` CHAR(64) NOT NULL,

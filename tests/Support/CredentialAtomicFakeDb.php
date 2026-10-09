@@ -246,7 +246,7 @@ final class CredentialAtomicFakeDb implements DbConnection
      */
     public function committedShopData(int $storeId, string $unicid): ?array
     {
-        return $this->committedCache[$storeId . ':' . $unicid] ?? null;
+        return $this->committedCache[$storeId . ':' . $unicid]['data'] ?? null;
     }
 
     public function escape(string $value): string

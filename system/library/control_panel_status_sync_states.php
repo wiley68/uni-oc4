@@ -11,6 +11,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  */
 final class ControlPanelStatusSyncStates
 {
+    public const RECONCILIATION_REQUIRED = 'reconciliation_required';
+
     public const NOT_NEEDED = 'not_needed';
 
     public const PENDING = 'pending';

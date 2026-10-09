@@ -21,6 +21,7 @@ final class StatusSyncSecondCasMissTest extends TestCase
         $store = new FlakySecondCasStore();
         $store->rows[1] = [
             'attempt_id' => 1,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::NOT_NEEDED,
             'cp_status_sync_status_id' => null,
             'cp_status_sync_status' => null,
@@ -39,6 +40,7 @@ final class StatusSyncSecondCasMissTest extends TestCase
         $store = new FlakySecondCasConflictStore();
         $store->rows[2] = [
             'attempt_id' => 2,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'cp_status_sync_state' => ControlPanelStatusSyncStates::NOT_NEEDED,
             'cp_status_sync_status_id' => null,
             'cp_status_sync_status' => null,

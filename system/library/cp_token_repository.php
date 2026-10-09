@@ -28,13 +28,13 @@ final class CpTokenRepository
         $this->storeId = $storeId;
     }
 
-    public function save(string $accessToken, string $tokenType, int $expiresAt): bool
+    public function save(string $accessToken, string $tokenType, int $expiresAt, ?string $expectedOrigin = null): bool
     {
         if ($accessToken === '' || $expiresAt <= 0) {
             return false;
         }
 
-        $this->settings->set($this->storeId, self::ACCESS_TOKEN, $this->cipher->encrypt($accessToken));
+        $this->settings->set($this->storeId, self::ACCESS_TOKEN, $this->cipher->encrypt(CpOriginGuard::encodeValue($accessToken, $expectedOrigin)));
         $this->settings->set($this->storeId, self::TOKEN_TYPE, $tokenType !== '' ? $tokenType : 'Bearer');
         $this->settings->set($this->storeId, self::EXPIRES_AT, (string) $expiresAt);
 
@@ -54,7 +54,7 @@ final class CpTokenRepository
             return null;
         }
 
-        return is_string($token) && $token !== '' ? $token : null;
+        return CpOriginGuard::decodeValue($token);
     }
 
     public function getTokenType(): string
@@ -66,7 +66,7 @@ final class CpTokenRepository
 
     public function getExpiresAt(): int
     {
-        return (int) ($this->settings->get($this->storeId, self::EXPIRES_AT) ?? 0);
+        return $this->getAccessToken() === null ? 0 : (int) ($this->settings->get($this->storeId, self::EXPIRES_AT) ?? 0);
     }
 
     public function hasToken(): bool

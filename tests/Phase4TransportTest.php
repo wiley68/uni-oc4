@@ -85,8 +85,7 @@ final class Phase4TransportTest extends TestCase
             new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID),
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
-            Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1'
+            Phase4TestHarness::TEST_STORE_ID
         );
         $client->login();
         $storedToken = $settings->get(Phase4TestHarness::TEST_STORE_ID, CpTokenRepository::ACCESS_TOKEN);
@@ -109,8 +108,7 @@ final class Phase4TransportTest extends TestCase
             $tokens,
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
-            Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1'
+            Phase4TestHarness::TEST_STORE_ID
         );
     }
 }

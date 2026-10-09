@@ -20,6 +20,7 @@ final class CertificateSynchronizer
 
     public function ensureCurrent(): CertificateConsumerLease
     {
+        $origin = $this->client->origin();
         $this->store->assertWritableStore();
 
         try {
@@ -58,15 +59,15 @@ final class CertificateSynchronizer
             );
         }
 
-        if ($this->matchesMetadata($this->store->validateLocalPair(), $metadata)) {
+        if ($this->matchesMetadata($this->store->validateOriginBoundPair(), $metadata)) {
             return $this->store->withSharedLock(
-                fn(): CertificateConsumerLease => $this->store->createConsumerPairLease()
+                fn(): CertificateConsumerLease => $this->store->createOriginBoundConsumerPairLease()
             );
         }
 
-        return $this->store->withExclusiveLock(function () use ($metadata): CertificateConsumerLease {
-            if ($this->matchesMetadata($this->store->validateLocalPair(), $metadata)) {
-                return $this->store->createConsumerPairLease();
+        return $this->store->withExclusiveLock(function () use ($metadata, $origin): CertificateConsumerLease {
+            if ($this->matchesMetadata($this->store->validateOriginBoundPair(), $metadata)) {
+                return $this->store->createOriginBoundConsumerPairLease();
             }
 
             try {
@@ -97,21 +98,22 @@ final class CertificateSynchronizer
                 (string) $bundle['certificate_pem'],
                 (string) $bundle['private_key_pem'],
                 [
+                    'cp_origin' => $origin,
                     'ssl_revision' => (string) ($bundle['ssl_revision'] ?? $metadata['ssl_revision'] ?? ''),
                     'certificate_sha256' => (string) $bundle['certificate_sha256'],
                     'private_key_sha256' => (string) $bundle['private_key_sha256'],
                 ]
             );
 
-            return $this->store->createConsumerPairLease();
+            return $this->store->createOriginBoundConsumerPairLease();
         });
     }
 
     private function failOpenOrThrow(\Throwable $exception): CertificateConsumerLease
     {
-        if ($this->store->validateLocalPair() !== null) {
+        if ($this->store->validateOriginBoundPair() !== null) {
             return $this->store->withSharedLock(
-                fn(): CertificateConsumerLease => $this->store->createConsumerPairLease()
+                fn(): CertificateConsumerLease => $this->store->createOriginBoundConsumerPairLease()
             );
         }
 

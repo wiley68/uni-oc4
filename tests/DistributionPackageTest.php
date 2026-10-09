@@ -75,7 +75,7 @@ final class DistributionPackageTest extends TestCase
         }
         self::assertTrue(file_get_contents($this->root . '/dist/.htaccess')
             === file_get_contents($this->root . '/secrets/.htaccess'));
-        self::assertSame(0600, fileperms($path) & 0777);
+        self::assertSame(0664, fileperms($path) & 0777);
         self::assertSame([], glob($this->root . '/dist/.build-*'));
         $this->runFixtureCommand(['git', '-C', $this->root, 'check-ignore', '-q', 'dist/mt_uni_credit.ocmod.zip']);
         $this->runFixtureCommand(['git', '-C', $this->root, 'check-ignore', '-q', 'secrets/smartucf-key.php']);
@@ -100,6 +100,34 @@ final class DistributionPackageTest extends TestCase
             date_default_timezone_set($timezone);
         }
         self::assertTrue($before === $this->fingerprints(), 'Runtime, environment, secret and Composer inputs stay unchanged');
+    }
+
+    public function testRepeatedBuildPreservesSharedDirectoryFilesOwnershipAndAcl(): void
+    {
+        $archive = $this->packager->build();
+        $paths = [$this->root . '/dist', $this->root . '/dist/.htaccess', $archive];
+        chmod($paths[0], 02775);
+        chmod($paths[1], 0664);
+        chmod($paths[2], 0664);
+        $before = [];
+        foreach ($paths as $path) {
+            clearstatcache(true, $path);
+            $stat = stat($path);
+            $before[$path] = [$stat['ino'], $stat['uid'], $stat['gid'], $stat['mode']];
+        }
+        $this->packager->build();
+        foreach ($paths as $path) {
+            clearstatcache(true, $path);
+            $stat = stat($path);
+            self::assertSame($before[$path], [$stat['ino'], $stat['uid'], $stat['gid'], $stat['mode']], $path);
+        }
+        if (is_executable('/usr/bin/getfacl') && is_executable('/usr/bin/setfacl')) {
+            $uid = (string) posix_geteuid();
+            $this->runFixtureCommand(['/usr/bin/setfacl', '-m', 'u:' . $uid . ':rw', $archive]);
+            $acl = $this->runFixtureCommand(['/usr/bin/getfacl', '-cp', $archive]);
+            $this->packager->build();
+            self::assertSame($acl, $this->runFixtureCommand(['/usr/bin/getfacl', '-cp', $archive]));
+        }
     }
 
     public function testUnrelatedLocalFilesNeverEnterInstaller(): void

@@ -42,7 +42,6 @@ final class CpServiceFactory
             $transport ?? new CurlCpHttpTransport(),
             $shopName,
             $storeId,
-            null,
             $wallClock
         );
         $cache = new ShopCacheRepository($db, $clock);

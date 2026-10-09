@@ -117,6 +117,7 @@ final class CheckoutFinancingSubmissionService
         if ($attemptRow === null) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
         }
+        CpOriginGuard::assertAttempt($attemptRow);
         if ((string) ($attemptRow['entry_point'] ?? '') !== OperationEntryPoint::CHECKOUT) {
             throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
         }

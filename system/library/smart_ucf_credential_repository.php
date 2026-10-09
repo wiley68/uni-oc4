@@ -58,8 +58,8 @@ final class SmartUcfCredentialRepository
         }
 
         // Encrypt both before any persistent write.
-        $encryptedUser = $this->cipher->encrypt($username);
-        $encryptedPassword = $this->cipher->encrypt($password);
+        $encryptedUser = $this->cipher->encrypt(CpOriginGuard::encodeValue($username));
+        $encryptedPassword = $this->cipher->encrypt(CpOriginGuard::encodeValue($password));
 
         $this->settings->set($storeId, self::USER_SETTING, $encryptedUser);
         $this->settings->set($storeId, self::PASSWORD_SETTING, $encryptedPassword);
@@ -156,6 +156,10 @@ final class SmartUcfCredentialRepository
         try {
             $plain = $this->cipher->decrypt($stored);
         } catch (\Throwable $exception) {
+            return null;
+        }
+        $plain = CpOriginGuard::decodeValue($plain);
+        if ($plain === null) {
             return null;
         }
         $plain = trim($plain);

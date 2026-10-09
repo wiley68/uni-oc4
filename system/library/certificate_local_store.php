@@ -179,11 +179,39 @@ final class CertificateLocalStore
         ];
     }
 
+    public function validateOriginBoundPair(): ?array
+    {
+        $statePath = $this->keysDirectory() . '/' . self::STATE_FILENAME;
+        $state = is_file($statePath) ? json_decode((string) @file_get_contents($statePath), true) : null;
+        if (!is_array($state) || !CpOriginGuard::matches($state['cp_origin'] ?? null)) {
+            return null;
+        }
+        $pair = $this->validateLocalPair();
+        if ($pair === null || !hash_equals((string) ($state['certificate_sha256'] ?? ''), $pair['certificate_sha256'])
+            || !hash_equals((string) ($state['private_key_sha256'] ?? ''), $pair['private_key_sha256'])) {
+            return null;
+        }
+        return $pair;
+    }
+
+    /** Called with the consumer's shared or exclusive store lock held. */
+    public function createOriginBoundConsumerPairLease(): CertificateConsumerLease
+    {
+        if ($this->validateOriginBoundPair() === null) {
+            throw new CertificateSyncException('Certificate origin requires reconciliation.', CertificateSyncException::REASON_CP_TRANSPORT);
+        }
+        return $this->createConsumerPairLease();
+    }
+
     /**
      * @param array{ssl_revision?: string, certificate_sha256: string, private_key_sha256: string} $metadata
      */
     public function replacePair(string $certificatePem, string $privateKeyPem, array $metadata): void
     {
+        $origin = $metadata['cp_origin'] ?? CpOriginGuard::current();
+        if (!CpOriginGuard::matches($origin)) {
+            throw new CertificateSyncException('Certificate deployment changed during synchronization.', CertificateSyncException::REASON_CP_TRANSPORT);
+        }
         $this->ensureProtectionFiles();
 
         try {
@@ -244,6 +272,7 @@ final class CertificateLocalStore
             }
 
             $this->writeState([
+                'cp_origin' => $origin,
                 'ssl_revision' => (string) ($metadata['ssl_revision'] ?? ''),
                 'certificate_sha256' => (string) $metadata['certificate_sha256'],
                 'private_key_sha256' => (string) $metadata['private_key_sha256'],

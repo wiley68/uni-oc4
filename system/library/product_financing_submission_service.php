@@ -310,6 +310,7 @@ final class ProductFinancingSubmissionService
             throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
         }
 
+        CpOriginGuard::assertAttempt($attemptRow);
         return $attemptRow;
     }
 

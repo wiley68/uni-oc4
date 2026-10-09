@@ -30,7 +30,7 @@ final class ShopCacheRepository
 
         $table = $this->tableName();
         $result = $this->db->query(
-            "SELECT `fetched_at`, `expires_at`
+            "SELECT `shop_data`, `fetched_at`, `expires_at`
              FROM `{$table}`
              WHERE `store_id` = " . (int) $storeId . "
                AND `unicid` = '" . $this->db->escape($unicid) . "'
@@ -42,6 +42,10 @@ final class ShopCacheRepository
         }
 
         $row = $result->row;
+        $envelope = json_decode((string) ($row['shop_data'] ?? ''), true);
+        if (!is_array($envelope) || !CpOriginGuard::matches($envelope['cp_origin'] ?? null) || !is_array($envelope['data'] ?? null) || $envelope['data'] === []) {
+            return null;
+        }
         $nowTimestamp = $this->clock->now();
         $now = $this->clock->formatUtc($nowTimestamp);
         $expiresAt = (string) $row['expires_at'];
@@ -87,22 +91,12 @@ final class ShopCacheRepository
         }
 
         $row = $result->row;
-        if (!isset($row['shop_data']) || !is_string($row['shop_data'])) {
+        $envelope = json_decode((string) ($row['shop_data'] ?? ''), true);
+        if (!is_array($envelope) || !CpOriginGuard::matches($envelope['cp_origin'] ?? null) || !is_array($envelope['data'] ?? null) || $envelope['data'] === []) {
             return null;
         }
-
-        try {
-            $decoded = json_decode($row['shop_data'], true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            return null;
-        }
-
-        if (!is_array($decoded) || $decoded === []) {
-            return null;
-        }
-
         return [
-            'shop_data'  => $decoded,
+            'shop_data'  => $envelope['data'],
             'fetched_at' => (string) $row['fetched_at'],
             'expires_at' => (string) $row['expires_at'],
         ];
@@ -135,22 +129,12 @@ final class ShopCacheRepository
         }
 
         $row = $result->row;
-        if (!isset($row['shop_data']) || !is_string($row['shop_data'])) {
+        $envelope = json_decode((string) ($row['shop_data'] ?? ''), true);
+        if (!is_array($envelope) || !CpOriginGuard::matches($envelope['cp_origin'] ?? null) || !is_array($envelope['data'] ?? null) || $envelope['data'] === []) {
             return null;
         }
-
-        try {
-            $decoded = json_decode($row['shop_data'], true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            return null;
-        }
-
-        if (!is_array($decoded) || $decoded === []) {
-            return null;
-        }
-
         return [
-            'shop_data'  => $decoded,
+            'shop_data'  => $envelope['data'],
             'fetched_at' => (string) $row['fetched_at'],
             'expires_at' => (string) $row['expires_at'],
         ];
@@ -159,8 +143,12 @@ final class ShopCacheRepository
     /**
      * @param array<string, mixed> $shopData
      */
-    public function replaceValidated(int $storeId, string $unicid, array $shopData): void
+    public function replaceValidated(int $storeId, string $unicid, array $shopData, ?string $expectedOrigin = null): void
     {
+        $origin = $expectedOrigin ?? CpOriginGuard::current();
+        if (!CpOriginGuard::matches($origin)) {
+            throw new CpException('Control Panel deployment changed before cache persistence.');
+        }
         $this->requireStoreId($storeId);
         $unicid = trim($unicid);
         if ($unicid === '' || $shopData === []) {
@@ -168,7 +156,7 @@ final class ShopCacheRepository
         }
 
         try {
-            $encoded = json_encode($shopData, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $encoded = json_encode(['cp_origin' => $origin, 'data' => $shopData], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new PersistenceValidationException('Shop cache snapshot cannot be encoded as JSON.', 0, $exception);
         }

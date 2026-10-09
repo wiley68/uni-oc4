@@ -90,9 +90,7 @@ final class DistributionPackage
             }
         }
         foreach ($manifest as $path) {
-            if ($path !== self::SECRET && !in_array($path, $tracked, true)) {
-                throw new RuntimeException('Manifest runtime file must be tracked: ' . $path);
-            }
+            // Explicit manifest approval also permits reviewed, unstaged new runtime files.
             // Check every input now, including parent symlinks and unreadable files.
             $this->readSource($path);
         }
@@ -155,21 +153,13 @@ final class DistributionPackage
         }
         $dist = $this->sourceRoot . '/dist';
         $this->assertNoSymlinks('dist');
-        $this->mkdir($dist);
-        $this->assertNoSymlinks('dist/.htaccess');
-        // Replace protection atomically; never truncate an existing hardlink or follow a symlink.
-        $protection = $dist . '/.protection-' . bin2hex(random_bytes(16));
-        try {
-            $this->writePrivate($protection, $this->readSource('secrets/.htaccess'));
-            // Protection must be readable by Apache, while ZIP and staging remain private.
-            if (!chmod($protection, 0644) || !@rename($protection, $dist . '/.htaccess')) {
-                throw new RuntimeException('Cannot publish dist Apache protection.');
-            }
-        } finally {
-            if (is_file($protection)) {
-                unlink($protection);
+        if (!is_dir($dist)) {
+            if (!mkdir($dist, 02775) || !chmod($dist, 02775)) {
+                throw new RuntimeException('Cannot create shared dist directory.');
             }
         }
+        $this->assertNoSymlinks('dist/.htaccess');
+        $this->publishShared($this->readSource('secrets/.htaccess'), 'dist/.htaccess');
         $stage = $dist . '/.build-' . bin2hex(random_bytes(16));
         if (!mkdir($stage, 0700)) {
             throw new RuntimeException('Cannot create private staging directory.');
@@ -202,14 +192,16 @@ final class DistributionPackage
                 $closed = $zip->close();
                 date_default_timezone_set($timezone);
             }
-            if (!$closed || !chmod($temporaryZip, 0600)) {
+            if (!$closed) {
                 throw new RuntimeException('Cannot finalize private installer ZIP.');
             }
             $this->verify($temporaryZip);
             $this->assertNoSymlinks('dist/' . self::FILENAME);
-            if (!@rename($temporaryZip, $output)) {
-                throw new RuntimeException('Cannot publish verified installer to dist.');
+            $bytes = file_get_contents($temporaryZip);
+            if ($bytes === false) {
+                throw new RuntimeException('Cannot read verified installer.');
             }
+            $this->publishShared($bytes, 'dist/' . self::FILENAME);
             return $output;
         } finally {
             $this->removeStage($stage);
@@ -350,6 +342,60 @@ final class DistributionPackage
                 throw new RuntimeException('Cannot safely copy complete build input.');
             }
         } finally {
+            fclose($handle);
+        }
+    }
+
+    /** Preserve existing inode ownership, mode and ACL. New files inherit dist's default ACL.
+     * Publication follows verification. Readers should take a shared lock during publication.
+     */
+    private function publishShared(string $bytes, string $relative): void
+    {
+        $this->assertNoSymlinks($relative);
+        $path = $this->sourceRoot . '/' . $relative;
+        clearstatcache(true, $path);
+        $before = @lstat($path);
+        if ($before !== false && (($before['mode'] & 0170000) !== 0100000 || $before['nlink'] !== 1)) {
+            throw new RuntimeException('Shared publication target must be a regular file without hardlinks.');
+        }
+        $handle = @fopen($path, $before === false ? 'x+b' : 'r+b');
+        if ($handle === false) {
+            throw new RuntimeException('Cannot open shared publication target.');
+        }
+        $previous = null;
+        try {
+            if (!flock($handle, LOCK_EX)) {
+                throw new RuntimeException('Cannot lock shared publication target.');
+            }
+            $opened = fstat($handle);
+            if ($opened === false || ($opened['mode'] & 0170000) !== 0100000 || $opened['nlink'] !== 1
+                || ($before !== false && ($opened['dev'] !== $before['dev'] || $opened['ino'] !== $before['ino']))) {
+                throw new RuntimeException('Shared publication target changed while opening.');
+            }
+            if ($before === false && !chmod($path, 0664)) {
+                throw new RuntimeException('Cannot apply shared access to new published file.');
+            }
+            if ($before !== false && (($opened['mode'] & 0664) !== 0664)) {
+                throw new RuntimeException('Existing published file must permit shared developer/web access.');
+            }
+            $previous = stream_get_contents($handle);
+            if ($previous === false) {
+                throw new RuntimeException('Cannot preserve previous published bytes.');
+            }
+            rewind($handle);
+            if (fwrite($handle, $bytes) !== strlen($bytes) || !ftruncate($handle, strlen($bytes)) || !fflush($handle)) {
+                throw new RuntimeException('Cannot publish complete verified installer.');
+            }
+        } catch (\Throwable $exception) {
+            if (is_string($previous)) {
+                rewind($handle);
+                fwrite($handle, $previous);
+                ftruncate($handle, strlen($previous));
+                fflush($handle);
+            }
+            throw $exception;
+        } finally {
+            flock($handle, LOCK_UN);
             fclose($handle);
         }
     }

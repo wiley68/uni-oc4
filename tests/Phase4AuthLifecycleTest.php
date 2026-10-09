@@ -283,7 +283,6 @@ final class Phase4AuthLifecycleTest extends TestCase
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
             Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1',
             static fn(): int => $now
         );
 

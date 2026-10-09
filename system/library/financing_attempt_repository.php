@@ -15,6 +15,7 @@ final class FinancingAttemptRepository
     {
         $this->db = $db;
         $this->clock = $clock ?? new PersistenceClock();
+        CpOriginGuard::ensureSchema($db);
     }
 
     public function database(): DbConnection
@@ -412,11 +413,12 @@ final class FinancingAttemptRepository
 
         $this->db->query(
             "INSERT INTO `{$table}`
-                (`store_id`, `unicid`, `entry_point`, `submission_token`, `operation_key_hash`, `actor_binding_hash`,
+                (`store_id`, `unicid`, `cp_origin`, `entry_point`, `submission_token`, `operation_key_hash`, `actor_binding_hash`,
                  `selection_hash`, `cart_id`, `cart_fingerprint`, `state`, `expires_at`, `created_at`, `updated_at`)
              VALUES (
                 " . (int) $storeId . ",
                 {$unicidSql},
+                '" . $this->db->escape(CpOriginGuard::current()) . "',
                 '" . $this->db->escape($entryPoint) . "',
                 {$tokenSql},
                 '" . $this->db->escape($operationKeyHash) . "',

@@ -25,8 +25,10 @@ build. Its contents and hashes are never written to logs or a manifest.
 ignored and untracked. **The generated installer is a sensitive deployment
 artifact because it contains the SmartUCF secret. Do not commit the ZIP or share
 it publicly.** The build checks the Git inventory and both ignore rules, creates
-the ZIP with local mode `0600`, and copies the existing Apache deny rules into
-`dist/.htaccess`. Package protection files are preserved at `secrets/.htaccess`,
+new published files with shared mode `0664`, and copies the existing Apache deny
+rules into `dist/.htaccess`. Existing directory/file ownership, modes and ACLs
+are preserved; the builder never changes the existing `dist/` directory's access.
+A new `dist/` uses `2775`, while staging remains private. Package protection files are preserved at `secrets/.htaccess`,
 `keys/.htaccess` and the extension root. Apache installations must honor
 `.htaccess`; other web servers need equivalent deployment access controls.
 
@@ -55,7 +57,8 @@ alongside the runtime fonts.
 
 `scripts/package-files.json` is the audited, sorted runtime source manifest. It
 contains paths only, with exactly one local-file exception:
-`secrets/smartucf-key.php`. Every other manifest entry must be tracked by Git.
+`secrets/smartucf-key.php`. Explicitly reviewed manifest entries may be unstaged
+new runtime files, allowing a package to be reviewed without staging or committing.
 Adding a tracked runtime file without updating the manifest fails the build;
 missing manifest files also fail. Unrelated untracked files are never selected.
 When adding runtime files, review and update this manifest explicitly. Do not
@@ -73,9 +76,12 @@ unchanged.
 
 The builder creates a private temporary staging tree under ignored `dist/`, copies
 the audited files and generates the aliases, builds the ZIP there, verifies it,
-and atomically replaces the final installer. It removes the staging tree on
-success and ordinary exceptions.
-A failed build does not replace a previous installer. A forcibly killed process
+and publishes the verified bytes under an exclusive file lock. Existing file
+inodes are retained to preserve owner/group and named ACLs. Readers should take a
+shared lock during publication; an unlocked reader or process termination during
+publication can observe incomplete bytes. Reported write failures restore the
+previous bytes. It removes the staging tree on success and ordinary exceptions.
+A failed build before publication leaves the previous installer unchanged. A forcibly killed process
 may leave a private `.build-*` directory that must be removed manually.
 
 The verifier independently reopens the archive, checks its exact filename and

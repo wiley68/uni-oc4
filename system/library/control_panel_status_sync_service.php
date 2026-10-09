@@ -118,7 +118,9 @@ final class ControlPanelStatusSyncService
         }
 
         return [
-            'state' => (string) ($snapshot['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED),
+            'state' => CpOriginGuard::matches($snapshot['cp_origin'] ?? null)
+                ? (string) ($snapshot['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED)
+                : ControlPanelStatusSyncStates::RECONCILIATION_REQUIRED,
             'status_id' => $this->nullableString($snapshot['cp_status_sync_status_id'] ?? null),
             'status' => $this->nullableString($snapshot['cp_status_sync_status'] ?? null),
             'error_class' => $this->nullableString($snapshot['cp_status_sync_error_class'] ?? null),
@@ -130,6 +132,10 @@ final class ControlPanelStatusSyncService
     {
         $snapshot = $this->store->findByAttempt($attemptId);
         if ($snapshot === null) {
+            return self::REJECT;
+        }
+
+        if (!CpOriginGuard::matches($snapshot['cp_origin'] ?? null)) {
             return self::REJECT;
         }
 
@@ -162,7 +168,7 @@ final class ControlPanelStatusSyncService
         }
 
         $latest = $this->store->findByAttempt($attemptId);
-        if ($latest === null) {
+        if ($latest === null || !CpOriginGuard::matches($latest['cp_origin'] ?? null)) {
             return self::REJECT;
         }
         $latestState = (string) ($latest['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED);
@@ -193,7 +199,7 @@ final class ControlPanelStatusSyncService
 
         // Second CAS miss: never claim ADMIT — reload and classify authoritative state.
         $authoritative = $this->store->findByAttempt($attemptId);
-        if ($authoritative === null) {
+        if ($authoritative === null || !CpOriginGuard::matches($authoritative['cp_origin'] ?? null)) {
             return self::REJECT;
         }
 
@@ -219,6 +225,10 @@ final class ControlPanelStatusSyncService
             return ControlPanelStatusSyncStates::NOT_NEEDED;
         }
 
+        if (!CpOriginGuard::matches($snapshot['cp_origin'] ?? null)) {
+            return ControlPanelStatusSyncStates::RECONCILIATION_REQUIRED;
+        }
+
         $state = (string) ($snapshot['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED);
         if ($state === ControlPanelStatusSyncStates::CONFIRMED) {
             return ControlPanelStatusSyncStates::CONFIRMED;
@@ -234,6 +244,10 @@ final class ControlPanelStatusSyncService
         if ($snapshot === null) {
             return ControlPanelStatusSyncStates::NOT_NEEDED;
         }
+        if (!CpOriginGuard::matches($snapshot['cp_origin'] ?? null)) {
+            return ControlPanelStatusSyncStates::RECONCILIATION_REQUIRED;
+        }
+
         $state = (string) ($snapshot['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED);
         if ($state !== ControlPanelStatusSyncStates::PENDING) {
             return $state !== '' ? $state : ControlPanelStatusSyncStates::NOT_NEEDED;
@@ -288,6 +302,9 @@ final class ControlPanelStatusSyncService
         $snapshot = $this->store->findByAttempt($attemptId);
         if ($snapshot === null) {
             return $fallback;
+        }
+        if (!CpOriginGuard::matches($snapshot['cp_origin'] ?? null)) {
+            return ControlPanelStatusSyncStates::RECONCILIATION_REQUIRED;
         }
         $state = (string) ($snapshot['cp_status_sync_state'] ?? $fallback);
 

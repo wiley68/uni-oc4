@@ -42,7 +42,7 @@ final class ProductFinancingFlowException extends \RuntimeException
             'validation', 'missing_required_option', 'cart_empty', 'invalid_customer', 'invalid_consent',
             'checkout_order_missing' => 422,
             'stale_selection', 'unavailable_scheme', 'attempt_conflict', 'expired_attempt', 'cart_changed',
-            'checkout_order_changed' => 409,
+            'checkout_order_changed', 'cp_origin_reconciliation_required' => 409,
             'operation_processing' => 423,
             default => 500,
         };

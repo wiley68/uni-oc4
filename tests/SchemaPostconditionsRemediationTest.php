@@ -111,6 +111,7 @@ final class FakeSchemaDb implements \Opencart\System\Library\Extension\MtUniCred
     {
         $required = [
             'unicid',
+            'cp_origin',
             'process2_mail_state',
             'process2_mail_claimed_at',
             'process2_mail_claim_token',

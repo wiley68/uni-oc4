@@ -14,31 +14,36 @@ final class Phase2EnvironmentConfigTest extends TestCase
         $env = new ModuleDeploymentEnvironment();
         $url = $env->controlPanelUrl();
         self::assertMatchesRegularExpression('#^https://#i', $url);
-        self::assertSame('uni.avalonbg.com', $env->controlPanelHost());
+        self::assertSame(parse_url($url, PHP_URL_HOST), $env->controlPanelHost());
         self::assertSame($url . '/api/v1', $env->controlPanelApiBaseUrl());
         self::assertFileExists(dirname(__DIR__) . '/config/environment.php');
     }
 
     public function testInvalidEnvironmentFileIsRejected(): void
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'env');
-        self::assertNotFalse($tmp);
-        file_put_contents($tmp, "<?php\nreturn ['control_panel_url' => 'not-a-url'];\n");
-
-        $env = new ModuleDeploymentEnvironment($tmp);
-        $this->expectException(\RuntimeException::class);
-        try {
-            $env->controlPanelUrl();
-        } finally {
-            @unlink($tmp);
-        }
+        $result = \MtUniCredit\Tests\Support\IsolatedCpRuntime::run(<<<'PHP'
+try {
+    (new U\ModuleDeploymentEnvironment())->controlPanelUrl();
+    echo json_encode(false);
+} catch (RuntimeException) {
+    echo json_encode(true);
+}
+PHP, 'not-a-url');
+        self::assertTrue($result);
     }
 
     public function testMissingEnvironmentFileIsRejected(): void
     {
-        $env = new ModuleDeploymentEnvironment(sys_get_temp_dir() . '/mt-uni-credit-missing-env-' . uniqid('', true) . '.php');
-        $this->expectException(\RuntimeException::class);
-        $env->controlPanelUrl();
+        $result = \MtUniCredit\Tests\Support\IsolatedCpRuntime::run(<<<'PHP'
+unlink(U\ExtensionRoot::path() . '/config/environment.php');
+try {
+    (new U\ModuleDeploymentEnvironment())->controlPanelUrl();
+    echo json_encode(false);
+} catch (RuntimeException) {
+    echo json_encode(true);
+}
+PHP);
+        self::assertTrue($result);
     }
 
     public function testApiPathPrefixIsCentralized(): void

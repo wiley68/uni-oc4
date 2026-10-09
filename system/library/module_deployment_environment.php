@@ -15,9 +15,9 @@ final class ModuleDeploymentEnvironment
 
     private string $configFilePath;
 
-    public function __construct(?string $configFilePath = null)
+    public function __construct()
     {
-        $this->configFilePath = $configFilePath ?? (ExtensionRoot::path() . '/' . self::RELATIVE_PATH);
+        $this->configFilePath = ExtensionRoot::path() . '/' . self::RELATIVE_PATH;
     }
 
     /**
@@ -32,12 +32,26 @@ final class ModuleDeploymentEnvironment
         if (!is_string($url)) {
             throw new \RuntimeException('Control Panel URL is not configured in config/environment.php.');
         }
-        $url = rtrim(trim($url), '/');
-        if ($url === '' || !preg_match('#^https?://#i', $url)) {
-            throw new \RuntimeException('Control Panel URL is invalid in config/environment.php.');
-        }
+        return CpDestinationPolicy::canonicalRoot($url);
+    }
 
-        return $url;
+    public function controlPanelOrigin(): string
+    {
+        return $this->destination()['origin'];
+    }
+
+    /** One configuration snapshot for all destination derivatives.
+     * @return array{root: string, api_base: string, origin: string, host: string}
+     */
+    public function destination(): array
+    {
+        $root = $this->controlPanelUrl();
+        return [
+            'root' => $root,
+            'api_base' => $root . self::API_PATH_PREFIX,
+            'origin' => $root . ':443',
+            'host' => (string) parse_url($root, PHP_URL_HOST),
+        ];
     }
 
     /**
@@ -47,7 +61,7 @@ final class ModuleDeploymentEnvironment
      */
     public function controlPanelApiBaseUrl(): string
     {
-        return $this->controlPanelUrl() . self::API_PATH_PREFIX;
+        return $this->destination()['api_base'];
     }
 
     /**

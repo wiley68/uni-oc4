@@ -118,8 +118,7 @@ final class CanonicalControlPanelClientTest extends TestCase
             new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID),
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
-            Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1'
+            Phase4TestHarness::TEST_STORE_ID
         );
     }
 }

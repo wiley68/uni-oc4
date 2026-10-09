@@ -14,6 +14,7 @@ final class ControlPanelStatusSyncRepository implements ControlPanelStatusSyncSt
         private ?PersistenceClock $clock = null
     ) {
         $this->clock ??= new PersistenceClock();
+        CpOriginGuard::ensureSchema($db);
     }
 
     public function findByAttempt(int $attemptId): ?array
@@ -24,7 +25,7 @@ final class ControlPanelStatusSyncRepository implements ControlPanelStatusSyncSt
 
         $table = $this->tableName();
         $result = $this->db->query(
-            "SELECT `attempt_id`,
+            "SELECT `attempt_id`, `cp_origin`,
                     `cp_status_sync_state`,
                     `cp_status_sync_status_id`,
                     `cp_status_sync_status`,

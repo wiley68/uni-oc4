@@ -202,7 +202,7 @@ class ShopConfigurationService
 
             $this->snapshotValidator->validate($shopData, $unicid);
 
-            return $this->credentialPersistence->persistValidatedSnapshot($this->storeId, $unicid, $shopData);
+            return $this->credentialPersistence->persistValidatedSnapshot($this->storeId, $unicid, $shopData, $this->client->origin());
         } catch (ShopSnapshotValidationException $exception) {
             throw $exception;
         } catch (CpAuthenticationException $exception) {

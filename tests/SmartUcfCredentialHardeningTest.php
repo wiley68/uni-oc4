@@ -450,8 +450,7 @@ final class SmartUcfCredentialHardeningTest extends TestCase
             new CpTokenRepository($settings, $cipher, Phase4TestHarness::TEST_STORE_ID),
             $transport,
             Phase4TestHarness::TEST_SHOP_URL,
-            Phase4TestHarness::TEST_STORE_ID,
-            'https://cp.example.test/api/v1'
+            Phase4TestHarness::TEST_STORE_ID
         );
 
         return new SmartUcfSessionCoordinator(
@@ -511,6 +510,7 @@ final class SmartUcfCredentialLifecycleFakeDb implements DbConnection
     {
         $this->attempts[$attemptId] = [
             'attempt_id' => $attemptId,
+            'cp_origin' => \Opencart\System\Library\Extension\MtUniCredit\CpOriginGuard::current(),
             'state' => 'cp_created',
             'control_panel_order_id' => 500 + $attemptId,
             'cp_payload' => json_encode([

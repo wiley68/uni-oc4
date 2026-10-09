@@ -22,6 +22,7 @@ final class DurableEurOrderGuard
             throw self::failure();
         }
         $attempt = $attemptResult->row;
+        CpOriginGuard::assertAttempt($attempt);
         if ((int) ($attempt['store_id'] ?? -1) !== $storeId || (int) ($attempt['order_id'] ?? 0) !== $orderId) {
             throw self::failure();
         }

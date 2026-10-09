@@ -19,6 +19,8 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
 
     private string $baseUrl;
 
+    private string $origin;
+
     private int $storeId;
 
     /** @var callable(): int */
@@ -30,7 +32,6 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
         CpHttpTransport $transport,
         string $shopName,
         int $storeId,
-        ?string $baseUrl = null,
         ?callable $clock = null
     ) {
         $this->credentials = $credentials;
@@ -38,11 +39,15 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
         $this->transport = $transport;
         $this->shopName = rtrim(trim($shopName), '/');
         $this->storeId = $storeId;
-        $resolved = $baseUrl !== null && trim($baseUrl) !== ''
-            ? $baseUrl
-            : (new ModuleDeploymentEnvironment())->controlPanelApiBaseUrl();
-        $this->baseUrl = rtrim($resolved, '/');
+        $destination = (new ModuleDeploymentEnvironment())->destination();
+        $this->baseUrl = $destination['api_base'];
+        $this->origin = $destination['origin'];
         $this->clock = $clock ?? static fn(): int => time();
+    }
+
+    public function origin(): string
+    {
+        return $this->origin;
     }
 
     /** @return array<string, mixed> */
@@ -291,6 +296,9 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
      */
     private function send(string $method, string $path, ?array $payload = null, ?string $token = null): array
     {
+        if ($this->baseUrl !== (new ModuleDeploymentEnvironment())->controlPanelApiBaseUrl()) {
+            throw new CpException('Control Panel deployment changed during the request; retry with fresh services.');
+        }
         $headers = [
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -305,6 +313,10 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             $headers,
             $payload
         );
+
+        if ($this->baseUrl !== (new ModuleDeploymentEnvironment())->controlPanelApiBaseUrl()) {
+            throw new CpException('Control Panel deployment changed during transport; response discarded.');
+        }
 
         if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
             // Including 401: bare/malformed bodies are not treated as safe auth evidence.
@@ -543,7 +555,7 @@ final class ControlPanelClient implements ControlPanelOrderStatusPort
             }
         }
 
-        if (!$this->tokens->save($accessToken, $tokenType, $this->now() + (int) $expiresIn)) {
+        if (!$this->tokens->save($accessToken, $tokenType, $this->now() + (int) $expiresIn, $this->origin)) {
             $this->tokens->invalidate();
             throw new CpInvalidPayloadException('The Control Panel token could not be stored.');
         }
