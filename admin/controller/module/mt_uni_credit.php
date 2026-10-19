@@ -94,6 +94,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['help_button_top_spacing'] = $this->language->get('help_button_top_spacing');
         $data['help_journal_unavailable'] = $this->language->get('help_journal_unavailable');
         $data['text_secret_keep_current'] = $this->language->get('text_secret_keep_current');
+        $data['text_secret_configured'] = $this->language->get('text_secret_configured');
+        $data['text_secret_placeholder'] = $this->language->get('text_secret_placeholder');
         $data['button_save'] = $this->language->get('button_save');
         $data['button_back'] = $this->language->get('button_back');
         $data['button_refresh_bank_data'] = $this->language->get('button_refresh_bank_data');
