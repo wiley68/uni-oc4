@@ -131,3 +131,7 @@ Validation failure (EGN/phone2) before handoff leaves CP at `cp_sent` and does n
 ## SmartUCF unknown outcome (Phase 11A)
 
 `submitting` is an atomic claim. A valid returned session is persisted as `created`; replay returns the stored trusted redirect without a second bank call. Timeout, duplicate-order evidence, invalid response after send, or stale `submitting` becomes `outcome_unknown`. Customers are told not to resubmit, and `bank_send_failed_smartucf` is not written for an ambiguous outcome. Only a definitive failure writes that status locally and to CP (via durable `cp_status_sync_*`, same admit → local → PATCH ordering).
+
+## Consent recovery prerequisite
+
+New-format recovery uses finalized consent conditions plus native EUR/product/option verification, including after presentation redaction. Legacy recorded outcomes are read-only; absent or malformed evidence cannot authorize new effects. See [UNI-CONSENT-001-OC4.md](UNI-CONSENT-001-OC4.md).

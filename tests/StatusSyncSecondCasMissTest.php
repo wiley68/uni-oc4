@@ -27,7 +27,7 @@ final class StatusSyncSecondCasMissTest extends TestCase
             'cp_status_sync_status' => null,
         ];
         $client = new RecordingStatusPort();
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(1, 77));
 
         $decision = $service->admitTarget(1, BankStatus::SENT_PROCESS1, BankStatus::LABEL_SENT_PROCESS1);
         self::assertSame(ControlPanelStatusSyncService::SAME, $decision);
@@ -45,7 +45,7 @@ final class StatusSyncSecondCasMissTest extends TestCase
             'cp_status_sync_status_id' => null,
             'cp_status_sync_status' => null,
         ];
-        $service = new ControlPanelStatusSyncService($store, new RecordingStatusPort());
+        $service = new ControlPanelStatusSyncService($store, new RecordingStatusPort(), \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(2, 77, 2));
         $decision = $service->admitTarget(2, BankStatus::SENT_PROCESS2, BankStatus::LABEL_SENT_PROCESS2);
         self::assertSame(ControlPanelStatusSyncService::CONFLICT, $decision);
         self::assertNotSame(ControlPanelStatusSyncService::ADMIT, $decision);

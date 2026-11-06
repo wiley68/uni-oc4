@@ -27,7 +27,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
             'cp_status_sync_status' => null,
         ];
         $client = new RecordingStatusPort();
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(1, 12345));
         $status = BankStatus::process1Sent();
 
         $state = $service->synchronizeAfterHandoff(1, '12345', $status);
@@ -53,7 +53,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
                 throw new CpTimeoutException('timeout');
             }
         };
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(2, 99, 2));
         $state = $service->retryPending(2, '99');
         self::assertSame(ControlPanelStatusSyncStates::PENDING, $state);
         self::assertSame('cp_status_transport_ambiguous', $store->rows[2]['cp_status_sync_error_class']);
@@ -70,7 +70,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
             'cp_status_sync_status' => BankStatus::LABEL_SENT_PROCESS1,
         ];
         $client = new RecordingStatusPort();
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(3, 77, 2));
         $state = $service->synchronizeAfterHandoff(3, '77', BankStatus::process2Sent());
         self::assertSame(ControlPanelStatusSyncStates::PENDING, $state);
         self::assertSame(0, $client->calls);
@@ -93,7 +93,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
                 throw new CpHttpException(422, ['error' => 'semantic_conflict']);
             }
         };
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(4, 55));
         $state = $service->retryPending(4, '55');
         self::assertSame(ControlPanelStatusSyncStates::TERMINAL_FAILED, $state);
         self::assertSame('cp_status_semantic_conflict', $store->rows[4]['cp_status_sync_error_class']);
@@ -117,7 +117,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
             'cp_status_sync_status' => $currentStatus,
         ];
         $client = new RecordingStatusPort();
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(10, 100, $incoming['status_id'] === BankStatus::SENT_PROCESS2 ? 2 : 1));
         $state = $service->synchronizeAfterHandoff(10, '100', $incoming);
         self::assertSame($currentState, $state);
         self::assertSame($currentStatusId, $store->rows[10]['cp_status_sync_status_id']);
@@ -152,7 +152,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
             'cp_status_sync_status' => $status['status_label'],
         ];
         $client = new RecordingStatusPort();
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(11, 11));
         $state = $service->synchronizeAfterHandoff(11, '11', $status);
         self::assertSame(ControlPanelStatusSyncStates::CONFIRMED, $state);
         self::assertSame(0, $client->calls);
@@ -175,7 +175,7 @@ final class ControlPanelStatusSyncServiceTest extends TestCase
                 throw new CpHttpException(418, ['error' => 'teapot']);
             }
         };
-        $service = new ControlPanelStatusSyncService($store, $client);
+        $service = new ControlPanelStatusSyncService($store, $client, \MtUniCredit\Tests\Support\ConsentFixture::statusAuthority(12, 12));
         self::assertSame(ControlPanelStatusSyncStates::PENDING, $service->retryPending(12, '12'));
     }
 }

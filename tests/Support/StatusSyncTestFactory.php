@@ -15,7 +15,8 @@ final class StatusSyncTestFactory
     {
         return new ControlPanelStatusSyncService(
             new ControlPanelStatusSyncRepository($db),
-            $client
+            $client,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
     }
 }

@@ -461,7 +461,8 @@ final class SmartUcfCredentialHardeningTest extends TestCase
             $cp,
             new ControlPanelStatusSyncService(
                 new ControlPanelStatusSyncRepository($db),
-                new RecordingStatusPort()
+                new RecordingStatusPort(),
+                new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
             )
         );
     }
@@ -514,7 +515,7 @@ final class SmartUcfCredentialLifecycleFakeDb implements DbConnection
             'state' => 'cp_created',
             'control_panel_order_id' => 500 + $attemptId,
             'cp_payload' => json_encode([
-                'order_id' => (string) (9000 + $attemptId), 'currency' => 'EUR',
+                'order_id' => (string) (9000 + $attemptId), 'currency' => 'EUR', 'vnoski' => 12, 'gpr' => 0.0, 'products_id' => '42', 'products_q' => '2',
                 'price' => 1200.0, 'parva' => 0.0, 'vnoska' => 100.0,
             ], JSON_THROW_ON_ERROR),
             'leasing_presentation_json' => json_encode([
@@ -539,10 +540,13 @@ final class SmartUcfCredentialLifecycleFakeDb implements DbConnection
             'cp_status_sync_error_class' => null,
             'updated_at' => '2026-01-01 00:00:00',
         ];
+        $this->attempts[$attemptId] = \MtUniCredit\Tests\Support\ConsentFixture::row(OrderMaterializationTestHarness::productSubmission(), $this->attempts[$attemptId]);
     }
 
     public function query(string $sql): object
     {
+        if (str_contains($sql, 'FROM `oc_order_product`')) return $this->result(OrderMaterializationTestHarness::productSubmission()->orderDraft->products);
+        if (str_contains($sql, 'FROM `oc_order_option`')) return $this->result(OrderMaterializationTestHarness::productSubmission()->orderDraft->products[0]['option']);
         if (preg_match('/FROM `oc_order`[\s\S]*WHERE `order_id` = (\d+)/', $sql, $m)) {
             return $this->result([[
                 'order_id' => (int) $m[1], 'store_id' => Phase4TestHarness::TEST_STORE_ID,

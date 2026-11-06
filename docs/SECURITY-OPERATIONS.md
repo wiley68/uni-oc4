@@ -69,3 +69,7 @@ When `uni_sertificat` is enabled:
 - The private-key passphrase remains exclusively in `secrets/smartucf-key.php`; CP never supplies it.
 - Transient CP errors may fail open only with a complete valid local pair. Explicit CP unavailability fails closed.
 - Synchronization/pre-send failures are retryable and do not write `bank_send_failed_smartucf`.
+
+## Consent evidence
+
+`consent_context_json` is separate from presentation and Process 2 ciphertext retention. Development cleanup preserves finalized/malformed evidence; no consent retention period is asserted. Consent refusals must precede banking classifiers and native history/mail effects. See [UNI-CONSENT-001-OC4.md](UNI-CONSENT-001-OC4.md).

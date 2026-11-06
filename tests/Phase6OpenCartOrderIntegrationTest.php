@@ -65,12 +65,15 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             $submission->operationKeyHash,
             hash('sha256', 'actor'),
             $submission->selectionHash,
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
 
         $created = $service->materializeAndBind(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt),
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission),
             LockOwnerTokenGenerator::generate()
         );
 
@@ -98,12 +101,13 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             $submission->selectionHash,
             PersistenceIntegrationHarness::TEST_UNICID,
             777,
-            $submission->cartFingerprint
+            $submission->cartFingerprint,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::CART, isset($submission) ? $submission : null)
         );
 
         $created = $service->materializeAndBind(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt),
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission),
             LockOwnerTokenGenerator::generate()
         );
 
@@ -131,13 +135,16 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             $submission->operationKeyHash,
             hash('sha256', 'actor-checkout'),
             $submission->selectionHash,
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry('checkout', isset($submission) ? $submission : null)
         );
 
         $before = $this->countOpenCartOrders($orders);
         $created = $service->materializeAndBind(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt),
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission),
             LockOwnerTokenGenerator::generate()
         );
 
@@ -155,19 +162,23 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             hash('sha256', 'crash-window-op'),
             hash('sha256', 'actor-crash-window'),
             hash('sha256', 'selection-crash-window'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $attempt['attempt_id'];
+        $attempt = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($attempt, $submission);
         $this->attempts->transition($attemptId, FinancingAttemptState::ISSUED, FinancingAttemptState::ORDER_CREATING);
 
         $orderId = $orders->addOrder((new OpenCartOrderDataBuilder())->build($submission->orderDraft));
         $this->correlations->linkCreatedOrder(PersistenceIntegrationHarness::TEST_STORE_ID, $attemptId, $orderId);
 
-        $retryMaterializer = OrderMaterializationTestHarness::buildMaterializer($orders, $this->correlations);
+        $retryMaterializer = OrderMaterializationTestHarness::buildMaterializer($orders, $this->correlations, PersistenceIntegrationHarness::connection());
         $beforeCount = $this->countOpenCartOrders($orders);
         $recovered = $retryMaterializer->materializeNew(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt)
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission)
         );
         self::assertSame($beforeCount, $this->countOpenCartOrders($orders));
 
@@ -178,7 +189,7 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
         $service = $this->buildFreshService($orders);
         $bound = $service->materializeAndBind(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt),
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission),
             LockOwnerTokenGenerator::generate()
         );
         self::assertSame($orderId, $bound->orderId);
@@ -195,7 +206,10 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             hash('sha256', 'scope-op'),
             hash('sha256', 'actor-scope'),
             hash('sha256', 'selection-scope'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $attempt['attempt_id'];
         $orderId = $orders->addOrder((new OpenCartOrderDataBuilder())->build($submission->orderDraft));
@@ -209,7 +223,10 @@ final class Phase6OpenCartOrderIntegrationTest extends TestCase
             hash('sha256', 'scope-op-b'),
             hash('sha256', 'actor-scope-b'),
             hash('sha256', 'selection-scope-b'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $this->expectException(PersistenceConflictException::class);
         $this->correlations->linkCreatedOrder(

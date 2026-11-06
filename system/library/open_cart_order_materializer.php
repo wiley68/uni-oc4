@@ -13,7 +13,8 @@ final class OpenCartOrderMaterializer
         private CheckoutOrderModelPort $orders,
         private OpenCartOrderDataBuilder $builder,
         private OpenCartOrderVerifier $verifier,
-        private OrderCorrelationStoreInterface $correlations
+        private OrderCorrelationStoreInterface $correlations,
+        private DurableConsentAuthority $consent
     ) {
     }
 
@@ -21,6 +22,7 @@ final class OpenCartOrderMaterializer
         ValidatedFinancingSubmission $submission,
         FinancingAttemptContext $attempt
     ): CreatedOpenCartOrder {
+        $this->consent->requireMaterialization($attempt, $submission);
         $storeId = $attempt->storeId();
         $attemptId = $attempt->attemptId();
         $existingId = $this->correlations->findOrderIdByAttempt($storeId, $attemptId);

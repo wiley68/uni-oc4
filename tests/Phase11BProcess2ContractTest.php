@@ -86,7 +86,10 @@ final class Phase11BProcess2ContractTest extends TestCase
             hash('sha256', 'p2-op'),
             hash('sha256', 'p2-actor'),
             hash('sha256', 'p2-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 9011);
@@ -130,7 +133,8 @@ final class Phase11BProcess2ContractTest extends TestCase
         $mailer = new RecordingProcessTwoMailer();
         $statusSync = new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelStatusSyncService(
             new \Opencart\System\Library\Extension\MtUniCredit\ControlPanelStatusSyncRepository($db),
-            $services['client']
+            $services['client'],
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
         $process2 = new ProcessTwoLifecycleCoordinator(
             new ProcessTwoLifecycleRepository($db),

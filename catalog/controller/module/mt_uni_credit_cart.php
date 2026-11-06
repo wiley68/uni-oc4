@@ -63,7 +63,8 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
                 trim((string) ($this->request->post['submission_token'] ?? '')),
                 null,
                 $context['cart_fingerprint'],
-                trim((string) ($shop['unicid'] ?? ''))
+                trim((string) ($shop['unicid'] ?? '')),
+                \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed($shop, $context['calculation'], $context['order_id'] ?? null, $context['consent_commerce_hash'])
             );
             $token = (string) ($attempt['submission_token'] ?? '');
             if (!SubmissionTokenGenerator::isValidFormat($token)) {
@@ -74,6 +75,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
                 'success'          => true,
                 'step'             => 'submission_token_issued',
                 'submission_token' => $token,
+                'consent_context' => \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::publicContext($attempt),
                 'calculation'      => $context['calculation'],
             ];
         });
@@ -101,7 +103,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
                     $lockOwnerToken
                 );
                 if ($result === null) {
-                    $context = $this->readSelectionContext($model);
+                    $context = $this->readSelectionContext($model, $service->frozenSelection((int) $this->config->get('config_store_id'), trim((string) ($this->request->post['submission_token'] ?? '')), $model->actorBindingHash()));
                     $materials = $model->buildOrderMaterials();
                     $meta = $model->shopCacheMeta();
                     $result = $service->submit(
@@ -205,7 +207,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
      * @param CartFinancingModel|\Opencart\System\Engine\Proxy $model
      * @return array<string, mixed>
      */
-    private function readSelectionContext(object $model): array
+    private function readSelectionContext(object $model, ?array $frozenConditions = null): array
     {
         $popupType = (string) ($this->request->post['popup_offer_type'] ?? 'standard');
         $schemeType = (string) ($this->request->post['scheme_type'] ?? '');
@@ -229,21 +231,31 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
             throw new ProductFinancingFlowException('cart_empty', 'Количката е празна.');
         }
 
-        try {
-            $calculation = $model->createSchemeCalculator()->calculate(
-                $shop,
-                $cart,
-                $currency,
-                $popupType,
-                $schemeType,
-                $kopCode,
-                $months,
-                $filterId,
-                $schemeKey,
-                $firstInstallment
-            );
-        } catch (UnavailableSchemeException $exception) {
-            throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
+        if ($frozenConditions !== null) {
+            $schemeType = $frozenConditions['scheme_type'];
+            $kopCode = $frozenConditions['kop_code'];
+            $months = $frozenConditions['months'];
+            $filterId = $frozenConditions['filter_id'];
+            $schemeKey = implode('|', [$schemeType, $kopCode, $months, $filterId]);
+            $firstInstallment = $frozenConditions['first_installment'];
+            $calculation = $frozenConditions;
+        } else {
+            try {
+                $calculation = $model->createSchemeCalculator()->calculate(
+                    $shop,
+                    $cart,
+                    $currency,
+                    $popupType,
+                    $schemeType,
+                    $kopCode,
+                    $months,
+                    $filterId,
+                    $schemeKey,
+                    $firstInstallment
+                );
+            } catch (UnavailableSchemeException $exception) {
+                throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
+            }
         }
 
         // Authoritative first installment from scheme calculation (locked schemes ignore raw POST 0).
@@ -291,6 +303,7 @@ class MtUniCreditCart extends \Opencart\System\Engine\Controller
             'selection_hash'     => $selectionHash,
             'operation_key_hash' => $operationKeyHash,
             'cart_fingerprint'   => $fingerprint,
+            'consent_commerce_hash' => \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::commerce($model->buildOrderMaterials()['products']),
             'calculation'        => $calculation,
         ];
     }

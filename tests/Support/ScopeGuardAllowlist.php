@@ -11,7 +11,8 @@ final class ScopeGuardAllowlist
 {
     public static function isPhase11PlusProductionFile(string $path): bool
     {
-        return str_contains($path, '/system/library/smart_ucf_')
+        return str_ends_with($path, '/system/library/durable_consent_authority.php')
+            || str_contains($path, '/system/library/smart_ucf_')
             || str_contains($path, '/system/library/certificate_')
             || str_contains($path, '/system/library/process_two_')
             || str_ends_with($path, '/system/library/recording_process_two_mailer.php')

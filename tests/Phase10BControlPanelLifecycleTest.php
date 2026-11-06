@@ -305,7 +305,10 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
             str_repeat('a', 64),
             str_repeat('b', 64),
             str_repeat('c', 64),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry('product', isset($submission) ? $submission : null)
         );
         $this->attempts->attachOrder((int) $attempt['attempt_id'], 55);
         $this->attempts->transitionFromStates((int) $attempt['attempt_id'], [FinancingAttemptState::ISSUED], FinancingAttemptState::ORDER_CREATED);
@@ -386,7 +389,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $operation = ProductOperationIdentity::hash(ProductFinancingTestHarness::STORE_ID, 42, [], 1, 'EUR');
         if ($token === null) {
             $attempt = (new ProductSubmissionIssuer($this->attempts, new PersistenceClock()))
-                ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID);
+                ->issueOrReuse(ProductFinancingTestHarness::STORE_ID, $operation, $actor, $selection, null, PersistenceIntegrationHarness::TEST_UNICID, \MtUniCredit\Tests\Support\ProductFinancingTestHarness::consentSeed((isset($line) ? $line->financingPrice : (isset($cart) ? $cart->total : 1000.0)), true, null));
             $token = (string) $attempt['submission_token'];
         }
 

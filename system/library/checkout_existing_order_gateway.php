@@ -13,7 +13,8 @@ final class CheckoutExistingOrderGateway implements OpenCartOrderGatewayInterfac
     public function __construct(
         private CheckoutOrderModelPort $orders,
         private OpenCartOrderVerifier $verifier,
-        private FinancingOrderStatusPolicy $statusPolicy
+        private FinancingOrderStatusPolicy $statusPolicy,
+        private DurableConsentAuthority $consent
     ) {
     }
 
@@ -21,6 +22,8 @@ final class CheckoutExistingOrderGateway implements OpenCartOrderGatewayInterfac
         ValidatedFinancingSubmission $submission,
         FinancingAttemptContext $attempt
     ): CreatedOpenCartOrder {
+        $this->consent->requireMaterialization($attempt, $submission);
+
         if ($submission->entryPoint !== OperationEntryPoint::CHECKOUT) {
             throw new OrderMaterializationException('Checkout gateway received a non-checkout submission.');
         }

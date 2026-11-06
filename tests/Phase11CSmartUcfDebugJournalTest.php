@@ -207,7 +207,10 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             hash('sha256', 'debug-journal-cp'),
             hash('sha256', 'actor-debug-journal'),
             hash('sha256', 'selection-debug-journal'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $orderId = 906;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
@@ -251,7 +254,10 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             hash('sha256', 'debug-id-parity'),
             hash('sha256', 'actor-id-parity'),
             hash('sha256', 'selection-id-parity'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::CHECKOUT, isset($submission) ? $submission : null)
         );
         $attempts->attachOrder((int) $row['attempt_id'], $shopOrderId);
         PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $shopOrderId, $submission);
@@ -385,7 +391,10 @@ final class Phase11CSmartUcfDebugJournalTest extends TestCase
             hash('sha256', 'debug-journal-' . $orderId),
             hash('sha256', 'actor-debug-' . $orderId),
             hash('sha256', 'selection-debug-' . $orderId),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
         PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $orderId, $submission);

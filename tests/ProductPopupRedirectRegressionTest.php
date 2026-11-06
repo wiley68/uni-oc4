@@ -20,7 +20,7 @@ final class ProductPopupRedirectRegressionTest extends TestCase
         $submit = substr($source, $start, $end - $start);
 
         self::assertSame(1, substr_count($submit, 'getShopConfigurationForSubmission()'));
-        self::assertStringContainsString('readSelectionContext($model, $shop)', $submit);
+        self::assertStringContainsString('readSelectionContext($model, $shop, $service->frozenSelection(', $submit);
         self::assertStringNotContainsString('readSelectionContext($model)', $submit);
         self::assertLessThan(
             strpos($submit, '$service->submit('),

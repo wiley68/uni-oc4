@@ -68,7 +68,7 @@ final class ProductFinancingSubmissionService
         $posted = $this->popupFormNormalizer->normalize($posted, $storeAddressDefaults);
         $attemptRow = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
         $recovered = FinancingControlPanelCompletion::resumeBoundAttempt(
-            $this->cpLifecycle, $this->materialization, $attemptRow, $storeId, $shop, $lockOwnerToken
+            $this->cpLifecycle, $this->materialization, $attemptRow, $storeId, $shop, $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
         );
         if ($recovered !== null) {
             return $recovered;
@@ -98,29 +98,36 @@ final class ProductFinancingSubmissionService
             );
         }
 
-        $this->schemeCalculator->calculate(
-            $shop,
-            $line->toProductContext(),
-            $currencyCode,
-            $popupType,
-            $schemeType,
-            $kopCode,
-            $months,
-            $filterId,
-            $schemeKey,
-            $firstInstallment
-        );
+        $consentRecord = ConsentContext::decode($attemptRow['consent_context_json'] ?? null);
+        ConsentContext::assertBinding($consentRecord, $attemptRow);
+        if ($consentRecord['finalized'] !== null) {
+            $calculation = ConsentContext::frozenCalculation($consentRecord);
+            $shop['uni_proces'] = $consentRecord['issued']['context']['process'] === 2 ? 1 : 0;
+        } else {
+            $this->schemeCalculator->calculate(
+                $shop,
+                $line->toProductContext(),
+                $currencyCode,
+                $popupType,
+                $schemeType,
+                $kopCode,
+                $months,
+                $filterId,
+                $schemeKey,
+                $firstInstallment
+            );
 
-        $scheme = ProductSchemeList::find(
-            $this->calculator->availableSchemes($shop, $line->toProductContext(), $schemeType),
-            $kopCode,
-            $months,
-            $filterId
-        );
-        if ($scheme === null) {
-            throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема вече не е налична.');
+            $scheme = ProductSchemeList::find(
+                $this->calculator->availableSchemes($shop, $line->toProductContext(), $schemeType),
+                $kopCode,
+                $months,
+                $filterId
+            );
+            if ($scheme === null) {
+                throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема вече не е налична.');
+            }
+            $calculation = $this->calculator->calculateScheme($shop, $line->financingPrice, $scheme, $firstInstallment);
         }
-        $calculation = $this->calculator->calculateScheme($shop, $line->financingPrice, $scheme, $firstInstallment);
 
         $validatedCustomer = $this->customerValidator->validate($posted, $customerGroupId, $customerId);
         $addressInput = $this->addressValidator->extractPostedAddress($posted);
@@ -153,7 +160,7 @@ final class ProductFinancingSubmissionService
             $shippingMethod = ShippingMethodSnapshot::normalize($shippingMethod);
         }
 
-        $this->consents->validate($shop, $posted['consent'] ?? []);
+        // Consent validation uses the issued record, never the live shop configuration.
         $process2Data = ProcessTwoSubmissionSupport::validateIfRequired($shop, $posted, false);
 
         if (!$this->attempts->transitionFromStates(
@@ -233,6 +240,10 @@ final class ProductFinancingSubmissionService
             'product_modal'
         );
 
+        (new DurableConsentAuthority($this->attempts->database(), $this->clock))->finalizeSubmission(
+            (int) $attemptRow['attempt_id'], $submission, $posted['consent'] ?? [], $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
+        );
+
         if ($process2Data !== null) {
             ProcessTwoSubmissionSupport::persist(
                 $submission,
@@ -269,6 +280,7 @@ final class ProductFinancingSubmissionService
                 $lockOwnerToken
             );
         } catch (ProductFinancingFlowException $exception) {
+            if ($exception->errorCode() === 'invalid_consent') throw $exception;
             $this->materialization->applyProductCartVisibleStatus($created, $submission->entryPoint);
             throw $exception;
         }
@@ -289,7 +301,7 @@ final class ProductFinancingSubmissionService
         $row = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
 
         return FinancingControlPanelCompletion::resumeBoundAttempt(
-            $this->cpLifecycle, $this->materialization, $row, $storeId, $shop, $lockOwnerToken
+            $this->cpLifecycle, $this->materialization, $row, $storeId, $shop, $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
         );
     }
 
@@ -306,7 +318,7 @@ final class ProductFinancingSubmissionService
         if (!hash_equals((string) ($attemptRow['actor_binding_hash'] ?? ''), $actorBindingHash)) {
             throw new ProductFinancingFlowException('attempt_conflict', 'Заявката не принадлежи на текущата сесия.');
         }
-        if ($this->isExpired($attemptRow)) {
+        if ($this->isExpired($attemptRow) && empty($attemptRow['order_id'])) {
             throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
         }
 
@@ -317,6 +329,16 @@ final class ProductFinancingSubmissionService
     /**
      * @param array<string, mixed> $row
      */
+    /** Frozen conditions are exposed only after the existing token/actor/store checks. */
+    public function frozenSelection(int $storeId, string $token, string $actorBindingHash): ?array
+    {
+        $row = $this->authorizedAttempt($storeId, $token, $actorBindingHash);
+        if (($row['consent_context_json'] ?? null) === null) return null;
+        $record = ConsentContext::decode($row['consent_context_json']);
+        ConsentContext::assertBinding($record, $row);
+        return $record['finalized'] === null ? null : $record['issued']['context']['conditions'];
+    }
+
     private function isExpired(array $row): bool
     {
         $expiresAt = (string) ($row['expires_at'] ?? '');

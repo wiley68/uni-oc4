@@ -35,7 +35,7 @@ final class Phase6ValidatedSubmissionTest extends TestCase
         $submission = OrderMaterializationTestHarness::checkoutSubmissionForOrder(50001);
         self::assertSame(OperationEntryPoint::CHECKOUT, $submission->entryPoint);
         self::assertSame(50001, $submission->existingOrderId);
-        self::assertNull($submission->submissionToken);
+        self::assertSame(str_repeat('a', 64), $submission->submissionToken);
     }
 
     public function testUnsupportedEntryPointRejected(): void

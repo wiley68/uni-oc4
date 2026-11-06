@@ -47,7 +47,10 @@ final class Phase11CCheckoutProcess1SuccessTest extends TestCase
             hash('sha256', 'checkout-p1-bank-op'),
             hash('sha256', 'checkout-p1-bank-actor'),
             hash('sha256', 'checkout-p1-bank-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $orderId = 9701;
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);

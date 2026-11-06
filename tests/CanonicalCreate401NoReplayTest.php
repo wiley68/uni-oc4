@@ -247,7 +247,8 @@ final class CanonicalCreate401NoReplayTest extends TestCase
                 $actor,
                 $selection,
                 null,
-                PersistenceIntegrationHarness::TEST_UNICID
+                PersistenceIntegrationHarness::TEST_UNICID,
+                \MtUniCredit\Tests\Support\ProductFinancingTestHarness::consentSeed((isset($line) ? $line->financingPrice : (isset($cart) ? $cart->total : 1000.0)), false, null)
             );
 
         $shop = ProductFinancingTestHarness::shop();

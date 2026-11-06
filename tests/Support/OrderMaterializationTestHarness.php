@@ -116,7 +116,7 @@ final class OrderMaterializationTestHarness
         return new ValidatedFinancingSubmission(
             $entryPoint,
             PersistenceIntegrationHarness::TEST_STORE_ID,
-            $entryPoint === OperationEntryPoint::CHECKOUT ? null : str_repeat('a', 64),
+            str_repeat('a', 64),
             hash('sha256', 'operation-' . $entryPoint),
             $entryPoint === OperationEntryPoint::CART ? 555 : null,
             $existingOrderId,
@@ -219,12 +219,12 @@ final class OrderMaterializationTestHarness
         OrderCorrelationStoreInterface $correlations,
         ?int $productCartStatusId = null
     ): OrderMaterializationService {
-        $materializer = self::buildMaterializer($orders, $correlations);
+        $materializer = self::buildMaterializer($orders, $correlations, $attempts->database());
         $statusPolicy = new FinancingOrderStatusPolicy(
             $productCartStatusId ?? self::TEST_AWAITING_STATUS_ID,
             self::TEST_VOID_STATUS_ID
         );
-        $checkoutGateway = new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy);
+        $checkoutGateway = new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy, new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($attempts->database()));
 
         return new OrderMaterializationService(
             $attempts,
@@ -238,13 +238,15 @@ final class OrderMaterializationTestHarness
 
     public static function buildMaterializer(
         CheckoutOrderModelPort $orders,
-        OrderCorrelationStoreInterface $correlations
+        \Opencart\System\Library\Extension\MtUniCredit\OrderCorrelationStoreInterface $correlations,
+        \Opencart\System\Library\Extension\MtUniCredit\DbConnection $db
     ): OpenCartOrderMaterializer {
         return new OpenCartOrderMaterializer(
             $orders,
             new OpenCartOrderDataBuilder(),
             new OpenCartOrderVerifier(),
-            $correlations
+            $correlations,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
     }
 
@@ -257,7 +259,7 @@ final class OrderMaterializationTestHarness
         return new ValidatedFinancingSubmission(
             OperationEntryPoint::CHECKOUT,
             $submission->storeId,
-            null,
+            str_repeat('a', 64),
             hash('sha256', 'operation-checkout'),
             999,
             $orderId,
@@ -274,8 +276,9 @@ final class OrderMaterializationTestHarness
         );
     }
 
-    public static function attemptContext(array $row): FinancingAttemptContext
+    public static function attemptContext(array $row, ?ValidatedFinancingSubmission $submission = null): FinancingAttemptContext
     {
-        return new FinancingAttemptContext($row);
+        if ($submission !== null && PersistenceIntegrationHarness::enabled()) return new FinancingAttemptContext(ConsentFixture::persistFinalized($row, $submission));
+        return new FinancingAttemptContext($submission === null ? $row : ConsentFixture::row($submission, $row));
     }
 }

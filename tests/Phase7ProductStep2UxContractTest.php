@@ -199,10 +199,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         // Gate before POST — UX disabled is not the security boundary.
         self::assertStringContainsString('if (!updateSubmitState(true))', $js);
         self::assertStringContainsString('hasAuthoritativeCalculation()', $js);
-        self::assertMatchesRegularExpression(
-            '/recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\)/',
-            $js
-        );
+        self::assertMatchesRegularExpression('/if \(!initialHasContext\) \{[\s\S]*?return;/', $js);
 
         // Transition to Step 2 requires authoritative calculation+token+scheme then evaluates readiness.
         self::assertMatchesRegularExpression(
@@ -217,7 +214,8 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         );
 
         // Consent absence does not block (empty NodeList → true).
-        self::assertStringContainsString('if (!boxes.length)', $js);
+        self::assertStringContainsString('consentContext.mandatory_ids.every', $js);
+        self::assertStringContainsString('if (!consentReady || !consentContext', $js);
 
         // Process-aware: EGN/phone2 only when rendered.
         self::assertMatchesRegularExpression('/customerField\([\'"]egn[\'"]\)/', $js);

@@ -30,6 +30,8 @@ final class SmartUcfSessionClient
         int $localOrderId,
         ?CertificateConsumerLease $lease = null
     ): array {
+        if ($submission->consentAuthority === null) throw ConsentResolver::refusal();
+        $submission->consentAuthority->requireFinalized($submission->consentAttemptId, $submission, $localOrderId, 1);
         try {
             $url = $this->endpointPolicy->buildSessionStartUrl($this->serviceUrl($shop));
             $application = $this->endpointPolicy->assertTrustedApplicationBase($this->applicationUrl($shop));

@@ -113,20 +113,7 @@ final class CheckoutFinancingSubmissionService
             );
         }
         $customerPosted = $this->popupFormNormalizer->normalize($resolved['input'], $storeAddressDefaults);
-        $attemptRow = $this->attempts->findByToken($storeId, $submissionToken);
-        if ($attemptRow === null) {
-            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
-        }
-        CpOriginGuard::assertAttempt($attemptRow);
-        if ((string) ($attemptRow['entry_point'] ?? '') !== OperationEntryPoint::CHECKOUT) {
-            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
-        }
-        if (!hash_equals((string) ($attemptRow['actor_binding_hash'] ?? ''), $actorBindingHash)) {
-            throw new ProductFinancingFlowException('attempt_conflict', 'Заявката не принадлежи на текущата сесия.');
-        }
-        if ($this->isExpired($attemptRow)) {
-            throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
-        }
+        $attemptRow = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
 
         $boundOrderId = isset($attemptRow['order_id']) ? (int) $attemptRow['order_id'] : 0;
         $existingCpId = isset($attemptRow['control_panel_order_id']) ? (int) $attemptRow['control_panel_order_id'] : 0;
@@ -192,32 +179,39 @@ final class CheckoutFinancingSubmissionService
             );
         }
 
-        $this->schemeCalculator->calculate(
-            $shop,
-            $cart,
-            $currencyCode,
-            $popupType,
-            $schemeType,
-            $kopCode,
-            $months,
-            $filterId,
-            $schemeKey,
-            $firstInstallment
-        );
+        $consentRecord = ConsentContext::decode($attemptRow['consent_context_json'] ?? null);
+        ConsentContext::assertBinding($consentRecord, $attemptRow);
+        if ($consentRecord['finalized'] !== null) {
+            $calculation = ConsentContext::frozenCalculation($consentRecord);
+            $shop['uni_proces'] = $consentRecord['issued']['context']['process'] === 2 ? 1 : 0;
+        } else {
+            $this->schemeCalculator->calculate(
+                $shop,
+                $cart,
+                $currencyCode,
+                $popupType,
+                $schemeType,
+                $kopCode,
+                $months,
+                $filterId,
+                $schemeKey,
+                $firstInstallment
+            );
 
-        $resolution = $this->resolver->resolve($shop, $cart);
-        $pool = $this->resolver->unifiedSchemes($resolution, $shop);
-        $scheme = null;
-        foreach ($pool as $candidate) {
-            if (hash_equals(ProductSchemeList::key($candidate), $schemeKey)) {
-                $scheme = $candidate;
-                break;
+            $resolution = $this->resolver->resolve($shop, $cart);
+            $pool = $this->resolver->unifiedSchemes($resolution, $shop);
+            $scheme = null;
+            foreach ($pool as $candidate) {
+                if (hash_equals(ProductSchemeList::key($candidate), $schemeKey)) {
+                    $scheme = $candidate;
+                    break;
+                }
             }
+            if ($scheme === null) {
+                throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема вече не е налична.');
+            }
+            $calculation = $this->calculator->calculateScheme($shop, $cart->total, $scheme, $firstInstallment);
         }
-        if ($scheme === null) {
-            throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема вече не е налична.');
-        }
-        $calculation = $this->calculator->calculateScheme($shop, $cart->total, $scheme, $firstInstallment);
 
         try {
             $validatedCustomer = $this->customerValidator->validate($customerPosted, $customerGroupId, $customerId);
@@ -254,7 +248,7 @@ final class CheckoutFinancingSubmissionService
             : ShippingMethodSnapshot::empty();
 
         try {
-            $this->consents->validate($shop, $postedConsents);
+            // Validation is performed against the persisted issued descriptors below.
         } catch (ProductFinancingFlowException $exception) {
             throw new ProductFinancingFlowException(
                 'invalid_consent',
@@ -343,6 +337,10 @@ final class CheckoutFinancingSubmissionService
             'checkout_payment'
         );
 
+        (new DurableConsentAuthority($this->attempts->database(), $this->clock))->finalizeSubmission(
+            (int) $attemptRow['attempt_id'], $submission, $postedConsents, $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
+        );
+
         if ($process2Data !== null) {
             ProcessTwoSubmissionSupport::persist(
                 $submission,
@@ -389,6 +387,43 @@ final class CheckoutFinancingSubmissionService
         }
     }
 
+    public function resume(array $shop, int $storeId, string $token, string $actorBindingHash, int $orderId, string $owner): ?ProductFinancingResult
+    {
+        $row = $this->authorizedAttempt($storeId, $token, $actorBindingHash);
+        if (!empty($row['order_id']) && (int) $row['order_id'] !== $orderId) throw ConsentResolver::refusal();
+        return FinancingControlPanelCompletion::resumeBoundAttempt($this->cpLifecycle, $this->materialization, $row, $storeId, $shop, $owner);
+    }
+
+    public function guardOrderStatus(int $storeId, string $token, string $actorBindingHash, int $orderId): bool
+    {
+        $row = $this->authorizedAttempt($storeId, $token, $actorBindingHash);
+        $authority = new DurableConsentAuthority($this->attempts->database());
+        if ($authority->legacyRecorded((int) $row['attempt_id']) !== null) return false;
+        (new DurableEurOrderGuard($this->attempts->database()))->prove((int) $row['attempt_id'], $storeId, $orderId);
+        $authority->requireFinalized((int) $row['attempt_id'], null, $orderId);
+        return true;
+    }
+
+    private function authorizedAttempt(int $storeId, string $submissionToken, string $actorBindingHash): array
+    {
+        $row = $this->attempts->findByToken($storeId, $submissionToken);
+        if ($row === null) {
+            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
+        }
+        CpOriginGuard::assertAttempt($row);
+        if ((string) ($row['entry_point'] ?? '') !== OperationEntryPoint::CHECKOUT) {
+            throw new ProductFinancingFlowException('validation', 'Невалиден token за заявката.');
+        }
+        if (!hash_equals((string) ($row['actor_binding_hash'] ?? ''), $actorBindingHash)) {
+            throw new ProductFinancingFlowException('attempt_conflict', 'Заявката не принадлежи на текущата сесия.');
+        }
+        if ($this->isExpired($row) && empty($row['order_id'])) {
+            throw new ProductFinancingFlowException('expired_attempt', 'Token за заявката е изтекъл. Моля, започнете отначало.');
+        }
+
+        return $row;
+    }
+
     private function ensureOrderVisibleAfterCpFailure(int $orderId, string $errorCode): void
     {
         if (!str_starts_with($errorCode, 'cp_')) {
@@ -407,6 +442,16 @@ final class CheckoutFinancingSubmissionService
     }
 
     /** @param array<string, mixed> $row */
+    /** Frozen conditions are exposed only after the existing token/actor/store checks. */
+    public function frozenSelection(int $storeId, string $token, string $actorBindingHash): ?array
+    {
+        $row = $this->authorizedAttempt($storeId, $token, $actorBindingHash);
+        if (($row['consent_context_json'] ?? null) === null) return null;
+        $record = ConsentContext::decode($row['consent_context_json']);
+        ConsentContext::assertBinding($record, $row);
+        return $record['finalized'] === null ? null : $record['issued']['context']['conditions'];
+    }
+
     private function isExpired(array $row): bool
     {
         $expiresAt = (string) ($row['expires_at'] ?? '');

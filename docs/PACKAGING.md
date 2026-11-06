@@ -138,3 +138,7 @@ Also run `composer validate --strict`, PHP 8.2 lint for the packaging PHP files,
 `composer lint:php82`, standalone verification and `git diff --check` before
 distributing an installer. JavaScript assets are copied unchanged and participate
 in full-file parity verification.
+
+## UNI-CONSENT-001 controlled replacement
+
+No package is built during Phase 6B. Later release verification must prove source bytes = ZIP bytes = installed bytes = browser-served assets. OC4 installer execution may leave existing files unchanged: use the quiesced, complete controlled replacement procedure in [UNI-CONSENT-001-OC4.md](UNI-CONSENT-001-OC4.md), preserving local secrets/keys/runtime data. Remember the OC3 stale-ZIP regression.

@@ -43,6 +43,20 @@ final class ProcessTwoLifecycleCoordinator
         ?string $successRedirectUrl = null
     ): ProductFinancingResult {
         (new DurableEurOrderGuard($this->lifecycle->database()))->prove($attemptId, $storeId, $localOrderId, true);
+        $authority = new DurableConsentAuthority($this->lifecycle->database());
+        $legacy = $authority->legacyRecorded($attemptId);
+        if ($legacy !== null) {
+            if ((int) ($legacy['store_id'] ?? -1) !== $storeId || (int) ($legacy['order_id'] ?? 0) !== $localOrderId
+                || ($legacy['process2_state'] ?? '') !== ProcessTwoLifecycleStates::PREPARED) throw ConsentResolver::refusal();
+            return $this->successResult($localOrderId, $legacy, $successRedirectUrl, true);
+        }
+        $record = $authority->requireFinalized($attemptId, null, $localOrderId, 2);
+        if ($record['issued']['binding']['store_id'] !== $storeId) throw ConsentResolver::refusal();
+        $conditions = $record['issued']['context']['conditions'];
+        $orderContext['order_id'] = $localOrderId;
+        $orderContext['scheme_label'] = $conditions['kop_code'] . ' / ' . $conditions['months'];
+        $orderContext['monthly_amount'] = (string) $conditions['monthly_installment'];
+
         $row = $this->lifecycle->findByAttempt($attemptId);
         if ($row === null) {
             throw new ProductFinancingFlowException(
@@ -155,6 +169,8 @@ final class ProcessTwoLifecycleCoordinator
             $this->lifecycle->markPrepared($attemptId);
             $this->trySendMail($attemptId, $row, $shop, $orderContext);
             $this->lifecycle->redactExpiredSensitiveBatch();
+        } catch (ProductFinancingFlowException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             try {
                 $this->lifecycle->markFailed($attemptId);
@@ -207,6 +223,8 @@ final class ProcessTwoLifecycleCoordinator
             $this->statusSync->retryPending($attemptId, $shopOrderId);
             $this->lifecycle->markPrepared($attemptId);
             $this->trySendMail($attemptId, $row, $shop, $orderContext);
+        } catch (ProductFinancingFlowException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             error_log(
                 'mt_uni_credit: Process 2 resume after admitted target failed attempt_id=' . $attemptId
@@ -230,6 +248,7 @@ final class ProcessTwoLifecycleCoordinator
      */
     private function trySendMail(int $attemptId, array $row, array $shop, array $orderContext): void
     {
+        (new DurableConsentAuthority($this->lifecycle->database()))->requireFinalized($attemptId, null, (int) ($row['order_id'] ?? 0), 2);
         if ($this->lifecycle->isMailSent($attemptId)) {
             return;
         }
@@ -262,6 +281,8 @@ final class ProcessTwoLifecycleCoordinator
             } else {
                 $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
             }
+        } catch (ProductFinancingFlowException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
             error_log(
@@ -283,17 +304,13 @@ final class ProcessTwoLifecycleCoordinator
         $orderContext['control_panel_order_id'] = isset($row['control_panel_order_id'])
             ? (int) $row['control_panel_order_id']
             : null;
-        $json = (string) ($row['leasing_presentation_json'] ?? '');
-        if ($json !== '') {
-            try {
-                $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-                if (is_array($decoded)) {
-                    $orderContext['leasing_snapshot'] = $decoded;
-                }
-            } catch (\Throwable) {
-                error_log('mt_uni_credit: leasing presentation json decode failed attempt_id=' . $attemptId);
-            }
-        }
+        $record = (new DurableConsentAuthority($this->lifecycle->database()))->requireFinalized($attemptId, null, (int) $row['order_id'], 2);
+        $c = $record['issued']['context']['conditions'];
+        $orderContext['leasing_snapshot'] = (new FinancingPresentationSnapshot(
+            (int) $row['order_id'], (int) $row['control_panel_order_id'], true,
+            $c['months'], $c['kop_code'], $c['first_installment'], $c['financed_amount'],
+            $c['monthly_installment'], $c['total_payable'], $c['glp'], $c['gpr']
+        ))->toArray();
 
         return $orderContext;
     }

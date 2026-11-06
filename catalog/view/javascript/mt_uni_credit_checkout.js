@@ -73,6 +73,62 @@
     let firstInstallmentTimer = null;
     let cartFingerprint = state.calculator?.cart_fingerprint || "";
 
+    // Each form owns its consent state; server-issued descriptors are the authority.
+    let consentReady = false;
+    let consentContext = null;
+    let issueRevision = 0;
+    function invalidateConsent(resetScoped = false) {
+      issueRevision += 1;
+      consentReady = false;
+      if (firstInstallmentTimer) clearTimeout(firstInstallmentTimer);
+      firstInstallmentTimer = null;
+      if (resetScoped) {
+        root.querySelectorAll('[data-mtuc-consent-row]').forEach((row) => {
+          if (row.dataset.mtucConsentScope !== 'all') {
+            const box = row.querySelector('[data-mtuc-consent-checkbox]');
+            if (box) box.checked = false;
+          }
+        });
+      }
+      updateConfirmState();
+    }
+    function applyConsentContext(context) {
+      consentReady = false;
+      if (!context || typeof context.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(context.fingerprint)
+          || !Array.isArray(context.descriptors) || !Array.isArray(context.mandatory_ids)) return false;
+      const rows = Array.from(root.querySelectorAll('[data-mtuc-consent-row]'));
+      rows.forEach((row) => {
+        const applicable = context.descriptors.some((d) => String(d.id) === row.dataset.mtucConsentRow);
+        row.hidden = !applicable;
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        if (box) { box.disabled = !applicable; if (!applicable) box.checked = false; }
+      });
+      const matches = context.descriptors.every((d) => {
+        const found = rows.filter((row) => row.dataset.mtucConsentRow === String(d.id));
+        if (found.length !== 1) return false;
+        const row = found[0];
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        return row.dataset.mtucConsentName === d.name && row.dataset.mtucConsentUrl === d.url
+          && row.dataset.mtucConsentScope === d.interest_scope && (!!box === d.mandatory)
+          && (!box || String(box.value) === String(d.id));
+      });
+      if (!matches || (context.classification === 'unknown' && context.descriptors.some((d) => d.interest_scope !== 'all'))) {
+        if (popupErrorEl()) popupErrorEl().textContent = 'Моля, презаредете формата за съгласия.';
+        return false;
+      }
+      consentContext = context;
+      consentReady = true;
+      return true;
+    }
+    function consentAcceptanceReady() {
+      if (!consentReady || !consentContext || !root.isConnected) return false;
+      return consentContext.mandatory_ids.every((id) => {
+        const row = root.querySelector(`[data-mtuc-consent-row="${id}"]`);
+        const box = row?.querySelector('[data-mtuc-consent-checkbox]');
+        return row && !row.hidden && box && !box.disabled && box.checked;
+      });
+    }
+
     function schemeSelect() {
       return root.querySelector("[data-mtuc-schemes]");
     }
@@ -184,15 +240,11 @@
     }
 
     function hasAuthoritativeCalculation() {
-      return !!(lastCalculation && submissionToken && selectedScheme());
+      return !!(consentReady && root.isConnected && lastCalculation && submissionToken && selectedScheme());
     }
 
     function areMandatoryConsentsChecked() {
-      const boxes = root.querySelectorAll("[data-mtuc-consent-checkbox]");
-      if (!boxes.length) {
-        return true;
-      }
-      return Array.from(boxes).every((box) => box.checked);
+      return consentAcceptanceReady();
     }
 
     function fieldError(name) {
@@ -394,6 +446,7 @@
     }
 
     function notifyBuySchemeUserOverride() {
+      if (!root.isConnected) return;
       const url = state.scheme_override_url || "";
       if (!url || !state.csrf_token) {
         return;
@@ -540,49 +593,43 @@
 
     async function issueSubmission() {
       const scheme = selectedScheme();
-      if (!scheme || calcBusy) {
-        return;
-      }
-      if (issueFlight) {
-        issueFlight.abort();
-      }
-      issueFlight = new AbortController();
+      if (!scheme || !root.isConnected) return false;
+      const revision = ++issueRevision;
+      consentReady = false;
       calcBusy = true;
-      if (popupErrorEl()) {
-        popupErrorEl().textContent = "";
-      }
-      try {
-        const json = await postJson(
-          state.issue_url,
-          buildSelectionPayload(scheme),
-          {
-            signal: issueFlight.signal,
-          },
-        );
-        if (json.success) {
-          submissionToken = json.submission_token || submissionToken;
-          renderCalculation(json.calculation || null);
-        } else if (popupErrorEl()) {
-          popupErrorEl().textContent =
-            json.message ||
-            (state.i18n && state.i18n.order_changed) ||
-            "Неуспешно изчисление.";
-          if (
-            json.error_code === "checkout_order_changed" ||
-            json.error_code === "checkout_order_missing"
-          ) {
-            resetOfferState();
+      updateConfirmState();
+      const payload = buildSelectionPayload(scheme);
+      const task = (async () => {
+        let ok = false;
+        try {
+          const json = await postJson(state.issue_url, payload, {  });
+          if (revision !== issueRevision || !root.isConnected) return false;
+          if (json.success && json.submission_token && applyConsentContext(json.consent_context)) {
+            submissionToken = String(json.submission_token);
+            renderCalculation(json.calculation || null);
+
+            ok = hasAuthoritativeCalculation();
+          } else {
+            consentReady = false;
+            submissionToken = '';
+            if (popupErrorEl()) popupErrorEl().textContent = json.message || 'Моля, презаредете условията и формата за съгласия.';
           }
-          updateConfirmState();
+        } catch (error) {
+          if (revision === issueRevision && root.isConnected && error?.name !== 'AbortError') {
+            consentReady = false;
+            if (popupErrorEl()) popupErrorEl().textContent = 'Неуспешно изчисление.';
+          }
+        } finally {
+          if (revision === issueRevision && root.isConnected) {
+            calcBusy = false;
+            issueFlight = null;
+            updateConfirmState();
+          }
         }
-      } catch (error) {
-        if (error.name !== "AbortError" && popupErrorEl()) {
-          popupErrorEl().textContent = "Неуспешно изчисление.";
-        }
-      } finally {
-        calcBusy = false;
-        issueFlight = null;
-      }
+        return ok;
+      })();
+      issueFlight = task;
+      return task;
     }
 
     /**
@@ -629,6 +676,7 @@
     }
 
     async function confirmPayment(event) {
+      if (!root.isConnected) return;
       if (event && typeof event.preventDefault === "function") {
         event.preventDefault();
       }
@@ -763,6 +811,8 @@
     });
 
     schemeSelect()?.addEventListener("change", () => {
+      if (!root.isConnected) return;
+      invalidateConsent(true);
       selectedSchemeKey = schemeSelect().value;
       syncOfferTypeFromScheme(selectedScheme());
       notifyBuySchemeUserOverride();
@@ -771,6 +821,8 @@
     });
 
     firstInput()?.addEventListener("input", () => {
+      if (!root.isConnected) return;
+      invalidateConsent(false);
       if (firstInstallmentTimer) {
         clearTimeout(firstInstallmentTimer);
       }
@@ -801,16 +853,27 @@
       });
     }
 
+    root.mtucConsentTeardown = () => {
+      invalidateConsent(true);
+      consentContext = null;
+    };
+
     selectedSchemeKey = resolveInitialSchemeKey();
     populateSchemeSelect();
     updateConfirmState();
     issueSubmission();
   }
 
+  let activeCheckoutRoot = null;
   function scan() {
+    if (activeCheckoutRoot && !activeCheckoutRoot.isConnected) {
+      activeCheckoutRoot.mtucConsentTeardown?.();
+      activeCheckoutRoot = null;
+    }
     const root = document.getElementById(ROOT_ID);
     if (root) {
       initRoot(root);
+      activeCheckoutRoot = root;
     }
   }
 
@@ -826,10 +889,7 @@
     }
     docEl.dataset.mtucCheckoutObserved = "1";
     const observer = new MutationObserver(() => {
-      const root = document.getElementById(ROOT_ID);
-      if (root && root.dataset.mtucBound !== "1") {
-        initRoot(root);
-      }
+      scan();
     });
     observer.observe(target, { childList: true, subtree: true });
   }

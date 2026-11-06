@@ -48,6 +48,7 @@
     let lastCalculation = null;
     let currentStep = 1;
     let calcBusy = false;
+    let issueFlight = null;
     let submitBusy = false;
     let redirectTerminal = false;
     let firstInstallmentTimer = null;
@@ -131,6 +132,7 @@
      * Customer Step 2 field values are intentionally preserved.
      */
     function resetCartModalOfferState() {
+      invalidateConsent(true);
       lastCalculation = null;
       submissionToken = "";
       clearCalculationDisplays();
@@ -277,6 +279,64 @@
       );
     }
 
+    // Each form owns its consent state; server-issued descriptors are the authority.
+    let consentReady = false;
+    let consentContext = null;
+    let issueRevision = 0;
+    function invalidateConsent(resetScoped = false) {
+      issueRevision += 1;
+      consentReady = false;
+      const apply = applyBtn();
+      if (apply) { apply.disabled = true; apply.setAttribute("aria-disabled", "true"); }
+      if (firstInstallmentTimer) clearTimeout(firstInstallmentTimer);
+      firstInstallmentTimer = null;
+      if (resetScoped) {
+        modal.querySelectorAll('[data-mtuc-consent-row]').forEach((row) => {
+          if (row.dataset.mtucConsentScope !== 'all') {
+            const box = row.querySelector('[data-mtuc-consent-checkbox]');
+            if (box) box.checked = false;
+          }
+        });
+      }
+      updateSubmitState(false);
+    }
+    function applyConsentContext(context) {
+      consentReady = false;
+      if (!context || typeof context.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(context.fingerprint)
+          || !Array.isArray(context.descriptors) || !Array.isArray(context.mandatory_ids)) return false;
+      const rows = Array.from(modal.querySelectorAll('[data-mtuc-consent-row]'));
+      rows.forEach((row) => {
+        const applicable = context.descriptors.some((d) => String(d.id) === row.dataset.mtucConsentRow);
+        row.hidden = !applicable;
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        if (box) { box.disabled = !applicable; if (!applicable) box.checked = false; }
+      });
+      const matches = context.descriptors.every((d) => {
+        const found = rows.filter((row) => row.dataset.mtucConsentRow === String(d.id));
+        if (found.length !== 1) return false;
+        const row = found[0];
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        return row.dataset.mtucConsentName === d.name && row.dataset.mtucConsentUrl === d.url
+          && row.dataset.mtucConsentScope === d.interest_scope && (!!box === d.mandatory)
+          && (!box || String(box.value) === String(d.id));
+      });
+      if (!matches || (context.classification === 'unknown' && context.descriptors.some((d) => d.interest_scope !== 'all'))) {
+        if (popupErrorEl()) popupErrorEl().textContent = 'Моля, презаредете формата за съгласия.';
+        return false;
+      }
+      consentContext = context;
+      consentReady = true;
+      return true;
+    }
+    function consentAcceptanceReady() {
+      if (!consentReady || !consentContext || (!root.isConnected || !modal.isConnected)) return false;
+      return consentContext.mandatory_ids.every((id) => {
+        const row = modal.querySelector(`[data-mtuc-consent-row="${id}"]`);
+        const box = row?.querySelector('[data-mtuc-consent-checkbox]');
+        return row && !row.hidden && box && !box.disabled && box.checked;
+      });
+    }
+
     function schemeSelect() {
       return modal.querySelector("[data-mtuc-schemes]");
     }
@@ -421,21 +481,12 @@
     }
 
     function areMandatoryConsentsChecked() {
-      const boxes = consentCheckboxes();
-      if (!boxes.length) {
-        return true;
-      }
-      let ok = true;
-      boxes.forEach((box) => {
-        if (!box.checked) {
-          ok = false;
-        }
-      });
-      return ok;
+      return consentAcceptanceReady();
     }
 
     function hasAuthoritativeCalculation() {
       return !!(
+        consentReady && root.isConnected && modal.isConnected &&
         lastCalculation &&
         submissionToken &&
         cartFingerprint &&
@@ -743,6 +794,8 @@
     }
 
     function scheduleRefreshCalculator(reason) {
+      sequence += 1;
+      invalidateConsent(true);
       if (refreshTimer) {
         clearTimeout(refreshTimer);
       }
@@ -804,7 +857,7 @@
           csrf_token: state.csrf_token,
           sequence: currentSequence,
         });
-        if (currentSequence !== sequence) {
+        if (currentSequence !== sequence || !root.isConnected) {
           return;
         }
         if (json.success && json.calculator) {
@@ -826,6 +879,7 @@
               populateSchemeSelect();
             }
             await recalculateSelection();
+            if (currentSequence !== sequence || !root.isConnected) return;
             if (currentStep === 2) {
               updateSubmitState(false);
             }
@@ -842,7 +896,7 @@
           }
         }
       } catch (error) {
-        if (error.name !== "AbortError" && calculator) {
+        if (currentSequence === sequence && root.isConnected && error.name !== "AbortError" && calculator) {
           calculator.setAttribute("aria-busy", "false");
         }
       }
@@ -895,44 +949,43 @@
 
     async function recalculateSelection() {
       const scheme = selectedScheme();
-      if (!scheme || calcBusy) {
-        return;
-      }
+      if (!scheme || (!root.isConnected || !modal.isConnected) || modal.hidden) return false;
+      invalidateConsent(false);
+      const revision = issueRevision;
       calcBusy = true;
-      clearFieldErrors();
-      const apply = applyBtn();
-      if (apply) {
-        apply.disabled = true;
-        apply.setAttribute("aria-disabled", "true");
-      }
-      try {
-        const json = await postJson(
-          state.issue_url,
-          buildSelectionPayload(scheme),
-        );
-        if (json.success) {
-          submissionToken = json.submission_token || submissionToken;
-          renderCalculation(json.calculation || null);
-          clearEntryError();
-        } else if (
-          json.error_code === "cart_changed" ||
-          json.error_code === "cart_empty"
-        ) {
-          invalidateOpenPopupForCartChange();
-          showEntryError(json.message || cartChangedMessage());
-          if (popupErrorEl()) {
-            popupErrorEl().textContent = json.message || cartChangedMessage();
+      updateSubmitState(false);
+      const payload = buildSelectionPayload(scheme);
+      const task = (async () => {
+        let ok = false;
+        try {
+          const json = await postJson(state.issue_url, payload, { abort: true });
+          if (revision !== issueRevision || (!root.isConnected || !modal.isConnected) || modal.hidden) return false;
+          if (json.success && json.submission_token && applyConsentContext(json.consent_context)) {
+            submissionToken = String(json.submission_token);
+            renderCalculation(json.calculation || null);
+            clearEntryError();
+            ok = hasAuthoritativeCalculation();
+          } else {
+            consentReady = false;
+            submissionToken = '';
+            if (popupErrorEl()) popupErrorEl().textContent = json.message || 'Моля, презаредете условията и формата за съгласия.';
           }
-        } else if (popupErrorEl()) {
-          popupErrorEl().textContent = json.message || "Неуспешно изчисление.";
+        } catch (error) {
+          if (revision === issueRevision && root.isConnected && modal.isConnected && error?.name !== 'AbortError') {
+            consentReady = false;
+            if (popupErrorEl()) popupErrorEl().textContent = 'Неуспешно изчисление.';
+          }
+        } finally {
+          if (revision === issueRevision && root.isConnected && modal.isConnected) {
+            calcBusy = false;
+            issueFlight = null;
+            updateSubmitState(false);
+          }
         }
-      } catch (error) {
-        if (popupErrorEl()) {
-          popupErrorEl().textContent = "Неуспешно изчисление.";
-        }
-      } finally {
-        calcBusy = false;
-      }
+        return ok;
+      })();
+      issueFlight = task;
+      return task;
     }
 
     function trapFocus(event) {
@@ -1007,6 +1060,9 @@
     }
 
     function closeModal() {
+      invalidateConsent(true);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = null;
       // Product resets on open (not close). Clear transient offer financing state so a later
       // open never briefly inherits A after close→open B; Step 2 customer fields stay.
       resetCartModalOfferState();
@@ -1167,7 +1223,7 @@
       const apply = event.target.closest("[data-mtuc-apply]");
       if (apply) {
         event.preventDefault();
-        if (!apply.disabled && lastCalculation) {
+        if (!apply.disabled && hasAuthoritativeCalculation()) {
           setStep(2);
           updateSubmitState(false);
           form?.querySelector("input, select, textarea")?.focus();
@@ -1182,12 +1238,14 @@
     });
 
     schemeSelect()?.addEventListener("change", () => {
+      invalidateConsent(true);
       selectedSchemeKey = schemeSelect().value;
       resetFirstInstallmentForSchemeChange();
       recalculateSelection();
     });
 
     firstInput()?.addEventListener("input", () => {
+      invalidateConsent(false);
       if (firstInstallmentTimer) {
         clearTimeout(firstInstallmentTimer);
       }
@@ -1198,6 +1256,17 @@
 
     bindCartRefreshListeners();
     bindStep2ReadinessListeners();
+
+    if (typeof MutationObserver !== 'undefined') {
+      const teardownObserver = new MutationObserver(() => {
+        if (!root.isConnected || !modal.isConnected) {
+          invalidateConsent(true);
+          if (refreshTimer) clearTimeout(refreshTimer);
+          teardownObserver.disconnect();
+        }
+      });
+      teardownObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
 
     renderCalculator(state.calculator);
     updateSubmitState(false);

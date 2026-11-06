@@ -323,7 +323,10 @@ final class Phase11AProcess1ContractTest extends TestCase
             hash('sha256', 'phase11-operation-' . $orderId),
             hash('sha256', 'phase11-actor-' . $orderId),
             hash('sha256', 'phase11-selection-' . $orderId),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attempts->attachOrder((int) $row['attempt_id'], $orderId);
         PersistenceIntegrationHarness::seedSuccessfulEurAttempt((int) $row['attempt_id'], $orderId, $submission);

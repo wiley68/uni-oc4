@@ -133,3 +133,7 @@ Diagnostic journal retention is 3 months with bounded DELETE batches and `idx_mt
 Thank You uses session order identity; Product Buy cookie is fail-closed without a real installation secret.
 
 `FinancingAttemptState::POST_CP_PROCESSING`, `COMPLETED`, and `TERMINAL_FAILED` are reserved and unused in Revision 1 writers — post-CP lives in `smartucf_state` / `process2_state`.
+
+## Durable consent authority
+
+New financing effects require server-issued and atomically finalized consent evidence before materialization and banking. Frozen continuation, legacy read-only outcomes and concurrency policy are documented in [UNI-CONSENT-001-OC4.md](UNI-CONSENT-001-OC4.md).

@@ -246,13 +246,14 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
             $orders,
             new OpenCartOrderDataBuilder(),
             $verifier,
-            $correlations
+            $correlations,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
         $materialization = new OrderMaterializationService(
             $attempts,
             $locks,
             $materializer,
-            new CheckoutExistingOrderGateway($orders, $verifier, $statusPolicy),
+            new CheckoutExistingOrderGateway($orders, $verifier, $statusPolicy, new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)),
             $orders,
             $statusPolicy
         );
@@ -406,6 +407,10 @@ class MtUniCreditCheckout extends \Opencart\System\Engine\Model
     {
         $adapter = new CheckoutCatalogOrderAdapter($this);
         $products = $adapter->getProducts($orderId);
+        foreach ($products as &$product) {
+            $product['option'] = $adapter->getProductOptions($orderId, (int) ($product['order_product_id'] ?? 0));
+        }
+        unset($product);
         $totals = $adapter->getTotals($orderId);
         $order = $adapter->getOrder($orderId);
         $shippingCode = '';

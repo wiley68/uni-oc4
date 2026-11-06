@@ -27,6 +27,8 @@ final class PostControlPanelLifecycleService
         bool $cpReplay = false,
         array $orderContext = []
     ): ProductFinancingResult {
+        $shop = $this->coordinator->consentShop($attemptId, $shop);
+        $this->coordinator->assertConsentContinuation($attemptId, $submission, $localOrderId, $shop);
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
             if ($this->process2Coordinator === null) {
                 throw new ProductFinancingFlowException(

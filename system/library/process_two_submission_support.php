@@ -54,6 +54,7 @@ final class ProcessTwoSubmissionSupport
         ProcessTwoSensitiveData $data,
         ?string $encryptionSecretOverride = null
     ): void {
+        (new DurableConsentAuthority($db))->requireFinalized($attemptId, $submission, null, 2);
         try {
             $cipher = new ProcessTwoSensitiveCipher($encryptionSecretOverride);
             $encrypted = $cipher->encrypt($data);

@@ -51,7 +51,8 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
             $coordinator->run(40, mt_uni_credit_valid_shop_snapshot(), $submission, 9040, 900);
             self::fail('Incomplete historical order was accepted for bank send.');
         } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
-            self::assertSame('currency_unavailable', $expected->errorCode());
+            // A placeholder without the issued binding is a consent refusal before native hydration.
+            self::assertSame('invalid_consent', $expected->errorCode());
         }
         self::assertSame(0, $smartUcf->calls);
         self::assertSame(SmartUcfLifecycleStates::NOT_STARTED, $db->attempts[40]['smartucf_state']);
@@ -241,8 +242,12 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
         $coordinator = $this->coordinator($db, $port, $this->blockingSmartUcf());
         $submission = OrderMaterializationTestHarness::productSubmission();
 
-        $result = $coordinator->run(22, mt_uni_credit_valid_shop_snapshot(), $submission, 9022, 522);
-        self::assertTrue($result->isCreated());
+        try {
+            $coordinator->run(22, mt_uni_credit_valid_shop_snapshot(), $submission, 9022, 522);
+            self::fail('Corrupt durable ownership must refuse before replay effects.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
+            self::assertSame('invalid_consent', $expected->errorCode());
+        }
         self::assertSame(0, $port->calls);
         self::assertSame(ControlPanelStatusSyncStates::NOT_NEEDED, $db->attempts[22]['cp_status_sync_state']);
     }
@@ -262,8 +267,12 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
         $coordinator = $this->coordinator($db, $port, $this->blockingSmartUcf());
         $submission = OrderMaterializationTestHarness::productSubmission();
 
-        $result = $coordinator->run(23, mt_uni_credit_valid_shop_snapshot(), $submission, 9023, 523);
-        self::assertTrue($result->isCreated());
+        try {
+            $coordinator->run(23, mt_uni_credit_valid_shop_snapshot(), $submission, 9023, 523);
+            self::fail('Corrupt durable ownership must refuse before replay effects.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
+            self::assertSame('invalid_consent', $expected->errorCode());
+        }
         self::assertSame(0, $port->calls);
         self::assertSame(ControlPanelStatusSyncStates::NOT_NEEDED, $db->attempts[23]['cp_status_sync_state']);
     }
@@ -283,8 +292,12 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
         $coordinator = $this->coordinator($db, $port, $this->blockingSmartUcf());
         $submission = OrderMaterializationTestHarness::productSubmission();
 
-        $result = $coordinator->run(24, mt_uni_credit_valid_shop_snapshot(), $submission, 9024, 524);
-        self::assertTrue($result->isCreated());
+        try {
+            $coordinator->run(24, mt_uni_credit_valid_shop_snapshot(), $submission, 9024, 524);
+            self::fail('Corrupt durable ownership must refuse before replay effects.');
+        } catch (\Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException $expected) {
+            self::assertSame('invalid_consent', $expected->errorCode());
+        }
         self::assertSame(0, $port->calls);
         self::assertSame(ControlPanelStatusSyncStates::NOT_NEEDED, $db->attempts[24]['cp_status_sync_state']);
     }
@@ -544,7 +557,7 @@ final class Process1ReplayLocalBeforePatchTest extends TestCase
             new SmartUcfFailureClassifier(),
             new OrderBankStatusRepository($db),
             $cp,
-            new ControlPanelStatusSyncService(new ControlPanelStatusSyncRepository($db), $port)
+            new ControlPanelStatusSyncService(new ControlPanelStatusSyncRepository($db), $port, new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db))
         );
     }
 }
@@ -591,7 +604,7 @@ final class Process1ReplayFakeDb implements DbConnection
             'control_panel_order_id' => 900,
             'cp_payload' => json_encode([
                 'order_id' => substr((string) ($overrides['order_id'] ?? $attemptId), 0, 13),
-                'currency' => 'EUR', 'price' => 1200.0, 'parva' => 0.0, 'vnoska' => 100.0,
+                'currency' => 'EUR', 'vnoski' => 12, 'gpr' => 0.0, 'products_id' => '42', 'products_q' => '2', 'price' => 1200.0, 'parva' => 0.0, 'vnoska' => 100.0,
             ], JSON_THROW_ON_ERROR),
             'leasing_presentation_json' => json_encode([
                 'shop_order_id' => (int) ($overrides['order_id'] ?? $attemptId),
@@ -619,10 +632,13 @@ final class Process1ReplayFakeDb implements DbConnection
             'cp_status_sync_error_class' => $overrides['error_class'] ?? null,
             'cp_status_sync_updated_at' => '2026-01-01 00:00:00',
         ];
+        $this->attempts[$attemptId] = \MtUniCredit\Tests\Support\ConsentFixture::row(OrderMaterializationTestHarness::productSubmission(), $this->attempts[$attemptId]);
     }
 
     public function query(string $sql): object
     {
+        if (str_contains($sql, 'FROM `oc_order_product`')) return $this->result(OrderMaterializationTestHarness::productSubmission()->orderDraft->products);
+        if (str_contains($sql, 'FROM `oc_order_option`')) return $this->result(OrderMaterializationTestHarness::productSubmission()->orderDraft->products[0]['option']);
         if (preg_match('/FROM `oc_order`[\s\S]*WHERE `order_id` = (\d+)/', $sql, $m)) {
             $orderId = (int) $m[1];
             foreach ($this->attempts as $attempt) {

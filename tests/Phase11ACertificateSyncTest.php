@@ -160,7 +160,10 @@ final class Phase11ACertificateSyncTest extends TestCase
             hash('sha256', 'phase11-cert-sync-operation'),
             hash('sha256', 'phase11-cert-sync-actor'),
             hash('sha256', 'phase11-cert-sync-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 921);

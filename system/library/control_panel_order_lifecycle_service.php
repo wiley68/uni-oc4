@@ -69,6 +69,8 @@ final class ControlPanelOrderLifecycleService
         if ($localOrderId <= 0) {
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
         }
+        CpOriginGuard::assertAttempt($attempt->row());
+        (new DurableConsentAuthority($this->database()))->requireFinalized($attempt->attemptId(), $submission, $localOrderId);
         $submission->eurOrderProof = (new DurableEurOrderGuard($this->database()))->prove(
             $attempt->attemptId(),
             $submission->storeId,
@@ -145,8 +147,10 @@ final class ControlPanelOrderLifecycleService
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, true);
         }
 
+        (new DurableConsentAuthority($this->database()))->assertCpPayload($attemptId, $payload, $submission, $localOrderId);
         DurableEurOrderGuard::assertCpPayload($payload, $submission->eurOrderProof);
         $this->attempts->persistCpPayload($attemptId, $payload);
+
 
         if (!$this->enterSubmitting($attemptId, (string) ($row['state'] ?? ''))) {
             $fresh = $this->attempts->findById($attemptId);

@@ -16,12 +16,22 @@ use PHPUnit\Framework\TestCase;
 
 final class Phase6OrderMaterializationTest extends TestCase
 {
+    private \MtUniCredit\Tests\Support\ConsentFakeDb $db;
+
+    private function attempt(array $row, \Opencart\System\Library\Extension\MtUniCredit\ValidatedFinancingSubmission $submission): \Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptContext
+    {
+        $attempt = OrderMaterializationTestHarness::attemptContext($row, $submission);
+        $this->db->rows[$attempt->attemptId()] = $attempt->row();
+        return $attempt;
+    }
+
     private InMemoryCheckoutOrderAdapter $orders;
 
     private InMemoryOrderCorrelationRepository $correlations;
 
     protected function setUp(): void
     {
+        $this->db = new \MtUniCredit\Tests\Support\ConsentFakeDb();
         $this->orders = new InMemoryCheckoutOrderAdapter();
         $this->correlations = new InMemoryOrderCorrelationRepository();
     }
@@ -29,11 +39,11 @@ final class Phase6OrderMaterializationTest extends TestCase
     public function testProductGatewayMaterialization(): void
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
-        $attempt = OrderMaterializationTestHarness::attemptContext([
+        $attempt = $this->attempt([
             'attempt_id' => 101,
             'store_id'   => $submission->storeId,
-        ]);
-        $materializer = OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations);
+        ], $submission);
+        $materializer = OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations, $this->db);
         $created = (new ProductOrderGateway($materializer))->materialize($submission, $attempt);
 
         self::assertSame(PaymentIdentity::optionCode(), $created->paymentMethodCode);
@@ -43,12 +53,12 @@ final class Phase6OrderMaterializationTest extends TestCase
     public function testCartGatewayMaterialization(): void
     {
         $submission = OrderMaterializationTestHarness::cartSubmission();
-        $attempt = OrderMaterializationTestHarness::attemptContext([
+        $attempt = $this->attempt([
             'attempt_id' => 102,
             'store_id'   => $submission->storeId,
-        ]);
+        ], $submission);
         $created = (new CartOrderGateway(
-            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations)
+            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations, $this->db)
         ))->materialize($submission, $attempt);
 
         self::assertCount(2, $created->products);
@@ -74,12 +84,13 @@ final class Phase6OrderMaterializationTest extends TestCase
             new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
                 OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
                 OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
-            )
+            ),
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($this->db)
         );
 
         $created = $gateway->materialize(
             $submission,
-            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 1, 'store_id' => $submission->storeId])
+            $this->attempt(['attempt_id' => 1, 'store_id' => $submission->storeId], $submission)
         );
 
         self::assertSame(0, $this->orders->addOrderCallCount());
@@ -107,12 +118,13 @@ final class Phase6OrderMaterializationTest extends TestCase
             new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
                 OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
                 OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
-            )
+            ),
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($this->db)
         );
 
         $created = $gateway->materialize(
             $submission,
-            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 2, 'store_id' => $submission->storeId])
+            $this->attempt(['attempt_id' => 2, 'store_id' => $submission->storeId], $submission)
         );
 
         self::assertSame(88002, $created->orderId);
@@ -139,14 +151,15 @@ final class Phase6OrderMaterializationTest extends TestCase
             new \Opencart\System\Library\Extension\MtUniCredit\FinancingOrderStatusPolicy(
                 OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
                 OrderMaterializationTestHarness::TEST_VOID_STATUS_ID
-            )
+            ),
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($this->db)
         );
 
         $this->expectException(\Opencart\System\Library\Extension\MtUniCredit\OrderMaterializationException::class);
         $this->expectExceptionMessage('Checkout order is not in a financing-ready status.');
         $gateway->materialize(
             $submission,
-            OrderMaterializationTestHarness::attemptContext(['attempt_id' => 3, 'store_id' => $submission->storeId])
+            $this->attempt(['attempt_id' => 3, 'store_id' => $submission->storeId], $submission)
         );
     }
 
@@ -154,16 +167,16 @@ final class Phase6OrderMaterializationTest extends TestCase
     {
         $submission = OrderMaterializationTestHarness::productSubmission();
         $attemptId = 555;
-        $attempt = OrderMaterializationTestHarness::attemptContext([
+        $attempt = $this->attempt([
             'attempt_id' => $attemptId,
             'store_id'   => $submission->storeId,
-        ]);
+        ], $submission);
         $builder = new OpenCartOrderDataBuilder();
         $orderId = $this->orders->addOrder($builder->build($submission->orderDraft));
         $this->correlations->linkCreatedOrder($submission->storeId, $attemptId, $orderId);
 
         $recovered = (new ProductOrderGateway(
-            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations)
+            OrderMaterializationTestHarness::buildMaterializer($this->orders, $this->correlations, $this->db)
         ))->materialize($submission, $attempt);
 
         self::assertTrue($recovered->recovered);

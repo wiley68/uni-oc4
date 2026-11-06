@@ -164,13 +164,14 @@ class MtUniCreditProduct extends \Opencart\System\Engine\Model
             $orders,
             new OpenCartOrderDataBuilder(),
             $verifier,
-            $correlations
+            $correlations,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
         $materialization = new OrderMaterializationService(
             $attempts,
             $locks,
             $materializer,
-            new \Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway($orders, $verifier, $statusPolicy),
+            new \Opencart\System\Library\Extension\MtUniCredit\CheckoutExistingOrderGateway($orders, $verifier, $statusPolicy, new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)),
             $orders,
             $statusPolicy
         );

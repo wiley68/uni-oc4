@@ -51,17 +51,12 @@ final class Phase78ProductStep2LifecycleContractTest extends TestCase
         );
     }
 
-    public function testSubmitRecoveryForcesIssueWithoutAbort(): void
+    public function testSubmitBlocksStaleContextAndNeverAbortsIrreversibleRequest(): void
     {
         $js = $this->productJs();
-        self::assertMatchesRegularExpression(
-            '/recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\)/',
-            $js
-        );
-        self::assertMatchesRegularExpression(
-            '/const recovered = await recalculateSelection\(\{[\s\S]*?force:\s*true,[\s\S]*?abort:\s*false[\s\S]*?\}\);[\s\S]*?if\s*\(\s*!recovered\s*\)/',
-            $js
-        );
+        // UNI-CONSENT-001: a pending/stale consent context must never cause submit-time reissuance.
+        self::assertMatchesRegularExpression('/if \(!initialHasContext\) \{[\s\S]*?return;/', $js);
+        self::assertStringNotContainsString('const recovered = await recalculateSelection', $js);
         self::assertMatchesRegularExpression(
             '/postJson\(\s*state\.submit_url,\s*payload,\s*\{[\s\S]*?abort:\s*false/',
             $js

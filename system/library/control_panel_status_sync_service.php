@@ -36,7 +36,8 @@ final class ControlPanelStatusSyncService
 
     public function __construct(
         private ControlPanelStatusSyncStoreInterface $store,
-        private ControlPanelOrderStatusPort $cpClient
+        private ControlPanelOrderStatusPort $cpClient,
+        private DurableConsentAuthority $consent
     ) {
     }
 
@@ -57,6 +58,7 @@ final class ControlPanelStatusSyncService
             return ControlPanelStatusSyncStates::NOT_NEEDED;
         }
 
+        $this->consent->assertStatus($attemptId, $orderReference, $statusId);
         $decision = $this->admitTarget($attemptId, $statusId, $statusLabel);
         if ($decision === self::CONFLICT || $decision === self::REJECT) {
             return $this->currentStateOr($attemptId, ControlPanelStatusSyncStates::NOT_NEEDED);
@@ -78,6 +80,7 @@ final class ControlPanelStatusSyncService
             return self::REJECT;
         }
 
+        $this->consent->assertStatus($attemptId, null, $statusId);
         return $this->admitPendingTarget($attemptId, $statusId, $statusLabel);
     }
 
@@ -229,6 +232,7 @@ final class ControlPanelStatusSyncService
             return ControlPanelStatusSyncStates::RECONCILIATION_REQUIRED;
         }
 
+        $this->consent->assertStatus($attemptId, $orderReference, isset($snapshot['cp_status_sync_status_id']) ? (string) $snapshot['cp_status_sync_status_id'] : null);
         $state = (string) ($snapshot['cp_status_sync_state'] ?? ControlPanelStatusSyncStates::NOT_NEEDED);
         if ($state === ControlPanelStatusSyncStates::CONFIRMED) {
             return ControlPanelStatusSyncStates::CONFIRMED;
@@ -259,6 +263,7 @@ final class ControlPanelStatusSyncService
             return ControlPanelStatusSyncStates::PENDING;
         }
 
+        $this->consent->assertStatus($attemptId, $orderReference, $statusId);
         try {
             $this->cpClient->updateOrderStatus(
                 substr($orderReference, 0, 13),

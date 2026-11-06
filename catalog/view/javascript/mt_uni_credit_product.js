@@ -354,6 +354,7 @@
      * so the previous scheme's value cannot leak into the new selection payload.
      */
     function resetFirstInstallmentForSchemeChange() {
+      invalidateConsent(true);
       lastCalculation = null;
       submissionToken = "";
       const first = firstInput();
@@ -510,6 +511,64 @@
       return schemes[0] || null;
     }
 
+    // Each form owns its consent state; server-issued descriptors are the authority.
+    let consentReady = false;
+    let consentContext = null;
+    let issueRevision = 0;
+    function invalidateConsent(resetScoped = false) {
+      issueRevision += 1;
+      consentReady = false;
+      const apply = applyBtn();
+      if (apply) { apply.disabled = true; apply.setAttribute("aria-disabled", "true"); }
+      if (firstInstallmentTimer) clearTimeout(firstInstallmentTimer);
+      firstInstallmentTimer = null;
+      if (resetScoped) {
+        modal.querySelectorAll('[data-mtuc-consent-row]').forEach((row) => {
+          if (row.dataset.mtucConsentScope !== 'all') {
+            const box = row.querySelector('[data-mtuc-consent-checkbox]');
+            if (box) box.checked = false;
+          }
+        });
+      }
+      updateSubmitState(false);
+    }
+    function applyConsentContext(context) {
+      consentReady = false;
+      if (!context || typeof context.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(context.fingerprint)
+          || !Array.isArray(context.descriptors) || !Array.isArray(context.mandatory_ids)) return false;
+      const rows = Array.from(modal.querySelectorAll('[data-mtuc-consent-row]'));
+      rows.forEach((row) => {
+        const applicable = context.descriptors.some((d) => String(d.id) === row.dataset.mtucConsentRow);
+        row.hidden = !applicable;
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        if (box) { box.disabled = !applicable; if (!applicable) box.checked = false; }
+      });
+      const matches = context.descriptors.every((d) => {
+        const found = rows.filter((row) => row.dataset.mtucConsentRow === String(d.id));
+        if (found.length !== 1) return false;
+        const row = found[0];
+        const box = row.querySelector('[data-mtuc-consent-checkbox]');
+        return row.dataset.mtucConsentName === d.name && row.dataset.mtucConsentUrl === d.url
+          && row.dataset.mtucConsentScope === d.interest_scope && (!!box === d.mandatory)
+          && (!box || String(box.value) === String(d.id));
+      });
+      if (!matches || (context.classification === 'unknown' && context.descriptors.some((d) => d.interest_scope !== 'all'))) {
+        if (popupErrorEl()) popupErrorEl().textContent = 'Моля, презаредете формата за съгласия.';
+        return false;
+      }
+      consentContext = context;
+      consentReady = true;
+      return true;
+    }
+    function consentAcceptanceReady() {
+      if (!consentReady || !consentContext || (!root.isConnected || !modal.isConnected)) return false;
+      return consentContext.mandatory_ids.every((id) => {
+        const row = modal.querySelector(`[data-mtuc-consent-row="${id}"]`);
+        const box = row?.querySelector('[data-mtuc-consent-checkbox]');
+        return row && !row.hidden && box && !box.disabled && box.checked;
+      });
+    }
+
     function schemeSelect() {
       return modal.querySelector("[data-mtuc-schemes]");
     }
@@ -661,21 +720,12 @@
     }
 
     function areMandatoryConsentsChecked() {
-      const boxes = consentCheckboxes();
-      if (!boxes.length) {
-        return true;
-      }
-      for (let i = 0; i < boxes.length; i += 1) {
-        if (!boxes[i].checked) {
-          return false;
-        }
-      }
-      return true;
+      return consentAcceptanceReady();
     }
 
     function hasAuthoritativeCalculation() {
       // Step 2 readiness ≡ submit-ready financing context (calculation + token + live scheme).
-      return !!(lastCalculation && submissionToken && selectedScheme());
+      return !!(consentReady && root.isConnected && modal.isConnected && lastCalculation && submissionToken && selectedScheme());
     }
 
     function syncSelectedSchemeFromDom() {
@@ -715,6 +765,7 @@
     }
 
     function invalidateIssuedSelection(reason) {
+      invalidateConsent(true);
       submissionToken = "";
       lastCalculation = null;
       const apply = applyBtn();
@@ -1059,6 +1110,8 @@
     let refreshTimer = null;
 
     function scheduleRefreshCalculator(reason) {
+      sequence += 1;
+      invalidateConsent(true);
       if (refreshTimer) {
         clearTimeout(refreshTimer);
       }
@@ -1125,7 +1178,7 @@
           option: options,
           sequence: currentSequence,
         });
-        if (currentSequence !== sequence) {
+        if (currentSequence !== sequence || !root.isConnected) {
           return;
         }
         if (
@@ -1142,10 +1195,11 @@
             try {
               await recalculateSelection({ force: true });
             } finally {
-              if (currentStep === 2) {
+              if (currentSequence === sequence && root.isConnected && currentStep === 2) {
                 setProcessing(false);
               }
             }
+            if (currentSequence !== sequence || !root.isConnected) return;
             if (currentStep === 2) {
               updateSubmitState(false);
             }
@@ -1154,7 +1208,7 @@
           calculator.setAttribute("aria-busy", "false");
         }
       } catch (error) {
-        if (error.name !== "AbortError" && calculator) {
+        if (currentSequence === sequence && root.isConnected && error.name !== "AbortError" && calculator) {
           calculator.setAttribute("aria-busy", "false");
         }
       }
@@ -1212,78 +1266,45 @@
      * @returns {Promise<boolean>} true only when scheme + lastCalculation + submissionToken are present
      */
     async function recalculateSelection(options) {
-      const opts = options || {};
-      const allowAbort = opts.abort !== false;
-
-      if (issueFlight) {
-        const priorOk = await issueFlight;
-        if (!opts.force && priorOk && hasAuthoritativeCalculation()) {
-          return true;
-        }
-        if (!opts.force && hasAuthoritativeCalculation()) {
-          return true;
-        }
-        // force=true (submit recovery): fall through and issue again after the in-flight request finishes.
-      }
-
       const scheme = syncSelectedSchemeFromDom();
-      if (!scheme) {
-        return false;
-      }
-
-      let resolveFlight = null;
-      issueFlight = new Promise((resolve) => {
-        resolveFlight = resolve;
-      });
+      if (!scheme || (!root.isConnected || !modal.isConnected) || modal.hidden) return false;
+      invalidateConsent(false);
+      const revision = issueRevision;
       calcBusy = true;
-
-      const apply = applyBtn();
-      if (apply) {
-        apply.disabled = true;
-        apply.setAttribute("aria-disabled", "true");
-      }
-
-      let ok = false;
-      try {
-        const json = await postJson(
-          state.issue_url,
-          buildSelectionPayload(scheme),
-          { abort: allowAbort },
-        );
-        if (json.success) {
-          const token = String(json.submission_token || "");
-          if (!token) {
-            ok = false;
-          } else {
+      updateSubmitState(false);
+      const payload = buildSelectionPayload(scheme);
+      const task = (async () => {
+        let ok = false;
+        try {
+          const json = await postJson(state.issue_url, payload, { abort: options?.abort !== false });
+          if (revision !== issueRevision || (!root.isConnected || !modal.isConnected) || modal.hidden) return false;
+          if (json.success && json.submission_token && applyConsentContext(json.consent_context)) {
+            const token = String(json.submission_token || "");
             submissionToken = token;
             renderCalculation(json.calculation || null);
             clearEntryError();
             ok = hasAuthoritativeCalculation();
+          } else {
+            consentReady = false;
+            submissionToken = '';
+            if (popupErrorEl()) popupErrorEl().textContent = json.message || 'Моля, презаредете условията и формата за съгласия.';
           }
-        } else if (isMissingRequiredOptionError(json)) {
-          handleMissingRequiredOptions();
-          ok = false;
-        } else {
-          if (popupErrorEl()) {
-            popupErrorEl().textContent =
-              json.message || "Неуспешно изчисление.";
+        } catch (error) {
+          if (revision === issueRevision && root.isConnected && modal.isConnected && error?.name !== 'AbortError') {
+            consentReady = false;
+            if (popupErrorEl()) popupErrorEl().textContent = 'Неуспешно изчисление.';
           }
-          ok = false;
+        } finally {
+          if (revision === issueRevision && root.isConnected && modal.isConnected) {
+            calcBusy = false;
+            issueFlight = null;
+            updateSubmitState(false);
+          }
         }
-      } catch (error) {
-        if (error && error.name !== "AbortError" && popupErrorEl()) {
-          popupErrorEl().textContent =
-            "Неуспешно изчисление. Моля, опитайте отново.";
-        }
-        ok = false;
-      } finally {
-        calcBusy = false;
-        if (resolveFlight) {
-          resolveFlight(ok);
-        }
-        issueFlight = null;
-      }
-      return ok;
+        return ok;
+      })();
+      issueFlight = task;
+      return task;
     }
 
     function trapFocus(event) {
@@ -1354,6 +1375,9 @@
     }
 
     function closeModal() {
+      invalidateConsent(true);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = null;
       unbindNativeCartAddObserver();
       if (firstInstallmentTimer) {
         clearTimeout(firstInstallmentTimer);
@@ -1628,26 +1652,9 @@
       syncSelectedSchemeFromDom();
 
       if (!initialHasContext) {
-        setProcessing(true);
-        try {
-          populateSchemeSelect();
-          syncSelectedSchemeFromDom();
-          // force + no abort: must not silently return on calcBusy / refresh abort.
-          const recovered = await recalculateSelection({
-            force: true,
-            abort: false,
-          });
-          if (!recovered) {
-            updateSubmitState(false);
-            if (submitError) {
-              submitError.textContent =
-                "Моля, изберете схема и изчакайте изчислението преди изпращане.";
-            }
-            return;
-          }
-        } finally {
-          setProcessing(false);
-        }
+        updateSubmitState(false);
+        if (submitError) submitError.textContent = 'Моля, изчакайте актуалните условия преди изпращане.';
+        return;
       }
 
       const scheme = syncSelectedSchemeFromDom();
@@ -1810,6 +1817,7 @@
     });
 
     schemeSelect()?.addEventListener("change", () => {
+      invalidateConsent(true);
       selectedSchemeKey = schemeSelect().value;
       const scheme = findSchemeAcrossOffers(selectedSchemeKey);
       if (scheme && scheme.scheme_type) {
@@ -1820,6 +1828,7 @@
     });
 
     firstInput()?.addEventListener("input", () => {
+      invalidateConsent(false);
       if (firstInstallmentTimer) {
         clearTimeout(firstInstallmentTimer);
       }
@@ -1830,6 +1839,17 @@
 
     bindProductRecalculationListeners();
     bindStep2ReadinessListeners();
+
+    if (typeof MutationObserver !== 'undefined') {
+      const teardownObserver = new MutationObserver(() => {
+        if (!root.isConnected || !modal.isConnected) {
+          invalidateConsent(true);
+          if (refreshTimer) clearTimeout(refreshTimer);
+          teardownObserver.disconnect();
+        }
+      });
+      teardownObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
 
     renderCalculator(state.calculator);
     updateSubmitState(false);

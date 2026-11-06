@@ -81,15 +81,15 @@
       {% if consents %}
         <div class="mt-uni-credit-product-calculator__consents" data-mtuc-consents aria-label="{{ text_consents }}">
           {% for consent in consents %}
-            <div class="mt-uni-credit-product-calculator__consent{% if not consent.has_checkbox %} mt-uni-credit-product-calculator__consent--info{% endif %}">
+            <div class="mt-uni-credit-product-calculator__consent{% if not consent.has_checkbox %} mt-uni-credit-product-calculator__consent--info{% endif %}" data-mtuc-consent-row="{{ consent.id|e('html_attr') }}" data-mtuc-consent-scope="{{ consent.interest_scope|e('html_attr') }}" data-mtuc-consent-name="{{ consent.name|e('html_attr') }}" data-mtuc-consent-url="{{ consent.url|e('html_attr') }}" hidden>
               {% if consent.has_checkbox %}
-                <input type="checkbox" class="mt-uni-credit-product-calculator__consent-checkbox" id="mtuc-checkout-consent-{{ consent.id }}" name="consent[]" value="{{ consent.id }}" data-mtuc-consent-checkbox>
+                <input type="checkbox" class="mt-uni-credit-product-calculator__consent-checkbox" id="mtuc-checkout-consent-{{ consent.id }}" name="consent[]" value="{{ consent.id }}" data-mtuc-consent-checkbox disabled>
                 <label class="mt-uni-credit-product-calculator__consent-label" for="mtuc-checkout-consent-{{ consent.id }}">
-                  {% if consent.url %}<a href="{{ consent.url }}" target="_blank" rel="noopener noreferrer">{{ consent.name }}</a>{% else %}{{ consent.name }}{% endif %}
+                  {% if consent.url %}<a href="{{ consent.url|e('html_attr') }}" target="_blank" rel="noopener noreferrer">{{ consent.name|e('html') }}</a>{% else %}{{ consent.name|e('html') }}{% endif %}
                 </label>
               {% else %}
                 <p class="mt-uni-credit-product-calculator__consent-text">
-                  {% if consent.url %}<a href="{{ consent.url }}" target="_blank" rel="noopener noreferrer">{{ consent.name }}</a>{% else %}{{ consent.name }}{% endif %}
+                  {% if consent.url %}<a href="{{ consent.url|e('html_attr') }}" target="_blank" rel="noopener noreferrer">{{ consent.name|e('html') }}</a>{% else %}{{ consent.name|e('html') }}{% endif %}
                 </p>
               {% endif %}
               <span class="mt-uni-credit-product-calculator__field-error" data-mtuc-field-error="consent-{{ consent.id }}" role="alert"></span>

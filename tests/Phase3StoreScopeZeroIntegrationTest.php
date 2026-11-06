@@ -110,7 +110,10 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             hash('sha256', 'op-zero'),
             hash('sha256', 'actor-zero'),
             hash('sha256', 'selection-zero'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         self::assertSame(0, (int) $row['store_id']);
         self::assertSame(FinancingAttemptState::ISSUED, $row['state']);
@@ -131,7 +134,10 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             hash('sha256', 'op-neg'),
             hash('sha256', 'actor-neg'),
             hash('sha256', 'selection-neg'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
     }
 
@@ -184,7 +190,10 @@ final class Phase3StoreScopeZeroIntegrationTest extends TestCase
             hash('sha256', 'corr-op'),
             hash('sha256', 'corr-actor'),
             hash('sha256', 'corr-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $attempt['attempt_id'];
         $correlations->linkCreatedOrder(

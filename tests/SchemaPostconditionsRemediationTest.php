@@ -84,6 +84,30 @@ final class SchemaPostconditionsRemediationTest extends TestCase
         $this->expectExceptionMessage('column order mismatch');
         (new PersistenceSchemaInstaller($db))->verifySchemaPostconditions();
     }
+    public function testConsentColumnIsAdditiveAndIdempotent(): void
+    {
+        $db = new FakeSchemaDb(['mode' => 'missing_consent']);
+        $installer = new PersistenceSchemaInstaller($db);
+        $installer->ensureUpgrades();
+        $installer->ensureUpgrades();
+        $adds = array_filter($db->queries, static fn(string $q): bool => str_contains($q, 'ADD COLUMN `consent_context_json` MEDIUMTEXT NULL'));
+        self::assertCount(1, $adds);
+        self::assertStringContainsString('`consent_context_json` MEDIUMTEXT NULL', implode("\n", PersistenceSchemaInstaller::createTableStatements('fake_')));
+    }
+
+    public function testIncompatibleConsentColumnFailsWithoutConversionOrBackfill(): void
+    {
+        foreach (['wrong_consent_type', 'wrong_consent_null'] as $mode) {
+            $db = new FakeSchemaDb(['mode' => $mode]);
+            try { (new PersistenceSchemaInstaller($db))->ensureUpgrades(); self::fail('Incompatible evidence storage accepted'); }
+            catch (PersistenceException $expected) { self::assertStringContainsString('exactly MEDIUMTEXT NULL', $expected->getMessage()); }
+            foreach ($db->queries as $query) {
+                self::assertDoesNotMatchRegularExpression('/(?:MODIFY|CHANGE).*consent_context_json/i', $query);
+                self::assertDoesNotMatchRegularExpression('/^UPDATE/i', $query);
+            }
+        }
+    }
+
 }
 
 final class FakeSchemaDb implements \Opencart\System\Library\Extension\MtUniCredit\DbConnection
@@ -97,6 +121,8 @@ final class FakeSchemaDb implements \Opencart\System\Library\Extension\MtUniCred
     ];
 
     public bool $addedUnicidIndex = false;
+    public array $queries = [];
+    private bool $consentAdded = false;
 
     /** @param array{mode: string} $config */
     public function __construct(array $config)
@@ -109,7 +135,11 @@ final class FakeSchemaDb implements \Opencart\System\Library\Extension\MtUniCred
 
     public function query(string $sql): object
     {
+        $this->queries[] = $sql;
+        if (str_contains($sql, 'ADD COLUMN `consent_context_json`')) $this->consentAdded = true;
+
         $required = [
+            'consent_context_json',
             'unicid',
             'cp_origin',
             'process2_mail_state',
@@ -125,12 +155,12 @@ final class FakeSchemaDb implements \Opencart\System\Library\Extension\MtUniCred
         if (str_contains($sql, 'SHOW COLUMNS') && str_contains($sql, 'LIKE')) {
             if (preg_match("/LIKE '([^']+)'/", $sql, $m)) {
                 $col = $m[1];
-                $present = true;
+                $present = $col !== 'consent_context_json' || ($this->config['mode'] ?? '') !== 'missing_consent' || $this->consentAdded;
                 if (($this->config['mode'] ?? '') === 'missing_claim_token' && $col === 'process2_mail_claim_token') {
                     $present = false;
                 }
 
-                return $this->result($present ? [['Field' => $col]] : []);
+                return $this->result($present ? [['Field' => $col, 'Type' => $col === 'consent_context_json' && $this->config['mode'] !== 'wrong_consent_type' ? 'mediumtext' : 'text', 'Null' => $col === 'consent_context_json' && $this->config['mode'] === 'wrong_consent_null' ? 'NO' : 'YES']] : []);
             }
         }
 

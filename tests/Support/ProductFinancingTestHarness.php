@@ -143,13 +143,14 @@ final class ProductFinancingTestHarness
             $orders,
             new OpenCartOrderDataBuilder(),
             new OpenCartOrderVerifier(),
-            $correlations
+            $correlations,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
         $materialization = new OrderMaterializationService(
             $attempts,
             $locks,
             $materializer,
-            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, OrderMaterializationTestHarness::TEST_VOID_STATUS_ID)),
+            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, OrderMaterializationTestHarness::TEST_VOID_STATUS_ID), new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)),
             $orders,
             new FinancingOrderStatusPolicy(OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID, OrderMaterializationTestHarness::TEST_VOID_STATUS_ID)
         );
@@ -246,7 +247,8 @@ final class ProductFinancingTestHarness
             $orders,
             new OpenCartOrderDataBuilder(),
             new OpenCartOrderVerifier(),
-            $correlations
+            $correlations,
+            new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)
         );
         $statusPolicy = new FinancingOrderStatusPolicy(
             OrderMaterializationTestHarness::TEST_AWAITING_STATUS_ID,
@@ -257,7 +259,7 @@ final class ProductFinancingTestHarness
             $attempts,
             $locks,
             $materializer,
-            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy),
+            new CheckoutExistingOrderGateway($orders, new OpenCartOrderVerifier(), $statusPolicy, new \Opencart\System\Library\Extension\MtUniCredit\DurableConsentAuthority($db)),
             $orders,
             $statusPolicy
         );
@@ -353,6 +355,17 @@ final class ProductFinancingTestHarness
     /**
      * @return array{scheme_key:string,scheme_type:string,kop_code:string,months:int,filter_id:int,first_installment:float}
      */
+    public static function consentSeed(float $price = 1000.0, bool $process2 = false, ?int $orderId = null, ?OpenCartProductLine $line = null): array
+    {
+        $line ??= self::factory()->create(self::STORE_ID, 42, 1, []);
+        $shop = array_replace(self::shop(), ['uni_proces' => $process2 ? 1 : 0]);
+        $calculator = new Calculator();
+        $scheme = ProductSchemeList::find($calculator->availableSchemes($shop, new \Opencart\System\Library\Extension\MtUniCredit\ProductContext(42, [10], $price), 'standard'), 'KOPSTD', 12, 0);
+        if ($scheme === null) throw new \RuntimeException('Missing test scheme');
+        $calculation = $calculator->calculateScheme($shop, $price, $scheme);
+        return \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed($shop, \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::fromCalculation($calculation), $orderId, \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::productCommerce($line));
+    }
+
     public static function defaultSchemeSelection(): array
     {
         return [

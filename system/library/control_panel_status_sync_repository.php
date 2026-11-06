@@ -17,6 +17,11 @@ final class ControlPanelStatusSyncRepository implements ControlPanelStatusSyncSt
         CpOriginGuard::ensureSchema($db);
     }
 
+    public function assertConsent(int $attemptId, ?string $orderReference = null, ?string $statusId = null): void
+    {
+        (new DurableConsentAuthority($this->db))->assertStatus($attemptId, $orderReference, $statusId);
+    }
+
     public function findByAttempt(int $attemptId): ?array
     {
         if ($attemptId <= 0) {

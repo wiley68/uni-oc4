@@ -61,6 +61,23 @@ final class SmartUcfSessionCoordinator
             $localOrderId,
             true
         );
+        $authority = new DurableConsentAuthority($this->lifecycle->database());
+        $legacy = $authority->legacyRecorded($attemptId);
+        if ($legacy !== null) {
+            if ((int) ($legacy['store_id'] ?? -1) !== $submission->storeId || (int) ($legacy['order_id'] ?? 0) !== $localOrderId
+                || ($legacy['smartucf_state'] ?? '') !== SmartUcfLifecycleStates::CREATED) throw ConsentResolver::refusal();
+            $known = $this->resultFromState($legacy);
+            if ($known === null) throw ConsentResolver::refusal();
+            return $known;
+        }
+        if ($submission->submissionSource === 'resume') {
+            (new DurableEurResumeHydrator($this->lifecycle->database()))->hydrate($attemptId, $submission, $submission->eurOrderProof);
+        }
+        $authority->requireFinalized($attemptId, $submission, $localOrderId, 1);
+        $submission->consentAuthority = $authority;
+        $submission->consentAttemptId = $attemptId;
+
+        $shop = $authority->shopForContinuation($attemptId, $shop);
         if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
             return SmartUcfCoordinationResult::process2();
         }
@@ -89,14 +106,6 @@ final class SmartUcfSessionCoordinator
             }
 
             return $known;
-        }
-
-        if ($submission->submissionSource === 'resume') {
-            (new DurableEurResumeHydrator($this->lifecycle->database()))->hydrate(
-                $attemptId,
-                $submission,
-                $submission->eurOrderProof
-            );
         }
 
         // Fail-before-network: require hydrated SmartUCF credentials before claim or cURL.
@@ -167,6 +176,8 @@ final class SmartUcfSessionCoordinator
             $session = $lease === null
                 ? $this->client->createSession($shop, $submission, $localOrderId)
                 : $this->client->createSession($shop, $submission, $localOrderId, $lease);
+        } catch (ProductFinancingFlowException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             return $this->handleFailure(
                 $attemptId,
@@ -220,6 +231,22 @@ final class SmartUcfSessionCoordinator
     }
 
     /** @param array<string, mixed> $row */
+    public function consentShop(int $attemptId, array $shop): array
+    {
+        return (new DurableConsentAuthority($this->lifecycle->database()))->shopForContinuation($attemptId, $shop);
+    }
+
+    public function assertConsentContinuation(int $attemptId, ValidatedFinancingSubmission $submission, int $orderId, array $shop): void
+    {
+        $authority = new DurableConsentAuthority($this->lifecycle->database());
+        if ($authority->legacyRecorded($attemptId) !== null) return; // coordinators permit outcome retrieval only.
+        if ($submission->submissionSource === 'resume') {
+            $proof = (new DurableEurOrderGuard($this->lifecycle->database()))->prove($attemptId, $submission->storeId, $orderId, true);
+            (new DurableEurResumeHydrator($this->lifecycle->database()))->hydrate($attemptId, $submission, $proof, true);
+        }
+        $authority->requireFinalized($attemptId, $submission, $orderId, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1);
+    }
+
     private function resultFromState(array $row): ?SmartUcfCoordinationResult
     {
         $state = (string) ($row['smartucf_state'] ?? SmartUcfLifecycleStates::NOT_STARTED);
@@ -598,6 +625,7 @@ final class SmartUcfSessionCoordinator
             return false;
         }
 
+        (new DurableConsentAuthority($this->lifecycle->database()))->requireFinalized($attemptId, null, $localOrderId, 1);
         $target = $this->statusSync->readPersistedTarget($attemptId);
         if ($target === null) {
             return false;

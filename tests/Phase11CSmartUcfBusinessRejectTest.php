@@ -86,7 +86,10 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             hash('sha256', 'biz-reject-121-op'),
             hash('sha256', 'biz-reject-121-actor'),
             hash('sha256', 'biz-reject-121-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
@@ -172,7 +175,10 @@ final class Phase11CSmartUcfBusinessRejectTest extends TestCase
             hash('sha256', 'biz-success-op'),
             hash('sha256', 'biz-success-actor'),
             hash('sha256', 'biz-success-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);

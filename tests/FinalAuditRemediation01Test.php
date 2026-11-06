@@ -105,8 +105,12 @@ final class FinalAuditRemediation01Test extends TestCase
             hash('sha256', 'f01-op'),
             hash('sha256', 'f01-actor'),
             hash('sha256', 'f01-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed(['uni_proces'=>1], \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::fromCalculation($submission->financingCalculation), null, \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::commerce($submission->orderDraft->products))
         );
+        $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
         $attemptId = (int) $row['attempt_id'];
 
         try {
@@ -152,8 +156,12 @@ final class FinalAuditRemediation01Test extends TestCase
             hash('sha256', 'f01-ok-op'),
             hash('sha256', 'f01-ok-actor'),
             hash('sha256', 'f01-ok-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed(['uni_proces'=>1], \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::fromCalculation($submission->financingCalculation), null, \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::commerce($submission->orderDraft->products))
         );
+        $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
         $attemptId = (int) $row['attempt_id'];
         ProcessTwoSubmissionSupport::persist(
             $submission,

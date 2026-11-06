@@ -837,3 +837,8 @@ html.mt-uni-credit-checkout-processing-active {
     max-width: 100%;
   }
 }
+
+/* Hidden applicability wins over the explicit flex row display. */
+#mt-uni-credit-checkout-root .mt-uni-credit-product-calculator__consent[hidden] {
+  display: none !important;
+}

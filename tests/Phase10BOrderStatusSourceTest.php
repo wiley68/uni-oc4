@@ -56,12 +56,23 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             $submission->operationKeyHash,
             str_repeat('a', 64),
             $submission->selectionHash,
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
+        $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
         $created = $service->materializeAndBind(
             $submission,
             new FinancingAttemptContext($row),
             LockOwnerTokenGenerator::generate()
+        );
+        // The native adapter is in memory; mirror its real draft identity into the isolated proof tables.
+        PersistenceIntegrationHarness::seedNativeOrder(
+            $created->orderId, $submission->storeId, $submission->orderDraft->orderTotal,
+            $submission->orderDraft->currencyCode, $submission->orderDraft->currencyId,
+            $submission->orderDraft->currencyValue,
+            (new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder())->build($submission->orderDraft)
         );
         $service->applyProductCartVisibleStatus($created, $submission->entryPoint);
         self::assertSame($paymentStatus, $orders->lastOrderStatusId());
@@ -93,12 +104,23 @@ final class Phase10BOrderStatusSourceTest extends TestCase
             $submission->operationKeyHash,
             str_repeat('b', 64),
             $submission->selectionHash,
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::CART, isset($submission) ? $submission : null)
         );
+        $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
         $created = $service->materializeAndBind(
             $submission,
             new FinancingAttemptContext($row),
             LockOwnerTokenGenerator::generate()
+        );
+        // The native adapter is in memory; mirror its real draft identity into the isolated proof tables.
+        PersistenceIntegrationHarness::seedNativeOrder(
+            $created->orderId, $submission->storeId, $submission->orderDraft->orderTotal,
+            $submission->orderDraft->currencyCode, $submission->orderDraft->currencyId,
+            $submission->orderDraft->currencyValue,
+            (new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder())->build($submission->orderDraft)
         );
         $service->applyProductCartVisibleStatus($created, $submission->entryPoint);
         self::assertSame($paymentStatus, $created->orderStatusId);

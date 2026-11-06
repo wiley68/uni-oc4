@@ -49,7 +49,10 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             hash('sha256', 'terminal-reject-op'),
             hash('sha256', 'terminal-reject-actor'),
             hash('sha256', 'terminal-reject-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 821);
@@ -118,7 +121,10 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             hash('sha256', 'terminal-pre-send-op'),
             hash('sha256', 'terminal-pre-send-actor'),
             hash('sha256', 'terminal-pre-send-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 822);
@@ -183,7 +189,10 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             hash('sha256', 'terminal-unknown-op'),
             hash('sha256', 'terminal-unknown-actor'),
             hash('sha256', 'terminal-unknown-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 823);
@@ -349,7 +358,10 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
             hash('sha256', 'terminal-replay-op'),
             hash('sha256', 'terminal-replay-actor'),
             hash('sha256', 'terminal-replay-selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, 820);

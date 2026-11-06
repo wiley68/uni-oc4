@@ -730,3 +730,8 @@
     max-width: 100%;
   }
 }
+
+/* Hidden applicability wins over the explicit flex row display. */
+:is(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal) .mt-uni-credit-product-calculator__consent[hidden] {
+  display: none !important;
+}

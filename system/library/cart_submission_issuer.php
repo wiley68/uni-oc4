@@ -23,11 +23,13 @@ final class CartSubmissionIssuer
         ?string $preferredToken = null,
         ?int $cartId = null,
         ?string $cartFingerprint = null,
-        string $unicid = ''
+        string $unicid = '',
+        ?array $consentSeed = null
     ): array {
+        if ($consentSeed === null) throw ConsentResolver::refusal();
         if ($preferredToken !== null && $preferredToken !== '') {
             $preferred = $this->attempts->findByToken($storeId, $preferredToken);
-            if ($preferred !== null && $this->matchesIdentity($preferred, $actorBindingHash, $selectionHash)) {
+            if ($preferred !== null && $this->matchesIdentity($preferred, $actorBindingHash, $selectionHash, $consentSeed)) {
                 if (!$this->isExpired($preferred) && $this->isReusableState((string) $preferred['state'])) {
                     return $preferred;
                 }
@@ -41,7 +43,7 @@ final class CartSubmissionIssuer
             FinancingAttemptState::ISSUED
         );
         if ($existing !== null
-            && $this->matchesIdentity($existing, $actorBindingHash, $selectionHash)
+            && $this->matchesIdentity($existing, $actorBindingHash, $selectionHash, $consentSeed)
             && !$this->isExpired($existing)
         ) {
             return $existing;
@@ -55,15 +57,22 @@ final class CartSubmissionIssuer
             $selectionHash,
             $unicid,
             $cartId,
-            $cartFingerprint
+            $cartFingerprint,
+            $consentSeed
         );
     }
 
     /** @param array<string, mixed> $row */
-    private function matchesIdentity(array $row, string $actorBindingHash, string $selectionHash): bool
+    private function matchesIdentity(array $row, string $actorBindingHash, string $selectionHash, ?array $consentSeed): bool
     {
-        return hash_equals((string) ($row['actor_binding_hash'] ?? ''), $actorBindingHash)
-            && hash_equals((string) ($row['selection_hash'] ?? ''), $selectionHash);
+        if (!hash_equals((string) ($row['actor_binding_hash'] ?? ''), $actorBindingHash)) return false;
+        if ($consentSeed !== null) {
+            if (($row['consent_context_json'] ?? null) === null) return false; // unbound legacy issuance needs a fresh v1 attempt.
+            $record = ConsentContext::decode($row['consent_context_json']);
+            ConsentContext::assertBinding($record, $row); // invalid A must never silently become a newly issued B.
+            if (ConsentContext::hash($record['issued']['context']) !== ConsentContext::hash($consentSeed)) return false;
+        }
+        return hash_equals((string) ($row['selection_hash'] ?? ''), $selectionHash);
     }
 
     /** @param array<string, mixed> $row */

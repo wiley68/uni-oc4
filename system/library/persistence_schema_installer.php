@@ -11,6 +11,7 @@ final class PersistenceSchemaInstaller
 
     /** @var list<string> */
     private const REQUIRED_FINANCING_ATTEMPT_COLUMNS = [
+        'consent_context_json',
         'unicid',
         'cp_origin',
         'process2_mail_state',
@@ -53,6 +54,7 @@ final class PersistenceSchemaInstaller
         }
 
         $columns = [
+            'consent_context_json' => 'MEDIUMTEXT NULL',
             'unicid' => 'VARCHAR(64) NULL',
             'cp_origin' => 'VARCHAR(320) NULL',
             'smartucf_state' => "VARCHAR(32) NOT NULL DEFAULT 'not_started'",
@@ -152,6 +154,15 @@ final class PersistenceSchemaInstaller
                     'Financing attempt schema postcondition failed: missing column `' . $column . '`.'
                 );
             }
+        }
+
+        $consentColumn = $this->db->query("SHOW COLUMNS FROM `{$financingAttempt}` LIKE 'consent_context_json'");
+        $definition = [];
+        foreach (is_object($consentColumn) ? ($consentColumn->rows ?? [$consentColumn->row ?? []]) : [] as $candidate) {
+            if (($candidate['Field'] ?? '') === 'consent_context_json') $definition = $candidate;
+        }
+        if (strtolower((string) ($definition['Type'] ?? '')) !== 'mediumtext' || ($definition['Null'] ?? '') !== 'YES') {
+            throw new PersistenceException('Consent evidence requires exactly MEDIUMTEXT NULL; incompatible columns are never converted.');
         }
 
         $this->assertIndexColumnOrder(
@@ -363,6 +374,7 @@ final class PersistenceSchemaInstaller
                 `process2_mail_claimed_at` DATETIME NULL,
                 `process2_mail_claim_token` CHAR(64) NULL,
                 `leasing_presentation_json` MEDIUMTEXT NULL,
+                `consent_context_json` MEDIUMTEXT NULL,
                 `cp_status_sync_state` VARCHAR(32) NOT NULL DEFAULT 'not_needed',
                 `cp_status_sync_status_id` VARCHAR(255) NULL,
                 `cp_status_sync_status` VARCHAR(255) NULL,

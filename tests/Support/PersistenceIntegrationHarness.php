@@ -144,6 +144,12 @@ final class PersistenceIntegrationHarness
             `total` DECIMAL(15,4) NOT NULL,
             `tax` DECIMAL(15,4) NOT NULL DEFAULT 0
         )");
+        $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}order_option` (
+            `order_option_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `order_id` INT NOT NULL, `order_product_id` INT NOT NULL,
+            `product_option_id` INT NOT NULL, `product_option_value_id` INT NOT NULL,
+            `value` TEXT NOT NULL, `type` VARCHAR(32) NOT NULL
+        )");
         $db->query("CREATE TABLE IF NOT EXISTS `{$prefix}currency` (
             `currency_id` INT NOT NULL PRIMARY KEY,
             `code` VARCHAR(3) NOT NULL
@@ -175,6 +181,7 @@ final class PersistenceIntegrationHarness
             $db->query("UPDATE `" . $db->getPrefix() . "order` SET " . implode(', ', $values) . " WHERE `order_id` = {$orderId}");
         }
         if (isset($nativeData['products'])) {
+            $db->query("DELETE FROM `" . $db->getPrefix() . "order_option` WHERE `order_id` = {$orderId}");
             $db->query("DELETE FROM `" . $db->getPrefix() . "order_product` WHERE `order_id` = {$orderId}");
             foreach ($nativeData['products'] as $line) {
                 $values = ["`order_id` = {$orderId}"];
@@ -183,6 +190,12 @@ final class PersistenceIntegrationHarness
                     $values[] = "`{$field}` = '" . $db->escape((string) $value) . "'";
                 }
                 $db->query("INSERT INTO `" . $db->getPrefix() . "order_product` SET " . implode(', ', $values));
+                $orderProductId = $db->getLastId();
+                foreach ($line['option'] ?? [] as $option) {
+                    $parts = ["`order_id` = {$orderId}", "`order_product_id` = {$orderProductId}"];
+                    foreach (['product_option_id','product_option_value_id','value','type'] as $field) $parts[] = "`{$field}` = '" . $db->escape((string) ($option[$field] ?? '')) . "'";
+                    $db->query("INSERT INTO `" . $db->getPrefix() . "order_option` SET " . implode(', ', $parts));
+                }
             }
         }
     }
@@ -196,8 +209,21 @@ final class PersistenceIntegrationHarness
             $submission->orderDraft->orderTotal,
             'EUR',
             $submission->orderDraft->currencyId,
-            $submission->orderDraft->currencyValue
+            $submission->orderDraft->currencyValue,
+            (new \Opencart\System\Library\Extension\MtUniCredit\OpenCartOrderDataBuilder())->build($submission->orderDraft)
         );
+        // These are NEW successful test fixtures, not migrations of historical acceptance.
+        $attempt = (new \Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository($db))->findById($attemptId);
+        if ($attempt === null) throw new \RuntimeException('Missing test attempt');
+        $submission->submissionToken = $attempt['submission_token'];
+        $submission->operationKeyHash = $attempt['operation_key_hash'];
+        $submission->selectionHash = $attempt['selection_hash'];
+        $submission->shopUnicid = $attempt['unicid'];
+        $submission->entryPoint = $attempt['entry_point'];
+        if ($submission->entryPoint === 'checkout') $submission->existingOrderId = $orderId;
+        $evidence = ConsentFixture::row($submission, $attempt, true, array_replace(ProductFinancingTestHarness::shop(), ['uni_proces' => $process2 ? 1 : 0]));
+        $table = $db->getPrefix() . \Opencart\System\Library\Extension\MtUniCredit\PersistenceTableNames::FINANCING_ATTEMPT;
+        $db->query("UPDATE `{$table}` SET `consent_context_json` = '" . $db->escape($evidence['consent_context_json']) . "' WHERE `attempt_id` = " . $attemptId);
         $calc = $submission->financingCalculation;
         $payload = [
             'order_id' => substr((string) $orderId, 0, 13),
@@ -205,6 +231,10 @@ final class PersistenceIntegrationHarness
             'price' => $calc->financedAmount,
             'parva' => $calc->firstInstallment->amount,
             'vnoska' => $calc->monthlyInstallment,
+            'vnoski' => $calc->scheme->months,
+            'gpr' => $calc->gpr,
+            'products_id' => implode('_', array_column($submission->orderDraft->products, 'product_id')),
+            'products_q' => implode('_', array_column($submission->orderDraft->products, 'quantity')),
         ];
         $snapshot = \Opencart\System\Library\Extension\MtUniCredit\FinancingPresentationSnapshot::fromSubmission(
             $submission,
@@ -237,6 +267,7 @@ final class PersistenceIntegrationHarness
             $full = $prefix . $table;
             self::$connection->query('DROP TABLE IF EXISTS `' . $full . '`');
         }
+        self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'order_option`');
         self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'order_product`');
         self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'order`');
         self::$connection->query('DROP TABLE IF EXISTS `' . $prefix . 'currency`');

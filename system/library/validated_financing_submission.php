@@ -41,6 +41,10 @@ final class ValidatedFinancingSubmission
 
     public string $submissionSource;
 
+    public ?DurableConsentAuthority $consentAuthority = null;
+
+    public int $consentAttemptId = 0;
+
     public ?ProcessTwoSensitiveData $process2Sensitive = null;
 
     public ?DurableEurOrderProof $eurOrderProof = null;

@@ -52,7 +52,7 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
 
         $created = $service->materializeAndBind(
             $submission,
-            OrderMaterializationTestHarness::attemptContext($attempt),
+            OrderMaterializationTestHarness::attemptContext($attempt, $submission),
             LockOwnerTokenGenerator::generate()
         );
 
@@ -75,7 +75,7 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             $this->locks,
             $this->correlations
         );
-        $context = OrderMaterializationTestHarness::attemptContext($attempt);
+        $context = OrderMaterializationTestHarness::attemptContext($attempt, $submission);
 
         $first = $service->materializeAndBind($submission, $context, LockOwnerTokenGenerator::generate());
         $second = $service->materializeAndBind($submission, $context, LockOwnerTokenGenerator::generate());
@@ -103,7 +103,10 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             $hash('op-a'),
             $hash('actor'),
             $hash('selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
         $second = $this->attempts->issueWithSubmissionToken(
             PersistenceIntegrationHarness::TEST_STORE_ID,
@@ -111,7 +114,10 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             $hash('op-b'),
             $hash('actor'),
             $hash('selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry(OperationEntryPoint::PRODUCT, isset($submission) ? $submission : null)
         );
 
         $this->attempts->attachOrder((int) $first['attempt_id'], 71001);
@@ -130,7 +136,10 @@ final class Phase6OrderMaterializationIntegrationTest extends TestCase
             $operationKeyHash,
             $hash('actor'),
             $hash('selection'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($entryPoint, isset($submission) ? $submission : null)
         );
     }
 }

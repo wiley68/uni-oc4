@@ -281,8 +281,9 @@ final class CheckoutOrderCustomerAdapter
      */
     public function extractPostedConsents(array $posted): array
     {
-        if (isset($posted['consent']) && is_array($posted['consent'])) {
-            return array_values($posted['consent']);
+        if (array_key_exists('consent', $posted)) {
+            if (!is_array($posted['consent']) || !array_is_list($posted['consent'])) throw ConsentResolver::refusal();
+            return $posted['consent'];
         }
 
         $ids = [];
@@ -290,8 +291,10 @@ final class CheckoutOrderCustomerAdapter
             if (!is_string($key)) {
                 continue;
             }
-            if ($key === 'consent[]' || preg_match('/^consent\[\d+]$/', $key) === 1) {
+            if (str_starts_with($key, 'consent[') && $key !== 'consent[]' && preg_match('/^consent\[\d+]$/D', $key) !== 1) throw ConsentResolver::refusal();
+            if ($key === 'consent[]' || preg_match('/^consent\[\d+]$/D', $key) === 1) {
                 if (is_array($value)) {
+                    if ($key !== 'consent[]' || !array_is_list($value)) throw ConsentResolver::refusal();
                     foreach ($value as $item) {
                         $ids[] = $item;
                     }

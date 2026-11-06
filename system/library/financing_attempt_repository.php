@@ -34,13 +34,15 @@ final class FinancingAttemptRepository
         string $selectionHash,
         string $unicid,
         ?int $cartId = null,
-        ?string $cartFingerprint = null
+        ?string $cartFingerprint = null,
+        ?array $consentSeed = null
     ): array {
         if (!in_array($entryPoint, [OperationEntryPoint::PRODUCT, OperationEntryPoint::CART, OperationEntryPoint::CHECKOUT], true)) {
             throw new PersistenceValidationException('Submission tokens are issued only for product, cart, or checkout entry points.');
         }
 
         $this->validateIssueInputs($storeId, $entryPoint, $operationKeyHash, $actorBindingHash, $selectionHash, $cartId, $cartFingerprint, $unicid);
+        if ($consentSeed === null) throw new PersistenceValidationException('New attempts require server-issued consent context.');
 
         for ($attempt = 0; $attempt < 3; ++$attempt) {
             $token = SubmissionTokenGenerator::generate();
@@ -54,7 +56,8 @@ final class FinancingAttemptRepository
                     $selectionHash,
                     $cartId,
                     $cartFingerprint,
-                    $unicid
+                    $unicid,
+                    $consentSeed
                 );
             } catch (\Throwable $exception) {
                 if (!self::isDuplicateKeyError($exception)) {
@@ -76,29 +79,12 @@ final class FinancingAttemptRepository
         string $selectionHash,
         string $unicid,
         ?int $cartId = null,
-        ?string $cartFingerprint = null
+        ?string $cartFingerprint = null,
+        ?array $consentSeed = null
     ): array {
-        $this->validateIssueInputs(
-            $storeId,
-            OperationEntryPoint::CHECKOUT,
-            $operationKeyHash,
-            $actorBindingHash,
-            $selectionHash,
-            $cartId,
-            $cartFingerprint,
-            $unicid
-        );
-
-        return $this->insertAttempt(
-            $storeId,
-            OperationEntryPoint::CHECKOUT,
-            null,
-            $operationKeyHash,
-            $actorBindingHash,
-            $selectionHash,
-            $cartId,
-            $cartFingerprint,
-            $unicid
+        return $this->issueWithSubmissionToken(
+            $storeId, OperationEntryPoint::CHECKOUT, $operationKeyHash, $actorBindingHash,
+            $selectionHash, $unicid, $cartId, $cartFingerprint, $consentSeed
         );
     }
 
@@ -354,16 +340,24 @@ final class FinancingAttemptRepository
             $states
         );
 
-        $this->db->query(
-            "DELETE FROM `{$table}`
-             WHERE `order_id` IS NULL
-               AND `expires_at` IS NOT NULL
-               AND `expires_at` <= '" . $this->db->escape($now) . "'
-               AND `state` IN (" . implode(', ', $escapedStates) . ")
-             LIMIT " . (int) $limit
+        $result = $this->db->query(
+            "SELECT * FROM `{$table}` WHERE `order_id` IS NULL AND `expires_at` IS NOT NULL
+             AND `expires_at` <= '" . $this->db->escape($now) . "'
+             AND `state` IN (" . implode(', ', $escapedStates) . ") LIMIT " . $limit
         );
-
-        return $this->db->countAffected();
+        $deleted = 0;
+        foreach (is_object($result) ? ($result->rows ?? []) : [] as $row) {
+            $raw = $row['consent_context_json'] ?? null;
+            $kind = ConsentContext::classify($raw);
+            if (!in_array($kind, ['legacy_absent', 'issued'], true)) continue;
+            if ($kind === 'issued') {
+                try { ConsentContext::assertBinding(ConsentContext::decode($raw), $row); } catch (ProductFinancingFlowException) { continue; }
+            }
+            $evidence = $raw === null ? '`consent_context_json` IS NULL' : "BINARY `consent_context_json` = BINARY '" . $this->db->escape($raw) . "'";
+            $this->db->query("DELETE FROM `{$table}` WHERE `attempt_id` = " . (int) $row['attempt_id'] . " AND `order_id` IS NULL AND {$evidence}");
+            $deleted += $this->db->countAffected();
+        }
+        return $deleted;
     }
 
     /**
@@ -389,32 +383,39 @@ final class FinancingAttemptRepository
     private function insertAttempt(
         int $storeId,
         string $entryPoint,
-        ?string $submissionToken,
+        string $submissionToken,
         string $operationKeyHash,
         string $actorBindingHash,
         string $selectionHash,
         ?int $cartId,
         ?string $cartFingerprint,
-        string $unicid
+        string $unicid,
+        array $consentSeed
     ): array {
         $now = $this->clock->now();
         $createdAt = $this->clock->formatUtc($now);
         $expiresAt = $this->clock->formatUtc($now + SecurityConstants::FINANCING_ATTEMPT_ISSUED_TTL_SECONDS);
         $table = $this->tableName();
 
-        $tokenSql = $submissionToken === null
-            ? 'NULL'
-            : "'" . $this->db->escape($submissionToken) . "'";
+        $tokenSql = "'" . $this->db->escape($submissionToken) . "'";
         $cartIdSql = ($cartId !== null && $cartId > 0) ? (string) (int) $cartId : 'NULL';
         $cartFingerprintSql = ($cartFingerprint !== null && PersistenceHashValidator::isSha256Hex($cartFingerprint))
             ? "'" . $this->db->escape($cartFingerprint) . "'"
             : 'NULL';
         $unicidSql = "'" . $this->db->escape($unicid) . "'";
 
+        $raw = ConsentContext::issue($consentSeed, [
+            'store_id' => $storeId, 'entry_point' => $entryPoint, 'submission_token' => $submissionToken,
+            'operation_key_hash' => $operationKeyHash, 'actor_binding_hash' => $actorBindingHash,
+            'selection_hash' => $selectionHash, 'unicid' => $unicid,
+            'created_at' => $createdAt, 'expires_at' => $expiresAt,
+        ]);
+        $consentSql = "'" . $this->db->escape($raw) . "'";
+
         $this->db->query(
             "INSERT INTO `{$table}`
                 (`store_id`, `unicid`, `cp_origin`, `entry_point`, `submission_token`, `operation_key_hash`, `actor_binding_hash`,
-                 `selection_hash`, `cart_id`, `cart_fingerprint`, `state`, `expires_at`, `created_at`, `updated_at`)
+                 `selection_hash`, `cart_id`, `cart_fingerprint`, `state`, `expires_at`, `created_at`, `updated_at`, `consent_context_json`)
              VALUES (
                 " . (int) $storeId . ",
                 {$unicidSql},
@@ -429,7 +430,8 @@ final class FinancingAttemptRepository
                 '" . $this->db->escape(FinancingAttemptState::ISSUED) . "',
                 '" . $this->db->escape($expiresAt) . "',
                 '" . $this->db->escape($createdAt) . "',
-                '" . $this->db->escape($createdAt) . "'
+                '" . $this->db->escape($createdAt) . "',
+                {$consentSql}
              )"
         );
 

@@ -44,7 +44,10 @@ final class EurDurableProvenanceTest extends TestCase
         $row = $attempts->issueWithSubmissionToken(
             $submission->storeId, $submission->entryPoint,
             hash('sha256', 'eur-provenance-operation'), hash('sha256', 'eur-provenance-actor'),
-            hash('sha256', 'eur-provenance-selection'), PersistenceIntegrationHarness::TEST_UNICID
+            hash('sha256', 'eur-provenance-selection'), PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $orderId = 99123;

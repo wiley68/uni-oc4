@@ -257,7 +257,8 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 trim((string) ($this->request->post['submission_token'] ?? '')),
                 null,
                 $context['cart_fingerprint'],
-                trim((string) ($shop['unicid'] ?? ''))
+                trim((string) ($shop['unicid'] ?? '')),
+                \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed($shop, $context['calculation'], $context['order_id'] ?? null, $context['consent_commerce_hash'])
             );
             $token = (string) ($attempt['submission_token'] ?? '');
             if (!SubmissionTokenGenerator::isValidFormat($token)) {
@@ -268,6 +269,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 'success'          => true,
                 'step'             => 'submission_token_issued',
                 'submission_token' => $token,
+                'consent_context' => \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::publicContext($attempt),
                 'calculation'      => $context['calculation'],
             ];
         });
@@ -291,52 +293,57 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 return $this->errorPayload('configuration_unavailable', 'Заявката временно не е налична.');
             }
 
-            $context = $this->readSelectionContext($model);
-            $materials = $model->buildOrderMaterialsFromOrder((int) $order['order_id']);
-            $meta = $model->shopCacheMeta();
             $service = $model->createSubmissionService();
-
+            $token = trim((string) ($this->request->post['submission_token'] ?? ''));
+            $actor = $model->actorBindingHash();
+            $owner = LockOwnerTokenGenerator::generate();
             try {
-                $result = $service->submit(
-                    $shop,
-                    $context['store_id'],
-                    trim((string) ($this->request->post['submission_token'] ?? '')),
-                    $context['actor_binding_hash'],
-                    \Opencart\System\Library\Extension\MtUniCredit\CartActorBinding::sessionFingerprint((string) $this->session->getId()),
-                    $this->customer->isLogged() ? (int) $this->customer->getId() : (int) ($order['customer_id'] ?? 0),
-                    (int) ($order['customer_group_id'] ?? $this->config->get('config_customer_group_id')),
-                    $context['cart'],
-                    $context['cart_fingerprint'],
-                    $context['currency'],
-                    $context['popup_type'],
-                    $context['scheme_type'],
-                    $context['kop_code'],
-                    $context['months'],
-                    $context['filter_id'],
-                    $context['scheme_key'],
-                    $context['first_installment'],
-                    $this->request->post,
-                    $materials['products'],
-                    $materials['totals'],
-                    $materials['order_total'],
-                    $materials['shipping_required'],
-                    (string) ($meta['unicid'] ?? ''),
-                    (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
-                    (int) ($order['language_id'] ?? $this->config->get('config_language_id')),
-                    (string) ($order['language_code'] ?? $this->config->get('config_language')),
-                    (int) ($order['currency_id'] ?? 0),
-                    (float) ($order['currency_value'] ?? 0.0),
-                    (string) ($order['store_name'] ?? $this->config->get('config_name')),
-                    (string) ($order['store_url'] ?? $this->config->get('config_url') ?? ''),
-                    (string) ($order['invoice_prefix'] ?? $this->config->get('config_invoice_prefix') ?? ''),
-                    LockOwnerTokenGenerator::generate(),
-                    (int) $order['order_id'],
-                    $order,
-                    (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
-                    $model->storeAddressDefaults(),
-                    $model->sessionCheckoutData(),
-                    $model->verifiedOwnedAddressForOrder($order)
-                );
+                $result = $service->resume($shop, (int) $this->config->get('config_store_id'), $token, $actor, (int) $order['order_id'], $owner);
+                if ($result === null) {
+                    $context = $this->readSelectionContext($model, $service->frozenSelection((int) $this->config->get('config_store_id'), $token, $actor));
+                    $materials = $model->buildOrderMaterialsFromOrder((int) $order['order_id']);
+                    $meta = $model->shopCacheMeta();
+                    $result = $service->submit(
+                        $shop,
+                        $context['store_id'],
+                        trim((string) ($this->request->post['submission_token'] ?? '')),
+                        $context['actor_binding_hash'],
+                        \Opencart\System\Library\Extension\MtUniCredit\CartActorBinding::sessionFingerprint((string) $this->session->getId()),
+                        $this->customer->isLogged() ? (int) $this->customer->getId() : (int) ($order['customer_id'] ?? 0),
+                        (int) ($order['customer_group_id'] ?? $this->config->get('config_customer_group_id')),
+                        $context['cart'],
+                        $context['cart_fingerprint'],
+                        $context['currency'],
+                        $context['popup_type'],
+                        $context['scheme_type'],
+                        $context['kop_code'],
+                        $context['months'],
+                        $context['filter_id'],
+                        $context['scheme_key'],
+                        $context['first_installment'],
+                        $this->request->post,
+                        $materials['products'],
+                        $materials['totals'],
+                        $materials['order_total'],
+                        $materials['shipping_required'],
+                        (string) ($meta['unicid'] ?? ''),
+                        (string) ($meta['fetched_at'] ?? gmdate('Y-m-d H:i:s')),
+                        (int) ($order['language_id'] ?? $this->config->get('config_language_id')),
+                        (string) ($order['language_code'] ?? $this->config->get('config_language')),
+                        (int) ($order['currency_id'] ?? 0),
+                        (float) ($order['currency_value'] ?? 0.0),
+                        (string) ($order['store_name'] ?? $this->config->get('config_name')),
+                        (string) ($order['store_url'] ?? $this->config->get('config_url') ?? ''),
+                        (string) ($order['invoice_prefix'] ?? $this->config->get('config_invoice_prefix') ?? ''),
+                        $owner,
+                        (int) $order['order_id'],
+                        $order,
+                        (string) ($this->request->server['REMOTE_ADDR'] ?? '127.0.0.1'),
+                        $model->storeAddressDefaults(),
+                        $model->sessionCheckoutData(),
+                        $model->verifiedOwnedAddressForOrder($order)
+                    );
+                }
             } catch (ProductFinancingFlowException $exception) {
                 if ($exception->errorCode() === 'technical_failure') {
                     $this->logFailure($exception->getPrevious() ?? $exception);
@@ -356,7 +363,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             ) {
                 // Native editOrder() voids the draft first. Terminal bank failure must not leave
                 // commerce at Voided/0 — apply the same UniCredit payment status used on success.
-                $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
+                if ($service->guardOrderStatus((int) $this->config->get('config_store_id'), $token, $actor, (int) $order['order_id'])) {
+                    $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
+                }
 
                 $payload = $result->toArray();
                 $thankYouUrl = $this->url->link(
@@ -383,7 +392,9 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
                 return $result->toArray();
             }
 
-            $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
+            if ($service->guardOrderStatus((int) $this->config->get('config_store_id'), $token, $actor, (int) $order['order_id'])) {
+                $this->applyCheckoutUniCreditOrderStatus((int) $order['order_id']);
+            }
 
             $this->session->data['mt_uni_credit_checkout_success'] = $this->language->get('text_success_financing');
 
@@ -495,7 +506,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
      * @param CheckoutFinancingModel|\Opencart\System\Engine\Proxy $model
      * @return array<string, mixed>
      */
-    private function readSelectionContext(object $model): array
+    private function readSelectionContext(object $model, ?array $frozenConditions = null): array
     {
         $order = $model->resolveSessionOrder();
         if ($order === null) {
@@ -528,21 +539,31 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             );
         }
 
-        try {
-            $calculation = $model->createSchemeCalculator()->calculate(
-                $shop,
-                $cart,
-                $currency,
-                $popupType,
-                $schemeType,
-                $kopCode,
-                $months,
-                $filterId,
-                $schemeKey,
-                $firstInstallment
-            );
-        } catch (UnavailableSchemeException $exception) {
-            throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
+        if ($frozenConditions !== null) {
+            $schemeType = $frozenConditions['scheme_type'];
+            $kopCode = $frozenConditions['kop_code'];
+            $months = $frozenConditions['months'];
+            $filterId = $frozenConditions['filter_id'];
+            $schemeKey = implode('|', [$schemeType, $kopCode, $months, $filterId]);
+            $firstInstallment = $frozenConditions['first_installment'];
+            $calculation = $frozenConditions;
+        } else {
+            try {
+                $calculation = $model->createSchemeCalculator()->calculate(
+                    $shop,
+                    $cart,
+                    $currency,
+                    $popupType,
+                    $schemeType,
+                    $kopCode,
+                    $months,
+                    $filterId,
+                    $schemeKey,
+                    $firstInstallment
+                );
+            } catch (UnavailableSchemeException $exception) {
+                throw new ProductFinancingFlowException('unavailable_scheme', 'Избраната схема не е налична.', [], $exception);
+            }
         }
 
         $firstInstallment = (float) ($calculation['first_installment'] ?? $firstInstallment);
@@ -590,6 +611,7 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'selection_hash'     => $selectionHash,
             'operation_key_hash' => $operationKeyHash,
             'cart_fingerprint'   => $fingerprint,
+            'consent_commerce_hash' => \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::commerce($model->buildOrderMaterialsFromOrder($orderId)['products']),
             'calculation'        => $calculation,
             'order_total'        => $orderTotal,
         ];

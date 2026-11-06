@@ -60,6 +60,8 @@ final class OrderMaterializationService
     ): CreatedOpenCartOrder {
         $attempt = $this->refreshAttempt($attempt->attemptId());
 
+        (new DurableConsentAuthority($this->attempts->database()))->requireFinalized($attempt->attemptId(), $submission);
+
         $boundOrderId = $attempt->orderId();
         if ($boundOrderId !== null) {
             $created = $this->materializer->loadVerified($boundOrderId, $submission, true);
@@ -134,6 +136,9 @@ final class OrderMaterializationService
             return;
         }
 
+        $row = $this->attempts->findByOrderId($created->storeId, $created->orderId);
+        if ($row === null) throw ConsentResolver::refusal();
+        (new DurableConsentAuthority($this->attempts->database()))->requireFinalized((int) $row['attempt_id'], null, $created->orderId);
         $order = $this->orders->getOrder($created->orderId);
         $current = (int) ($order['order_status_id'] ?? $created->orderStatusId);
         if ($current === $statusId) {

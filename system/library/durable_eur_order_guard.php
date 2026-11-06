@@ -78,14 +78,16 @@ final class DurableEurOrderGuard
             }
             self::assertCpPayload($payload, $proof);
             if ($cpCreated) {
-                $snapshotRaw = $attempt['leasing_presentation_json'] ?? null;
-                if (!is_string($snapshotRaw) || $snapshotRaw === '') {
-                    throw self::failure();
-                }
-                try {
-                    $snapshot = json_decode($snapshotRaw, true, 512, JSON_THROW_ON_ERROR);
-                } catch (\JsonException) {
-                    throw self::failure();
+                if (($attempt['consent_context_json'] ?? null) !== null) {
+                    $record = (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, $orderId);
+                    $snapshot = $record['issued']['context']['conditions'] + ['shop_order_id' => $orderId];
+                    if (($payload['vnoski'] ?? null) !== $snapshot['months']) throw ConsentResolver::refusal();
+
+                } else {
+                    $snapshotRaw = $attempt['leasing_presentation_json'] ?? null;
+                    if (!is_string($snapshotRaw) || $snapshotRaw === '') throw self::failure();
+                    try { $snapshot = json_decode($snapshotRaw, true, 512, JSON_THROW_ON_ERROR); }
+                    catch (\JsonException) { throw self::failure(); }
                 }
                 if (!is_array($snapshot)
                     || (int) ($snapshot['shop_order_id'] ?? 0) !== $orderId

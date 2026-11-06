@@ -17,14 +17,14 @@ final class ProcessTwoMailClaimTokenTest extends TestCase
     {
         $db = new InMemoryProcess2MailDb();
         $repo = new ProcessTwoLifecycleRepository($db, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(fn (): int => 1_700_000_000));
-        $db->rows[1] = $this->baseRow();
+        $db->rows[1] = $this->baseRow(1);
 
         $token = $repo->claimSending(1);
         self::assertNotNull($token);
         self::assertSame(64, strlen($token));
         self::assertSame(ProcessTwoMailStates::SENDING, $db->rows[1]['process2_mail_state']);
 
-        $repo->markSent(1, '0' . substr($token, 1)); // wrong token
+        $repo->markSent(1, ($token[0] === '0' ? '1' : '0') . substr($token, 1)); // wrong token
         self::assertSame(ProcessTwoMailStates::SENDING, $db->rows[1]['process2_mail_state']);
 
         $repo->markSent(1, $token);
@@ -37,7 +37,7 @@ final class ProcessTwoMailClaimTokenTest extends TestCase
         $clock = new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(fn (): int => 1_700_000_000);
         $db = new InMemoryProcess2MailDb();
         $repo = new ProcessTwoLifecycleRepository($db, $clock);
-        $db->rows[2] = $this->baseRow();
+        $db->rows[2] = $this->baseRow(2);
 
         $old = $repo->claimSending(2);
         self::assertNotNull($old);
@@ -64,7 +64,7 @@ final class ProcessTwoMailClaimTokenTest extends TestCase
     {
         $db = new InMemoryProcess2MailDb();
         $repo = new ProcessTwoLifecycleRepository($db, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(fn (): int => 1_700_000_000));
-        $db->rows[3] = $this->baseRow();
+        $db->rows[3] = $this->baseRow(3);
         $token = $repo->claimSending(3);
         self::assertNotNull($token);
         $repo->markSent(3, $token);
@@ -75,17 +75,18 @@ final class ProcessTwoMailClaimTokenTest extends TestCase
     {
         $db = new InMemoryProcess2MailDb();
         $repo = new ProcessTwoLifecycleRepository($db, new \Opencart\System\Library\Extension\MtUniCredit\PersistenceClock(fn (): int => 1_700_000_000));
-        $db->rows[4] = $this->baseRow();
+        $db->rows[4] = $this->baseRow(4);
         $first = $repo->claimSending(4);
         self::assertNotNull($first);
         self::assertNull($repo->claimSending(4));
     }
 
     /** @return array<string, mixed> */
-    private function baseRow(): array
+    private function baseRow(int $attemptId): array
     {
-        return [
-            'attempt_id' => 0,
+        return \MtUniCredit\Tests\Support\ConsentFixture::row(\MtUniCredit\Tests\Support\OrderMaterializationTestHarness::productSubmission(), [
+            'attempt_id' => $attemptId,
+            'created_at' => '2023-11-14 22:13:20',
             'process2_state' => 'process2_prepared',
             'process2_sensitive_enc' => null,
             'process2_mail_sent' => 0,
@@ -101,7 +102,7 @@ final class ProcessTwoMailClaimTokenTest extends TestCase
             'cp_status_sync_state' => 'not_needed',
             'cp_status_sync_status_id' => null,
             'cp_status_sync_status' => null,
-        ];
+        ], true, ['uni_proces' => 1]);
     }
 }
 

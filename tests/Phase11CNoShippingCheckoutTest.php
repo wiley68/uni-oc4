@@ -510,7 +510,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         );
         $operationKey = CheckoutOperationIdentity::hash($storeId, $orderId);
         $attempt = (new CheckoutSubmissionIssuer($this->attempts, new PersistenceClock()))
-            ->issueOrReuse($storeId, $operationKey, $actor, $selectionHash, null, null, $fingerprint, PersistenceIntegrationHarness::TEST_UNICID);
+            ->issueOrReuse($storeId, $operationKey, $actor, $selectionHash, null, null, $fingerprint, PersistenceIntegrationHarness::TEST_UNICID, \MtUniCredit\Tests\Support\ProductFinancingTestHarness::consentSeed((isset($line) ? $line->financingPrice : (isset($cart) ? $cart->total : 1000.0)), $process2, (isset($orderId) ? $orderId : null)));
         $token = (string) $attempt['submission_token'];
 
         $sessionCheckout = [
@@ -554,7 +554,7 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
             [['code' => 'total', 'value' => 1000.0]],
             1000.0,
             false,
-            (string) ($shop['unicid'] ?? ''),
+            PersistenceIntegrationHarness::TEST_UNICID,
             '2026-08-31 12:00:00',
             1,
             'bg-bg',

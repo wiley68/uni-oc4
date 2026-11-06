@@ -13,6 +13,7 @@ final class ProcessTwoLifecycleRepository
 
     public function persistSensitiveEncrypted(int $attemptId, string $encryptedPayload): void
     {
+        (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, null, 2);
         if ($attemptId <= 0 || $encryptedPayload === '') {
             throw new PersistenceValidationException('Process 2 sensitive payload could not be stored.');
         }
@@ -68,6 +69,7 @@ final class ProcessTwoLifecycleRepository
 
     public function claimPreparing(int $attemptId): bool
     {
+        (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, null, 2);
         $now = $this->now();
         $this->db->query(
             "UPDATE `{$this->tableName()}`
@@ -174,6 +176,7 @@ final class ProcessTwoLifecycleRepository
      */
     public function claimSending(int $attemptId): ?string
     {
+        (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, null, 2);
         if ($attemptId <= 0) {
             return null;
         }

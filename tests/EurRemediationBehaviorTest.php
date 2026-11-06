@@ -266,6 +266,8 @@ final class EurRemediationBehaviorTest extends TestCase
         $cart = $factory->create($raw, 1200.0, $convert);
         self::assertSame(480.0, $cart->total);
         $fingerprint = U\CartFingerprint::hash($cart, 'EUR');
+        $consentSeed = P::consentSeed($cart->total, true);
+        $consentSeed['commerce_hash'] = U\ConsentContext::commerce((new U\OpenCartCartOrderProductsBuilder())->build($raw, fn(float $price, int $tax): float => 0.0)['products']);
         if ($entry === 'product') {
             $resolver = new U\OpenCartCatalogProductResolver(P::STORE_ID, 1, 'BASE', 'EUR', true,
                 fn(int $id): array => $raw[0], fn(int $id): array => [10],
@@ -274,10 +276,10 @@ final class EurRemediationBehaviorTest extends TestCase
                 fn(float $amount, string $from, string $to): float => $ports['currency']->convert($amount, $from, $to));
             (new \ReflectionProperty($service, 'productFactory'))->setValue($service, new U\OpenCartProductContextFactory($resolver));
             $hash = U\ProductSelectionHash::hash(P::STORE_ID, 42, [], 1, 'EUR', $stale ? 600.0 : 480.0, 'standard|KOPSTD|12|0', 'standard', 'KOPSTD', 12, 0, 0.0, $actor);
-            $row = (new U\ProductSubmissionIssuer($attempts, new U\PersistenceClock()))->issueOrReuse(P::STORE_ID, hash('sha256', 'new-product'), $actor, $hash, null, DB::TEST_UNICID);
+            $row = (new U\ProductSubmissionIssuer($attempts, new U\PersistenceClock()))->issueOrReuse(P::STORE_ID, hash('sha256', 'new-product'), $actor, $hash, null, DB::TEST_UNICID, $consentSeed);
         } else {
             $hash = U\CartSelectionHash::hash(P::STORE_ID, $fingerprint, 'EUR', 480.0, 'standard|KOPSTD|12|0', 'standard', 'KOPSTD', 12, 0, 0.0, $actor);
-            $row = (new U\CartSubmissionIssuer($attempts, new U\PersistenceClock()))->issueOrReuse(P::STORE_ID, hash('sha256', 'new-cart'), $actor, $hash, null, null, $fingerprint, DB::TEST_UNICID);
+            $row = (new U\CartSubmissionIssuer($attempts, new U\PersistenceClock()))->issueOrReuse(P::STORE_ID, hash('sha256', 'new-cart'), $actor, $hash, null, null, $fingerprint, DB::TEST_UNICID, $consentSeed);
             if ($stale) {
                 $raw[0]['product_id'] = 43;
                 $cart = $factory->create($raw, 1200.0, $convert);
@@ -370,7 +372,7 @@ final class EurRemediationBehaviorTest extends TestCase
         $submission->orderDraft->storeId = P::STORE_ID;
         $submission->orderDraft->currencyValue = 0.5;
         $submission->financingCalculation = H::calculation(600.0);
-        $row = $attempts->issueWithSubmissionToken(P::STORE_ID, $entry, hash('sha256', 'historical-' . $entry), hash('sha256', 'eur-remediation-actor'), hash('sha256', 'historical-selection'), DB::TEST_UNICID);
+        $row = $attempts->issueWithSubmissionToken(P::STORE_ID, $entry, hash('sha256', 'historical-' . $entry), hash('sha256', 'eur-remediation-actor'), hash('sha256', 'historical-selection'), DB::TEST_UNICID, null, null, \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($entry, isset($submission) ? $submission : null));
         $id = (int) $row['attempt_id'];
         $attempts->attachOrder($id, 123);
         DB::seedSuccessfulEurAttempt($id, 123, $submission, 901, !$process1Replay);

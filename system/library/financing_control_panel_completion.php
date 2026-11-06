@@ -27,6 +27,7 @@ final class FinancingControlPanelCompletion
             return null;
         }
         $attemptId = (int) $row['attempt_id'];
+        $shop = (new DurableConsentAuthority($lifecycle->database()))->shopForContinuation($attemptId, $shop);
         $resume = ResumeSubmissionFactory::create(
             (string) $row['entry_point'], $storeId, $row['submission_token'] ?? null,
             (string) $row['operation_key_hash'], $orderId
@@ -48,6 +49,7 @@ final class FinancingControlPanelCompletion
         try {
             $result = self::apply($lifecycle, new FinancingAttemptContext($fresh), $resume, $orderId, $shop, $lockOwnerToken);
         } catch (ProductFinancingFlowException $exception) {
+            if ($exception->errorCode() === 'invalid_consent') throw $exception;
             $materialization->applyProductCartVisibleStatus($created, $resume->entryPoint);
             throw $exception;
         }
@@ -67,6 +69,7 @@ final class FinancingControlPanelCompletion
         ?string $successRedirectUrl = null,
         ?ProcessTwoMailPort $process2Mailer = null
     ): ProductFinancingResult {
+        $shop = (new DurableConsentAuthority($lifecycle->database()))->shopForContinuation($attempt->attemptId(), $shop);
         self::proveOrder($lifecycle, $attempt->attemptId(), $submission, $localOrderId);
         $row = $attempt->row();
         $existingCp = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
@@ -161,6 +164,7 @@ final class FinancingControlPanelCompletion
         ?ProcessTwoMailPort $process2Mailer = null
     ): ProductFinancingResult {
         self::proveOrder($lifecycle, $attemptId, $submission, $localOrderId, true);
+        $shop = (new DurableConsentAuthority($lifecycle->database()))->shopForContinuation($attemptId, $shop);
 
         return self::postControlPanel($lifecycle, null, $successRedirectUrl, $process2Mailer, $shop)->handle(
             $attemptId,
@@ -220,7 +224,8 @@ final class FinancingControlPanelCompletion
             $lifecycle->client(),
             new ControlPanelStatusSyncService(
                 new ControlPanelStatusSyncRepository($db),
-                $lifecycle->client()
+                $lifecycle->client(),
+                new DurableConsentAuthority($db)
             ),
             null,
             SmartUcfDiagnosticJournal::fromDatabase($db),
@@ -246,7 +251,8 @@ final class FinancingControlPanelCompletion
                 new OrderBankStatusRepository($db),
                 new ControlPanelStatusSyncService(
                     new ControlPanelStatusSyncRepository($db),
-                    $lifecycle->client()
+                    $lifecycle->client(),
+                    new DurableConsentAuthority($db)
                 ),
                 $cipher,
                 $process2Mailer ?? new PhpMailProcessTwoMailer()

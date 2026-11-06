@@ -17,9 +17,9 @@ final class DurableEurResumeHydrator
             return;
         }
         $prefix = $this->db->getPrefix();
-        $attempt = $this->one("SELECT `unicid`, `leasing_presentation_json` FROM `{$prefix}" . PersistenceTableNames::FINANCING_ATTEMPT . "` WHERE `attempt_id` = {$attemptId} LIMIT 1");
+        $attempt = $this->one("SELECT * FROM `{$prefix}" . PersistenceTableNames::FINANCING_ATTEMPT . "` WHERE `attempt_id` = {$attemptId} LIMIT 1");
         $order = $this->one("SELECT * FROM `{$prefix}order` WHERE `order_id` = {$proof->orderId} LIMIT 1");
-        $linesResult = $this->db->query("SELECT `product_id`, `name`, `model`, `quantity`, `price`, `total`, `tax` FROM `{$prefix}order_product` WHERE `order_id` = {$proof->orderId} ORDER BY `order_product_id` ASC");
+        $linesResult = $this->db->query("SELECT `order_product_id`, `product_id`, `name`, `model`, `quantity`, `price`, `total`, `tax` FROM `{$prefix}order_product` WHERE `order_id` = {$proof->orderId} ORDER BY `order_product_id` ASC");
         $lines = is_object($linesResult) && isset($linesResult->rows) && is_array($linesResult->rows)
             ? $linesResult->rows : [];
         if ($attempt === null || $order === null || $lines === []
@@ -31,15 +31,13 @@ final class DurableEurResumeHydrator
             throw DurableEurOrderGuard::failure();
         }
         $unicid = trim((string) ($attempt['unicid'] ?? ''));
-        $raw = $attempt['leasing_presentation_json'] ?? null;
-        if ($unicid === '' || !is_string($raw) || $raw === '') {
-            throw DurableEurOrderGuard::failure();
-        }
-        try {
-            $snapshot = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            throw DurableEurOrderGuard::failure();
-        }
+        $record = (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, $proof->orderId);
+        $frozen = $record['issued']['context'];
+        $snapshot = $frozen['conditions'] + ['shop_order_id' => $proof->orderId, 'process2' => $frozen['process'] === 2];
+        $binding = $record['issued']['binding'];
+        if ($submission->storeId !== $binding['store_id'] || $submission->entryPoint !== $binding['entry_point']
+            || $submission->submissionToken !== $binding['submission_token'] || $submission->operationKeyHash !== $binding['operation_key_hash']) throw ConsentResolver::refusal();
+        $submission->selectionHash = $binding['selection_hash'];
         if (!is_array($snapshot)
             || (int) ($snapshot['shop_order_id'] ?? 0) !== $proof->orderId
             || (!$allowProcessTwo && !empty($snapshot['process2']))
@@ -78,6 +76,8 @@ final class DurableEurResumeHydrator
                 || !is_finite($total) || $total <= 0.0 || trim((string) ($line['name'] ?? '')) === '') {
                 throw DurableEurOrderGuard::failure();
             }
+            $optionResult = $this->db->query("SELECT `product_option_id`, `product_option_value_id`, `value`, `type` FROM `{$prefix}order_option` WHERE `order_id` = {$proof->orderId} AND `order_product_id` = " . (int) ($line['order_product_id'] ?? 0));
+            $options = is_object($optionResult) ? ($optionResult->rows ?? []) : [];
             $products[] = [
                 'product_id' => (int) $line['product_id'],
                 'name' => (string) $line['name'],
@@ -86,13 +86,14 @@ final class DurableEurResumeHydrator
                 'price' => (float) ($line['price'] ?? 0),
                 'total' => $total,
                 'tax' => (float) ($line['tax'] ?? 0),
+                'option' => $options,
             ];
         }
         $submission->customer = $customer;
         $submission->billingAddress = $adapter->billingAddressFromResolved($resolved['input'], $customer);
         $submission->shippingAddress = $adapter->shippingAddressFromOrder($order, $submission->billingAddress);
         $scheme = new AvailableScheme(
-            'standard', (string) $snapshot['kop_code'], (int) $snapshot['months'], 0, null, []
+            $snapshot['scheme_type'], $snapshot['kop_code'], $snapshot['months'], $snapshot['filter_id'], null, []
         );
         $submission->financingCalculation = new CalculationResult(
             $scheme,

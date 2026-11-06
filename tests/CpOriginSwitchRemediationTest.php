@@ -245,7 +245,7 @@ $port = new class implements U\ControlPanelOrderStatusPort {
     public int $calls = 0;
     public function updateOrderStatus(string $order, string $status, string $id): array { ++$this->calls; return []; }
 };
-$service = new U\ControlPanelStatusSyncService(new U\ControlPanelStatusSyncRepository($db), $port);
+$service = new U\ControlPanelStatusSyncService(new U\ControlPanelStatusSyncRepository($db), $port, new U\DurableConsentAuthority($db));
 $blocked = 0; $preserved = true;
 foreach ([$oldOrigin, null] as $origin) {
     foreach ([U\ControlPanelStatusSyncStates::PENDING, U\ControlPanelStatusSyncStates::CONFIRMED] as $state) {

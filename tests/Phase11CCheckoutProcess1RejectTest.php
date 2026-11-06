@@ -104,9 +104,9 @@ final class Phase11CCheckoutProcess1RejectTest extends TestCase
         $src = (string) file_get_contents(
             dirname(__DIR__) . '/catalog/controller/payment/mt_uni_credit.php'
         );
-        // Terminal reject must call status apply BEFORE return — not skip to early return without it.
+        // New-format terminal rejection applies commerce status after durable authority. Legacy outcome retrieval remains read-only.
         self::assertMatchesRegularExpression(
-            '/isSmartUcfTerminalFailure[\s\S]{0,400}applyCheckoutUniCreditOrderStatus/s',
+            '/isSmartUcfTerminalFailure[\s\S]*?guardOrderStatus[\s\S]*?applyCheckoutUniCreditOrderStatus[\s\S]*?return \$payload;/s',
             $src
         );
         self::assertStringNotContainsString('config_void_status_id', $src);
@@ -249,7 +249,10 @@ final class Phase11CCheckoutProcess1RejectTest extends TestCase
             hash('sha256', 'checkout-p1-reject-op'),
             hash('sha256', 'checkout-p1-reject-actor'),
             hash('sha256', 'checkout-p1-reject-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID
+            PersistenceIntegrationHarness::TEST_UNICID,
+            null,
+            null,
+            \MtUniCredit\Tests\Support\ConsentFixture::seedForEntry($submission->entryPoint, isset($submission) ? $submission : null)
         );
         $attemptId = (int) $row['attempt_id'];
         $attempts->attachOrder($attemptId, $orderId);
