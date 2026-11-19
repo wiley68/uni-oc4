@@ -29,7 +29,6 @@ class MtUniCredit extends \Opencart\System\Engine\Model
         return [
             ModuleConstants::MODULE_SETTING_CODE . '_status' => 0,
             ModuleCredentialsRepository::UNICID_SETTING      => '',
-            ModuleLocalSettings::ADVERTISING_ENABLED         => ModuleLocalSettings::DEFAULT_ADVERTISING_ENABLED,
             ModuleLocalSettings::DEBUG_ENABLED               => ModuleLocalSettings::DEFAULT_DEBUG_ENABLED,
             ModuleLocalSettings::PRODUCT_BUTTON_ACTION       => ModuleLocalSettings::DEFAULT_PRODUCT_BUTTON_ACTION,
             ModuleLocalSettings::BUTTON_TOP_SPACING          => ModuleLocalSettings::DEFAULT_BUTTON_TOP_SPACING,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Resolves homepage advertising view-model once per request (cache-only CP shop).
+ * Resolves homepage advertising view-model once per request using CP presentation policy.
  */
 final class HomepageAdvertisingContextResolver
 {
@@ -26,7 +26,6 @@ final class HomepageAdvertisingContextResolver
     public function resolve(
         bool $isHomepage,
         bool $moduleEnabled,
-        bool $advertisingEnabled,
         bool $isMobile,
         string $defaultLogoUrl
     ): ?array {
@@ -34,7 +33,6 @@ final class HomepageAdvertisingContextResolver
             (string) $this->storeId,
             $isHomepage ? '1' : '0',
             $moduleEnabled ? '1' : '0',
-            $advertisingEnabled ? '1' : '0',
             $isMobile ? '1' : '0',
         ]);
         if (array_key_exists($cacheKey, self::$requestCache)) {
@@ -48,7 +46,6 @@ final class HomepageAdvertisingContextResolver
             || !$this->gate->allowsLocalSettings(
                 $moduleEnabled,
                 $moduleEnabled,
-                $advertisingEnabled,
                 $this->credentials->getUnicid($this->storeId)
             )
         ) {

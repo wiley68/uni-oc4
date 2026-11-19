@@ -12,7 +12,7 @@ final class ModuleConstants
 {
     public const EXTENSION_CODE = 'mt_uni_credit';
 
-    public const VERSION = '2.0.3';
+    public const VERSION = '2.0.4';
 
     public const MODULE_SETTING_CODE = 'module_mt_uni_credit';
 

@@ -12,13 +12,13 @@ use MtUniCredit\Tests\Support\ProductFinancingTestHarness;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Development cycle: module version is 2.0.3.
+ * Current release: module version is 2.0.4.
  */
 final class ModuleVersionFreezeTest extends TestCase
 {
-    public function testAuthoritativeModuleVersionIsFrozenAt203(): void
+    public function testAuthoritativeModuleVersionIsFrozenAt204(): void
     {
-        self::assertSame('2.0.3', ModuleConstants::VERSION);
+        self::assertSame('2.0.4', ModuleConstants::VERSION);
     }
 
     public function testInstallJsonMatchesAuthoritativeVersion(): void
@@ -30,7 +30,7 @@ final class ModuleVersionFreezeTest extends TestCase
             JSON_THROW_ON_ERROR
         );
         self::assertSame(ModuleConstants::VERSION, $install['version']);
-        self::assertSame('2.0.3', $install['version']);
+        self::assertSame('2.0.4', $install['version']);
     }
 
     public function testControlPanelPayloadUsesAuthoritativeVersion(): void
@@ -43,13 +43,13 @@ final class ModuleVersionFreezeTest extends TestCase
             ProductFinancingTestHarness::shop()
         );
         self::assertSame(ModuleConstants::VERSION, $payload['version']);
-        self::assertSame('2.0.3', $payload['version']);
+        self::assertSame('2.0.4', $payload['version']);
     }
 
     public function testProductionRuntimeDoesNotHardcodeLaterModuleReleaseVersions(): void
     {
         $root = dirname(__DIR__);
-        $forbidden = ['2.0.4', '2.0.5'];
+        $forbidden = ['2.0.5', '2.0.6'];
         $paths = [
             $root . '/system/library',
             $root . '/admin',

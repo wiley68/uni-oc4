@@ -82,13 +82,11 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
         $data['entry_status'] = $this->language->get('entry_status');
         $data['entry_unicid'] = $this->language->get('entry_unicid');
         $data['entry_secret'] = $this->language->get('entry_secret');
-        $data['entry_advertising_enabled'] = $this->language->get('entry_advertising_enabled');
         $data['entry_debug_enabled'] = $this->language->get('entry_debug_enabled');
         $data['entry_product_button_action'] = $this->language->get('entry_product_button_action');
         $data['entry_button_top_spacing'] = $this->language->get('entry_button_top_spacing');
         $data['help_unicid'] = $this->language->get('help_unicid');
         $data['help_secret'] = $this->language->get('help_secret');
-        $data['help_advertising_enabled'] = $this->language->get('help_advertising_enabled');
         $data['help_debug_enabled'] = $this->language->get('help_debug_enabled');
         $data['help_product_button_action'] = $this->language->get('help_product_button_action');
         $data['help_button_top_spacing'] = $this->language->get('help_button_top_spacing');

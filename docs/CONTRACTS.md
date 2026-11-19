@@ -24,17 +24,9 @@ When `uni_proces === 1`, after CP create the module validates EGN + phone2, stor
 
 Автоматичните фикстури са в `tests/fixtures/`. Тестовете **не** викат жив CP или SmartUCF.
 
-## Development version freeze
+## Current release version
 
-```text
-The UniCredit OpenCart module version is frozen at 2.0.2 for the entire current development cycle.
-
-Do not increment it during implementation phases, bug fixes, audits, remediation, testing, or release preparation.
-
-The first completed release of this development line will be tagged v2.0.2.
-
-Only after tag/release v2.0.2 may subsequent development increment the module version.
-```
+The current module release is **2.0.4**, authorized by UNI-OC4-ADS-003. Keep the version unchanged outside an explicitly authorized release. The original v2.0.2 development freeze and the v2.0.2/v2.0.3 release history are historical context, not current-version declarations.
 
 Authoritative source: `ModuleConstants::VERSION`. See `docs/RELEASE.md`.
 
@@ -82,7 +74,7 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `products_*`               | optional string; CP **без** max; DB `text`                                         |
 | `type_client`              | 0–255, default **0**; PS9: `0` ако `_is_mobile`, иначе `1`                         |
 | `currency`                 | CP historical validation accepts BGN/EUR; OC4 explicitly sends **EUR** and rejects any other value before HTTP                   |
-| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.3**                       |
+| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.4**                       |
 | `status` / `status_id`     | optional string max 255, **не** са enum; default `Създаден в КП Банка` / `cp_sent` |
 
 Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `status` / `status_id` — CP прилага default `cp_sent`.  

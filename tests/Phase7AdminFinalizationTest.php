@@ -28,7 +28,7 @@ final class Phase7AdminFinalizationTest extends TestCase
         self::assertStringContainsString('module_mt_uni_credit_status', $twig);
         self::assertStringContainsString(ModuleCredentialsRepository::UNICID_SETTING, $twig);
         self::assertStringContainsString(ModuleCredentialsRepository::SECRET_SETTING, $twig);
-        self::assertStringContainsString(ModuleLocalSettings::ADVERTISING_ENABLED, $twig);
+        self::assertStringNotContainsString('advertising_enabled', $twig);
         self::assertStringContainsString(ModuleLocalSettings::DEBUG_ENABLED, $twig);
         self::assertStringContainsString(ModuleLocalSettings::PRODUCT_BUTTON_ACTION, $twig);
         self::assertStringContainsString(ModuleLocalSettings::BUTTON_TOP_SPACING, $twig);
@@ -63,7 +63,6 @@ final class Phase7AdminFinalizationTest extends TestCase
 
     public function testModuleLocalSettingsMatchPs9Semantics(): void
     {
-        self::assertSame(0, ModuleLocalSettings::DEFAULT_ADVERTISING_ENABLED);
         self::assertSame(0, ModuleLocalSettings::DEFAULT_DEBUG_ENABLED);
         self::assertSame('add_to_cart', ModuleLocalSettings::DEFAULT_PRODUCT_BUTTON_ACTION);
         self::assertSame(0, ModuleLocalSettings::DEFAULT_BUTTON_TOP_SPACING);

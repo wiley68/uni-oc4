@@ -8,7 +8,6 @@ use Opencart\System\Library\Extension\MtUniCredit\HomepageAdvertisingGate;
 use Opencart\System\Library\Extension\MtUniCredit\HomepageAdvertisingPresenter;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleAssetVersion;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
-use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartDbConnection;
 use Opencart\System\Library\Extension\MtUniCredit\OpenCartModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\StorefrontMobileDetector;
@@ -49,9 +48,6 @@ class MtUniCreditHomeController extends \Opencart\System\Engine\Controller
         }
 
         $moduleEnabled = (bool) $this->config->get(ModuleConstants::MODULE_SETTING_CODE . '_status');
-        $advertisingEnabled = ModuleLocalSettings::normalizeFlag(
-            $this->config->get(ModuleLocalSettings::ADVERTISING_ENABLED)
-        ) === 1;
 
         $storeId = (int) ($this->config->get('config_store_id') ?? 0);
         $connection = new OpenCartDbConnection($this->db, DB_PREFIX);
@@ -75,7 +71,6 @@ class MtUniCreditHomeController extends \Opencart\System\Engine\Controller
         return $resolver->resolve(
             StorefrontRouteResolver::isHomepageRoute($route),
             $moduleEnabled,
-            $advertisingEnabled,
             StorefrontMobileDetector::isMobile((string) ($this->request->server['HTTP_USER_AGENT'] ?? '')),
             $this->defaultLogoUrl()
         );

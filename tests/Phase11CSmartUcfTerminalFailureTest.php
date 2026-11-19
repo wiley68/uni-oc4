@@ -394,8 +394,8 @@ final class Phase11CSmartUcfTerminalFailureTest extends TestCase
         self::assertSame('https://shop.test/success', $result->redirectUrl);
     }
 
-    public function testModuleVersionRemains202(): void
+    public function testModuleVersionRemains204(): void
     {
-        self::assertSame('2.0.3', ModuleConstants::VERSION);
+        self::assertSame('2.0.4', ModuleConstants::VERSION);
     }
 }

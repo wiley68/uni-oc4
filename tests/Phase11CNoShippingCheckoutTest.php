@@ -277,9 +277,9 @@ final class Phase11CNoShippingCheckoutTest extends TestCase
         self::assertSame(['address'], $resolved['missing']);
     }
 
-    public function testModuleVersionRemains202(): void
+    public function testModuleVersionRemains204(): void
     {
-        self::assertSame('2.0.3', ModuleConstants::VERSION);
+        self::assertSame('2.0.4', ModuleConstants::VERSION);
     }
 
     public function testLoggedNoShippingCheckoutSubmitProcess1(): void

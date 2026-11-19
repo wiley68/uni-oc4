@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Woo mtuc_get_reklama_context() permission split:
- * local settings (assets) vs CP shop flags (markup).
+ * Homepage/module eligibility plus centrally controlled CP advertising flags.
  */
 final class HomepageAdvertisingGate
 {
@@ -18,12 +17,10 @@ final class HomepageAdvertisingGate
     public function allowsLocalSettings(
         bool $moduleActive,
         bool $moduleEnabled,
-        bool $advertisingEnabled,
         string $unicid
     ): bool {
         return $moduleActive
             && $moduleEnabled
-            && $advertisingEnabled
             && trim($unicid) !== '';
     }
 
@@ -34,11 +31,10 @@ final class HomepageAdvertisingGate
         string $route,
         bool $moduleActive,
         bool $moduleEnabled,
-        bool $advertisingEnabled,
         string $unicid
     ): bool {
         return $this->allowsPage($route)
-            && $this->allowsLocalSettings($moduleActive, $moduleEnabled, $advertisingEnabled, $unicid);
+            && $this->allowsLocalSettings($moduleActive, $moduleEnabled, $unicid);
     }
 
     /**

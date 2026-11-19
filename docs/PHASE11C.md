@@ -5,8 +5,8 @@
 ## Scope
 
 - Homepage floating UniCredit advertising trigger (left side) + desktop popup panel.
-- Cache-only CP shop configuration (`ShopConfigurationService::getCachedOnly()`).
-- Local operator toggle: `module_mt_uni_credit_advertising_enabled`.
+- CP shop configuration via `ShopConfigurationService::getForPresentation()` (fresh cache, refresh, bounded last-known-good fallback).
+- Central CP advertising control; the historical local toggle is retired by UNI-OC4-ADS-001.
 - Parity reference: PS9 → PS8 → Woo (`HomepageAdvertisingGate` / `HomepageAdvertisingPresenter`).
 
 Out of scope: Product/Cart/Checkout financing lifecycle, Process 1/2, CP order creation, emails, admin orders.
@@ -17,11 +17,12 @@ Show advertising **only when all** are true:
 
 1. Route is homepage (`common/home` or default empty route).
 2. Module enabled (`module_mt_uni_credit_status`).
-3. Local advertising enabled (`module_mt_uni_credit_advertising_enabled`).
-4. UNICID configured for `store_id`.
-5. Cached CP shop has `uni_status` **and** `uni_container_status` yes-flags.
+3. UNICID configured for `store_id`.
+4. CP presentation snapshot has `uni_status` **and** `uni_container_status` yes-flags.
 
-Fail closed when cache missing/stale or CP flags off.
+The historical `module_mt_uni_credit_advertising_enabled` value (0, 1 or absent) has no effect on markup or assets. Existing records survive settings saves; new installations do not initialize the retired key. Install/uninstall hooks and cleanup are unchanged.
+
+The existing CP policy is unchanged: fresh cache TTL is 86400 seconds; stale/missing cache triggers refresh, with last-known-good allowed for presentation for up to 21600 seconds after expiry on eligible transient errors or lock contention. Unusable configuration/errors and CP flags off suppress both markup and assets. Authenticated CP push and the admin bank-data refresh continue to replace the snapshot.
 
 ## CP payload fields (existing contract)
 
@@ -54,13 +55,15 @@ No OpenCart core template edits.
 
 `tests/Phase11CHomepageAdvertisingTest.php` — gate matrix, presenter URL safety, homepage-only routes, event registration, asset cache busting, modal ID isolation, cache refresh, multistore resolver.
 
+`tests/CentralizedAdvertisingControlTest.php` — real homepage callbacks with synthetic settings/cache, CP ON/OFF × historical values, other page/module/UNICID/shop restrictions, admin save/history preservation, cache TTL/refresh/push/fallback. No application bootstrap, real SQL writes or real CP calls.
+
 ## Operator gate
 
-1. Local advertising OFF → no trigger on homepage.
-2. Local ON + valid CP advertising → left float + popup (desktop) / direct external open (mobile).
+1. Admin advertising toggle is absent; other settings remain available.
+2. CP advertising ON + existing eligibility → left float + popup (desktop) / direct external open (mobile), independent of the historical local value.
 3. CP shop-cache refresh → next homepage load shows updated content.
 
-Module version remains **2.0.2**.
+Current advertising release: **2.0.4** (UNI-OC4-ADS-003). Owner acceptance OC4-01 through OC4-08: **8/8 PASS**. See [RELEASE-NOTES-v2.0.4.md](RELEASE-NOTES-v2.0.4.md). The remediation sections below retain their historical phase versions.
 
 ## Checkout Process 2 loader (Remediation 02)
 

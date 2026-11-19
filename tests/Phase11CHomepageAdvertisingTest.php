@@ -11,7 +11,6 @@ use Opencart\System\Library\Extension\MtUniCredit\HomepageAdvertisingPresenter;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleAssetVersion;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleCredentialsRepository;
-use Opencart\System\Library\Extension\MtUniCredit\ModuleLocalSettings;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleSettingCipher;
 use Opencart\System\Library\Extension\MtUniCredit\InMemoryModuleSettingStore;
 use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationService;
@@ -51,15 +50,14 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
         self::assertFalse($gate->allowsPage('checkout/checkout'));
         self::assertFalse($gate->allowsPage('product/category'));
 
-        self::assertTrue($gate->allowsLocalSettings(true, true, true, 'SHOP-1'));
-        self::assertFalse($gate->allowsLocalSettings(false, true, true, 'SHOP-1'));
-        self::assertFalse($gate->allowsLocalSettings(true, false, true, 'SHOP-1'));
-        self::assertFalse($gate->allowsLocalSettings(true, true, false, 'SHOP-1'));
-        self::assertFalse($gate->allowsLocalSettings(true, true, true, ''));
+        self::assertTrue($gate->allowsLocalSettings(true, true, 'SHOP-1'));
+        self::assertFalse($gate->allowsLocalSettings(false, true, 'SHOP-1'));
+        self::assertFalse($gate->allowsLocalSettings(true, false, 'SHOP-1'));
+        self::assertFalse($gate->allowsLocalSettings(true, true, ''));
 
-        self::assertTrue($gate->allowsAssets('common/home', true, true, true, 'SHOP-1'));
-        self::assertFalse($gate->allowsAssets('product/product', true, true, true, 'SHOP-1'));
-        self::assertFalse($gate->allowsAssets('common/home', true, true, false, 'SHOP-1'));
+        self::assertTrue($gate->allowsAssets('common/home', true, true, 'SHOP-1'));
+        self::assertFalse($gate->allowsAssets('product/product', true, true, 'SHOP-1'));
+        self::assertFalse($gate->allowsAssets('common/home', true, false, 'SHOP-1'));
 
         self::assertTrue($gate->allowsShop(['uni_status' => 1, 'uni_container_status' => 1]));
         self::assertTrue($gate->allowsShop(['uni_status' => 'Yes', 'uni_container_status' => '1']));
@@ -101,11 +99,6 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
         self::assertSame(self::LOGO, $unsafe['float_image_url']);
 
         self::assertNull($presenter->present(['uni_status' => 0, 'uni_container_status' => 1], false, self::LOGO));
-    }
-
-    public function testLocalAdvertisingSettingKeyIsFrozen(): void
-    {
-        self::assertSame('module_mt_uni_credit_advertising_enabled', ModuleLocalSettings::ADVERTISING_ENABLED);
     }
 
     public function testEventRegistryRegistersHomepageAdvertisingHooks(): void
@@ -218,8 +211,8 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
             1
         );
 
-        $ctx0 = $resolver0->resolve(true, true, true, false, self::LOGO);
-        $ctx1 = $resolver1->resolve(true, true, true, false, self::LOGO);
+        $ctx0 = $resolver0->resolve(true, true, false, self::LOGO);
+        $ctx1 = $resolver1->resolve(true, true, false, self::LOGO);
         self::assertSame('Заглавие', $ctx0['txt1'] ?? '');
         self::assertSame('Store 1 title', $ctx1['txt1'] ?? '');
     }
@@ -245,9 +238,9 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
             0
         );
 
-        self::assertSame('Заглавие', $resolver->resolve(true, true, true, false, self::LOGO)['txt1'] ?? '');
+        self::assertSame('Заглавие', $resolver->resolve(true, true, false, self::LOGO)['txt1'] ?? '');
         HomepageAdvertisingContextResolver::resetRequestCache();
-        self::assertSame('Updated title', $resolver->resolve(true, true, true, false, self::LOGO)['txt1'] ?? '');
+        self::assertSame('Updated title', $resolver->resolve(true, true, false, self::LOGO)['txt1'] ?? '');
     }
 
     public function testRouteResolverHomepageOnly(): void
@@ -260,7 +253,7 @@ final class Phase11CHomepageAdvertisingTest extends TestCase
 
     public function testModuleVersionRemainsFrozen(): void
     {
-        self::assertSame('2.0.3', ModuleConstants::VERSION);
+        self::assertSame('2.0.4', ModuleConstants::VERSION);
     }
 
     public function testDomFixtureOpenCloseEscapeAndFocusRestore(): void
