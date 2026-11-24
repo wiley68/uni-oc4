@@ -78,7 +78,7 @@ final class Phase11CProductBuySchemeCheckoutIntegrationTest extends TestCase
 
     public function testVersionFrozen(): void
     {
-        self::assertSame('2.0.4', ModuleConstants::VERSION);
+        self::assertSame('2.0.5', ModuleConstants::VERSION);
     }
 
     public function testFullHandoffFlowPreferenceSurvivesPaymentDiscovery(): void

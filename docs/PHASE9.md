@@ -161,12 +161,7 @@ Confirm button wording: `Потвърди поръчката` / `Confirm order`.
 
 ### Frozen future contracts (not implemented in Phase 9)
 
-**Process 2 Checkout UI** — only additional UniCredit panel fields allowed later:
-
-```text
-egn
-phone2
-```
+**Current Process 2 Checkout UI (UNI-OC4-PROCESS2-FIELDS-001):** EGN/phone2 are permanently removed. The financing panel submits selection/security parameters and consents; native order/session data supplies customer identity and address. New sensitive ciphertext is SQL NULL. Existing `confirm()` recovery needs no sensitive decryption. Product/Cart keep their five applicant fields and additional address contract; Process 1 and CP payloads remain unchanged.
 
 Do **not** add firstname / lastname / primary telephone / email / address to the Checkout financing panel; those stay native OpenCart.
 

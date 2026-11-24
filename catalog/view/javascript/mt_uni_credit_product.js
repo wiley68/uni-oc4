@@ -695,22 +695,6 @@
       return email !== "" && EMAIL_VALID_PATTERN.test(email);
     }
 
-    /** EGN: 10 digits; first 8 form a valid YYYYMMDD calendar date (PHP checkdate parity). */
-    function isValidEgn(digits) {
-      if (!/^\d{10}$/.test(digits)) {
-        return false;
-      }
-      const year = parseInt(digits.slice(0, 4), 10);
-      const month = parseInt(digits.slice(4, 6), 10);
-      const day = parseInt(digits.slice(6, 8), 10);
-      const date = new Date(year, month - 1, day);
-      return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
-      );
-    }
-
     function consentCheckboxes() {
       const scope = activeProductFinancingForm() || step2Root() || modal;
       if (!scope) {
@@ -788,11 +772,6 @@
       }
     }
 
-    /**
-     * Process / DOM aware readiness:
-     * - Process 1: only rendered base fields (no EGN / phone2).
-     * - Process 2: validate egn/phone2 only when those inputs exist in the DOM.
-     */
     function getStep2FieldErrors() {
       const errors = {};
       if (!isNonEmpty(customerField("firstname")?.value)) {
@@ -817,26 +796,6 @@
         errors.email = "Въведете валиден e-mail адрес.";
       }
 
-      // Process 2 only when rendered (never require hidden Process 2 fields in Process 1).
-      const egnField = customerField("egn");
-      if (egnField) {
-        const egn = String(egnField.value || "").replace(/\D/g, "");
-        if (egn === "") {
-          errors.egn = "Полето е задължително.";
-        } else if (!isValidEgn(egn)) {
-          errors.egn =
-            "ЕГН трябва да съдържа 10 цифри. Първите 8 трябва да са валидна дата във формат ГГГГММДД.";
-        }
-      }
-      const phone2Field = customerField("phone2");
-      if (phone2Field) {
-        const phone2 = phone2Field.value;
-        if (!isNonEmpty(phone2)) {
-          errors.phone2 = "Полето е задължително.";
-        } else if (!isValidPhone(phone2)) {
-          errors.phone2 = "Въведете валиден телефонен номер.";
-        }
-      }
       return errors;
     }
 
@@ -877,7 +836,7 @@
           return;
         }
         const name = target.getAttribute("name") || "";
-        if (name === "phone" || name === "phone2") {
+        if (name === "phone") {
           const sanitized = sanitizePhoneValue(target.value);
           if (target.value !== sanitized) {
             target.value = sanitized;
@@ -1694,9 +1653,16 @@
       try {
         const payload = buildSelectionPayload(scheme);
         payload.submission_token = submissionToken;
+        const applicantFields = [
+          "firstname", "first_name", "lastname", "last_name", "email", "telephone", "phone",
+          "address", "address_1", "address_2", "city", "postcode", "zone", "zone_id",
+          "country", "country_id", "company", "address_id", "shipping_address_id", "consent[]",
+        ];
         const formData = new FormData(activeForm);
         formData.forEach((value, key) => {
-          payload[key] = value;
+          if (!state.modal?.process2 || applicantFields.includes(key)) {
+            payload[key] = value;
+          }
         });
         activeForm
           .querySelectorAll('input[name="consent[]"]:checked')

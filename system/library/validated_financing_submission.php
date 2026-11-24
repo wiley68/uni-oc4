@@ -45,8 +45,6 @@ final class ValidatedFinancingSubmission
 
     public int $consentAttemptId = 0;
 
-    public ?ProcessTwoSensitiveData $process2Sensitive = null;
-
     public ?DurableEurOrderProof $eurOrderProof = null;
 
     public function __construct(

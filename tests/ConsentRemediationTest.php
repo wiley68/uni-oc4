@@ -312,20 +312,10 @@ final class ConsentRemediationTest extends TestCase
         self::assertSame([3],$r->validateDescriptors($rows,['3']));
     }
 
-    public function testFinalizedProcessTwoMissingSecretReachesEncryptionGuard(): void
+    public function testRetiredWriterIsUnavailable(): void
     {
-        $db = new ConsentFakeDb(); $s = H::productSubmission();
-        $db->rows[1] = ConsentFixture::row($s, [], true, ['uni_proces'=>1]);
-        try {
-            U\ProcessTwoSubmissionSupport::persist($s,1,$db,new U\ProcessTwoSensitiveData('1990011599','0888123456'),'');
-            self::fail('Missing encryption secret was accepted');
-        } catch (U\ProductFinancingFlowException $e) {
-            self::assertSame('process2_encryption_unavailable',$e->errorCode());
-            self::assertStringNotContainsString('DB_PASSWORD',$e->getMessage());
-        }
-        self::assertSame([],$db->effectQueries());
-        self::assertStringNotContainsString('1990011599',json_encode($db->rows));
-        self::assertStringNotContainsString('0888123456',json_encode($db->rows));
+        self::assertFalse(class_exists(U\ProcessTwoSubmissionSupport::class));
+        self::assertFalse(method_exists(U\ProcessTwoLifecycleRepository::class, 'persistSensitiveEncrypted'));
     }
 
     public function testAllCasBindingPredicatesRejectConcurrentChanges(): void

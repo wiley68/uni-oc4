@@ -251,19 +251,6 @@
       return root.querySelector(`[data-mtuc-field-error="${name}"]`);
     }
 
-    function clearProcess2FieldErrors() {
-      ["egn", "phone2"].forEach((name) => {
-        const el = fieldError(name);
-        if (el) {
-          el.textContent = "";
-        }
-        const input = root.querySelector(`[name="${name}"]`);
-        if (input) {
-          input.setAttribute("aria-invalid", "false");
-        }
-      });
-    }
-
     function showFieldErrors(errors) {
       if (!errors || typeof errors !== "object") {
         return;
@@ -278,62 +265,6 @@
           input.setAttribute("aria-invalid", message ? "true" : "false");
         }
       });
-    }
-
-    function sanitizePhone2Value(value) {
-      return String(value || "")
-        .split("")
-        .filter((char) => /[-0-9+() ]/.test(char))
-        .join("");
-    }
-
-    function isValidPhone2(value) {
-      const phone = String(value || "").trim();
-      return phone !== "" && /^[-0-9+() ]+$/.test(phone) && /\d/.test(phone);
-    }
-
-    /** EGN: 10 digits; first 8 form a valid YYYYMMDD calendar date (PHP checkdate parity). */
-    function isValidEgn(digits) {
-      if (!/^\d{10}$/.test(digits)) {
-        return false;
-      }
-      const year = parseInt(digits.slice(0, 4), 10);
-      const month = parseInt(digits.slice(4, 6), 10);
-      const day = parseInt(digits.slice(6, 8), 10);
-      const date = new Date(year, month - 1, day);
-      return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
-      );
-    }
-
-    function getProcess2FieldErrors() {
-      const errors = {};
-      const egnField = root.querySelector('[name="egn"]');
-      if (egnField) {
-        const egn = String(egnField.value || "").replace(/\D/g, "");
-        if (egn === "") {
-          errors.egn = "Полето „ЕГН“ е задължително.";
-        } else if (!isValidEgn(egn)) {
-          errors.egn =
-            "Въведете валидно ЕГН (10 цифри, първите 8 — дата YYYYMMDD).";
-        }
-      }
-      const phone2Field = root.querySelector('[name="phone2"]');
-      if (phone2Field) {
-        const phone2 = String(phone2Field.value || "").trim();
-        if (phone2 === "") {
-          errors.phone2 = "Полето „Втори телефон“ е задължително.";
-        } else if (!isValidPhone2(phone2)) {
-          errors.phone2 = "Въведете валиден втори телефонен номер.";
-        }
-      }
-      return errors;
-    }
-
-    function process2FieldsValid() {
-      return Object.keys(getProcess2FieldErrors()).length === 0;
     }
 
     function clearCalculationDisplays() {
@@ -398,7 +329,6 @@
       const valid =
         hasAuthoritativeCalculation() &&
         areMandatoryConsentsChecked() &&
-        process2FieldsValid() &&
         !confirmBusy;
       button.disabled = !valid;
       button.setAttribute("aria-disabled", valid ? "false" : "true");
@@ -700,18 +630,6 @@
         return;
       }
 
-      const process2Errors = getProcess2FieldErrors();
-      if (Object.keys(process2Errors).length) {
-        clearProcess2FieldErrors();
-        showFieldErrors(process2Errors);
-        if (submitErrorEl()) {
-          submitErrorEl().textContent = "Моля, коригирайте данните.";
-        }
-        updateConfirmState();
-        return;
-      }
-      clearProcess2FieldErrors();
-
       confirmBusy = true;
       redirectTerminal = false;
       button.setAttribute("aria-busy", "true");
@@ -725,13 +643,15 @@
         const payload = buildSelectionPayload(scheme);
         payload.submission_token = submissionToken;
         if (form) {
-          const formData = new FormData(form);
-          formData.forEach((value, key) => {
-            if (key === "consent[]") {
-              return;
-            }
-            payload[key] = value;
-          });
+          if (!state.modal?.process2) {
+            const formData = new FormData(form);
+            formData.forEach((value, key) => {
+              if (key === "consent[]") {
+                return;
+              }
+              payload[key] = value;
+            });
+          }
           form
             .querySelectorAll('input[name="consent[]"]:checked')
             .forEach((input, index) => {
@@ -832,26 +752,6 @@
     root.querySelectorAll("[data-mtuc-consent-checkbox]").forEach((box) => {
       box.addEventListener("change", () => updateConfirmState());
     });
-
-    const process2Form = root.querySelector("[data-mtuc-customer-form]");
-    if (process2Form) {
-      process2Form.addEventListener("input", (event) => {
-        const target = event.target;
-        if (!target || !target.getAttribute) {
-          return;
-        }
-        const name = target.getAttribute("name") || "";
-        if (name === "phone2") {
-          const sanitized = sanitizePhone2Value(target.value);
-          if (target.value !== sanitized) {
-            target.value = sanitized;
-          }
-        }
-        if (name === "egn" || name === "phone2") {
-          updateConfirmState();
-        }
-      });
-    }
 
     root.mtucConsentTeardown = () => {
       invalidateConsent(true);

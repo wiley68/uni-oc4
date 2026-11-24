@@ -73,15 +73,14 @@ final class ConsentBoundaryTest extends TestCase
             self::assertSame([],$db->effectQueries());self::assertSame(0,$transport->countOrderCreates());
         }
     }
-    public function testProcess2PreparationStatusPatchMailAndDirectSensitivePersistRefuse(): void
+    public function testProcess2PreparationStatusPatchAndMailRefuseWithoutConsent(): void
     {
         foreach ([null,'bad','issued'] as $kind) {
             $db=new ConsentFakeDb();$s=H::productSubmission();$this->row($db,$s,2);
             $db->rows[1]['consent_context_json']=$kind==='issued'?ConsentFixture::row($s,[],false,['uni_proces'=>1])['consent_context_json']:$kind;
             $port=new RecordingStatusPort();$sync=new U\ControlPanelStatusSyncService(new U\ControlPanelStatusSyncRepository($db),$port,new U\DurableConsentAuthority($db));$mailer=new U\RecordingProcessTwoMailer();
-            $coordinator=new U\ProcessTwoLifecycleCoordinator(new U\ProcessTwoLifecycleRepository($db),new U\OrderBankStatusRepository($db),$sync,new U\ProcessTwoSensitiveCipher(str_repeat('x',32)),$mailer);
+            $coordinator=new U\ProcessTwoLifecycleCoordinator(new U\ProcessTwoLifecycleRepository($db),new U\OrderBankStatusRepository($db),$sync,$mailer);
             $this->refused(fn()=>$coordinator->run(1,$s->storeId,77,['uni_proces'=>1],['order_id'=>77]));
-            $this->refused(fn()=>U\ProcessTwoSubmissionSupport::persist($s,1,$db,new U\ProcessTwoSensitiveData('1990011599','0888123456'),str_repeat('x',32)));
             $this->refused(fn()=>$sync->admitTarget(1,U\BankStatus::SENT_PROCESS2,U\BankStatus::LABEL_SENT_PROCESS2));
             self::assertSame([],$db->effectQueries());self::assertSame([],$mailer->sent);self::assertSame(0,$port->calls);
         }
@@ -96,7 +95,7 @@ final class ConsentBoundaryTest extends TestCase
         self::assertTrue($this->coordinator($db,$client,$transport,$port)->run(1,[],$s,77,99)->isCreated());
         $db->rows[1]['process2_state']='process2_prepared';$mailer=new U\RecordingProcessTwoMailer();
         $sync=new U\ControlPanelStatusSyncService(new U\ControlPanelStatusSyncRepository($db),$port,new U\DurableConsentAuthority($db));
-        $p2=new U\ProcessTwoLifecycleCoordinator(new U\ProcessTwoLifecycleRepository($db),new U\OrderBankStatusRepository($db),$sync,new U\ProcessTwoSensitiveCipher(str_repeat('x',32)),$mailer);
+        $p2=new U\ProcessTwoLifecycleCoordinator(new U\ProcessTwoLifecycleRepository($db),new U\OrderBankStatusRepository($db),$sync,$mailer);
         self::assertTrue($p2->run(1,$s->storeId,77,[],[])->success);self::assertSame([],$db->effectQueries());self::assertSame([],$mailer->sent);self::assertSame(0,$port->calls);
     }
     public function testNewEvidenceSurvivesPresentationRedactionWithNativeEurProof(): void

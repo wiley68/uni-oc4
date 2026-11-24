@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Opencart\System\Library\Extension\MtUniCredit;
 
 /**
- * Process 2 leasing notifications (admin may receive EGN; customer never does).
+ * Process 2 leasing notifications. Legacy sensitive context is ignored for all audiences.
  */
 interface ProcessTwoMailPort
 {

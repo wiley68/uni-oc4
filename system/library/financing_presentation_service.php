@@ -9,12 +9,9 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  */
 final class FinancingPresentationService
 {
-    private bool $cipherResolved = false;
-
     public function __construct(
         private FinancingPresentationRepository $repository,
-        private FinancingLeasingPresenter $presenter = new FinancingLeasingPresenter(),
-        private ?ProcessTwoSensitiveCipher $cipher = null
+        private FinancingLeasingPresenter $presenter = new FinancingLeasingPresenter()
     ) {
     }
 
@@ -28,12 +25,7 @@ final class FinancingPresentationService
             return [];
         }
         $status = $this->repository->findBankStatusLabel($storeId, $orderId);
-        $sensitive = null;
-        if ($this->presenter->includesEgn($audience) || $this->presenter->includesPhone2($audience)) {
-            $sensitive = $this->decryptSensitive($storeId, $orderId);
-        }
-
-        return $this->presenter->rows($snapshot, $status, $audience, $sensitive);
+        return $this->presenter->rows($snapshot, $status, $audience);
     }
 
     public function htmlForOrder(
@@ -59,43 +51,5 @@ final class FinancingPresentationService
     {
         return $this->repository->findByOrderId($storeId, $orderId) !== null
             || $this->repository->findAttemptRowByOrderId($storeId, $orderId) !== null;
-    }
-
-    private function decryptSensitive(int $storeId, int $orderId): ?ProcessTwoSensitiveData
-    {
-        $row = $this->repository->findAttemptRowByOrderId($storeId, $orderId);
-        if ($row === null) {
-            return null;
-        }
-        $enc = (string) ($row['process2_sensitive_enc'] ?? '');
-        if ($enc === '') {
-            return null;
-        }
-        $cipher = $this->resolveCipher();
-        if ($cipher === null) {
-            return null;
-        }
-        try {
-            return $cipher->decrypt($enc);
-        } catch (\Throwable) {
-            error_log('mt_uni_credit: leasing presentation sensitive decrypt failed order_id=' . $orderId);
-
-            return null;
-        }
-    }
-
-    private function resolveCipher(): ?ProcessTwoSensitiveCipher
-    {
-        if ($this->cipher !== null || $this->cipherResolved) {
-            return $this->cipher;
-        }
-        $this->cipherResolved = true;
-        try {
-            $this->cipher = new ProcessTwoSensitiveCipher();
-        } catch (\Throwable) {
-            $this->cipher = null;
-        }
-
-        return $this->cipher;
     }
 }

@@ -11,24 +11,6 @@ final class ProcessTwoLifecycleRepository
         $this->clock ??= new PersistenceClock();
     }
 
-    public function persistSensitiveEncrypted(int $attemptId, string $encryptedPayload): void
-    {
-        (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, null, 2);
-        if ($attemptId <= 0 || $encryptedPayload === '') {
-            throw new PersistenceValidationException('Process 2 sensitive payload could not be stored.');
-        }
-        $now = $this->now();
-        $this->db->query(
-            "UPDATE `{$this->tableName()}`
-             SET `process2_sensitive_enc` = '" . $this->db->escape($encryptedPayload) . "',
-                 `updated_at` = '" . $this->db->escape($now) . "'
-             WHERE `attempt_id` = " . (int) $attemptId
-        );
-        if ($this->db->countAffected() !== 1) {
-            throw new PersistenceException('Process 2 sensitive payload update failed.');
-        }
-    }
-
     public function database(): DbConnection
     {
         return $this->db;

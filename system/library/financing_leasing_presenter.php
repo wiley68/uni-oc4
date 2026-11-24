@@ -83,12 +83,6 @@ final class FinancingLeasingPresenter
         ];
 
         if ($snapshot->process2) {
-            if ($this->includesEgn($audience) && $sensitive !== null && $sensitive->egn !== '') {
-                $rows[] = ['label' => self::LABEL_EGN, 'value' => $sensitive->egn];
-            }
-            if ($this->includesPhone2($audience) && $sensitive !== null && $sensitive->phone2 !== '') {
-                $rows[] = ['label' => self::LABEL_PHONE2, 'value' => $sensitive->phone2];
-            }
             if ($audience === FinancingPresentationAudience::CUSTOMER) {
                 $rows[] = ['label' => self::LABEL_MESSAGE, 'value' => self::PROCESS2_MESSAGE];
             }
@@ -188,12 +182,11 @@ final class FinancingLeasingPresenter
 
     public function includesEgn(string $audience): bool
     {
-        return $audience === FinancingPresentationAudience::ADMIN_EMAIL
-            || $audience === FinancingPresentationAudience::ADMIN_PANEL;
+        return false;
     }
 
     public function includesPhone2(string $audience): bool
     {
-        return $audience !== FinancingPresentationAudience::CUSTOMER;
+        return false;
     }
 }

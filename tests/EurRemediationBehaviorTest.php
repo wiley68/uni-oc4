@@ -381,7 +381,6 @@ final class EurRemediationBehaviorTest extends TestCase
         $submission->eurOrderProof = new U\DurableEurOrderProof(123, P::STORE_ID, 1, 0.5, 1200, 600);
         $payload = (new U\ControlPanelOrderPayloadBuilder())->build($submission, 123, P::shop());
         $attempts->persistCpPayload($id, $payload);
-        U\ProcessTwoSubmissionSupport::validateAndPersist(['uni_proces' => 1], ['egn' => '1990011599', 'phone2' => '0888123456'], $submission, $id, $db);
         $table = $db->getPrefix() . U\PersistenceTableNames::FINANCING_ATTEMPT;
         $cpId = $state === 'cp_created' ? '901' : 'NULL';
         $process = $state === 'cp_created' ? 'process2_prepared' : 'not_started';

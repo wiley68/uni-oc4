@@ -11,6 +11,20 @@ final class ProductPopupFormNormalizer
 {
     /**
      * @param array<string, mixed> $posted
+     * @return array<string, mixed>
+     */
+    public static function applicantFields(array $posted): array
+    {
+        return array_intersect_key($posted, array_flip([
+            'firstname', 'first_name', 'lastname', 'last_name', 'email', 'telephone', 'phone',
+            'address', 'address_1', 'address_2', 'city', 'postcode', 'zone', 'zone_id',
+            'country', 'country_id', 'company', 'address_id', 'shipping_address_id',
+            'consent', 'consent[]',
+        ]));
+    }
+
+    /**
+     * @param array<string, mixed> $posted
      * @param array<string, mixed> $storeDefaults country_id, zone_id, country, zone, city, postcode
      * @return array<string, mixed>
      */

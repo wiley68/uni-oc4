@@ -104,12 +104,8 @@ final class OrderMaterializationService
         FinancingAttemptContext $attempt,
         int $orderId
     ): void {
-        $row = $this->attempts->findById($attempt->attemptId()) ?? [];
-        $process2 = ((string) ($row['process2_sensitive_enc'] ?? '') !== '')
-            || (
-                ($row['process2_state'] ?? '') !== ''
-                && (string) ($row['process2_state'] ?? '') !== 'not_started'
-            );
+        $record = (new DurableConsentAuthority($this->attempts->database()))->requireFinalized($attempt->attemptId(), $submission);
+        $process2 = $record['issued']['context']['process'] === 2;
         FinancingPresentationSupport::persistFromSubmission(
             $this->attempts->database(),
             $attempt->attemptId(),

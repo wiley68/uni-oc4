@@ -11,8 +11,7 @@ uni_proces === 1  →  Process 2  (ShopConfigurationFlags::isSecondaryProcess)
 ```text
 local OpenCart order
 → CP POST /orders (omit status → CP default cp_sent)
-→ validate EGN + phone2 (server)
-→ encrypt sensitive payload on financing_attempt
+→ finalized consent evidence; process2_sensitive_enc remains SQL NULL
 → ProcessTwoLifecycleCoordinator:
    claimPreparing → durable cp_status_sync target (bank_sent_process2)
    → local bank_sent_process2 → PATCH → markPrepared → leasing mail (claim token)
@@ -21,22 +20,17 @@ local OpenCart order
 
 ## Fields
 
-| Field                      | Process 1                    | Process 2                                                    |
-| -------------------------- | ---------------------------- | ------------------------------------------------------------ |
-| EGN                        | not rendered / not validated | required — 10 digits, first 8 = valid YYYYMMDD (no checksum) |
-| phone2                     | not rendered                 | required — charset `[-0-9+() ]` + ≥1 digit                   |
-| Product/Cart primary phone | required                     | required (unchanged)                                         |
-| Checkout primary phone     | optional                     | optional (unchanged; phone2 is separate)                     |
+Product/Cart collect five applicant fields: first name, surname, address, primary phone and email. Existing additional address data remains supported. Process 2 EGN and secondary phone are permanently removed from all three entry points. Explicit applicant allowlists exclude old scalar, array, nested and prefixed inputs before normalization/serialization. Process 1 request semantics are unchanged.
 
-EGN/phone2 are validated **before** the attempt transitions to `VALIDATING`, so a field error leaves the attempt in `issued` and the same token remains retryable.
+Primary-phone contracts remain distinct: Product frontend uses its existing charset validation; Cart frontend uses digits/+ with its existing minimum length. Both backends require a nonempty phone of at most 32 characters. Native Checkout takes verified order/session customer and address data; its telephone remains optional, with a 32-character limit when supplied. Both processes still require the existing applicable mandatory consents.
 
 ## Privacy
 
-- EGN/phone2 stored only in `process2_sensitive_enc` (AES-GCM `enc:v1:`), not in CP payload
-- Retention redaction: 180 days (`ProcessTwoLifecycleRepository::redactExpiredSensitiveBatch`)
-- Never log EGN/phone2
-- Customer email: confirmation message only — **no EGN**
-- Admin/`uni_email` mail: EGN + phone2 allowed
+New attempts leave `process2_sensitive_enc` SQL NULL. No new sensitive DTO, encryption or ciphertext write occurs. Process 2 handoff and historical mail retry require no ciphertext or sensitive cipher. Historical ciphertext remains stored under the existing retention policy (180 days from `updated_at`); no migration or bulk cleanup accompanies this change.
+
+The common presenter ignores legacy EGN/phone2 DTO values for every audience. Presentation and retry never decrypt historical ciphertext, including malformed ciphertext. Non-sensitive frozen financing values, consent hashes, process identity, recipients, mail claims and deduplication remain unchanged. Legacy outcomes without consent evidence retain their read-only restrictions.
+
+Diagnostic write/read/export and applicable text paths redact retired aliases case-insensitively, including nested arrays/JSON: `egn`, `clientegn`, `phone2`, `unipayment_egn`, `unipayment_phone2`, `second_phone`, `secondary_phone`, `personal_id`, `phone_2`.
 
 ## States
 
@@ -56,10 +50,10 @@ Shared `FinancingPresentationSnapshot` + `FinancingLeasingPresenter` (frozen amo
 | ---------------------------------- | ----------------- | ------------------ |
 | Thank You                          | customer          | never              |
 | Native OC order email              | customer          | never              |
-| Native admin alert                 | admin_email       | EGN + phone2 (P2)  |
+| Native admin alert                 | admin_email       | never  |
 | Process 2 additional customer mail | customer          | never              |
-| Process 2 additional admin mail    | admin_email       | EGN + phone2 (PS9) |
-| Admin Order detail                 | admin_panel       | EGN + phone2 (PS9) |
+| Process 2 additional admin mail    | admin_email       | never |
+| Admin Order detail                 | admin_panel       | never |
 | Admin Orders list                  | status label only | —                  |
 
 Base leasing block field order (AUTHORITATIVE structure):
@@ -69,7 +63,7 @@ Base leasing block field order (AUTHORITATIVE structure):
 → Първоначална вноска → Сума на заема → Месечна вноска → Обща дължима сума → ГЛП / ГПР
 ```
 
-Then optional audience-sensitive Process 2 fields (EGN/phone2/message) only where privacy rules allow. Do **not** append internal lifecycle / retry / SmartUCF diagnostic rows to this block.
+Only the existing customer confirmation message is appended for Process 2; EGN/phone2 are excluded for all audiences. Do **not** append internal lifecycle / retry / SmartUCF diagnostic rows to this block.
 
 `process2_state` and similar values are **internal/service lifecycle states** — never shown as bank status on customer/business surfaces.
 
@@ -92,4 +86,4 @@ Empty durable bank status does **not** invent `bank_sent_process*` labels (nativ
 - Never write `bank_sent_process1` for Process 2 success
 - Do not use `bank_send_failed_smartucf` for Process 2 validation/mail failures
 - Definitive CP failure (Process 1 or 2) uses public status `Неуспешно изпратен Банка - КП` — never generic `Неуспешно изпратен Банка`
-- Version remains `2.0.3`
+- Prepared module version: `2.0.5` (RELEASE-PREP-01); no Git release or deployment

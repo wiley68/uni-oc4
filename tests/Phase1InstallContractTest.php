@@ -20,7 +20,7 @@ final class Phase1InstallContractTest extends TestCase
         );
 
         self::assertSame('mt_uni_credit', $install['code']);
-        self::assertSame('2.0.4', $install['version']);
+        self::assertSame('2.0.5', $install['version']);
         self::assertSame('module', $install['type']);
         self::assertSame(['admin/controller/module/mt_uni_credit::install'], $install['install']);
         self::assertSame(['admin/controller/module/mt_uni_credit::uninstall'], $install['uninstall']);

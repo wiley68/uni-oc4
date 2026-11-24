@@ -12,13 +12,9 @@ use Opencart\System\Library\Extension\MtUniCredit\BankStatus;
 use Opencart\System\Library\Extension\MtUniCredit\FinancingAttemptRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ModuleConstants;
 use Opencart\System\Library\Extension\MtUniCredit\OrderBankStatusRepository;
-use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoFieldValidator;
 use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLifecycleCoordinator;
 use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLifecycleRepository;
 use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLifecycleStates;
-use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSensitiveCipher;
-use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSensitiveData;
-use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSubmissionSupport;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\RecordingProcessTwoMailer;
 use Opencart\System\Library\Extension\MtUniCredit\ShopConfigurationFlags;
@@ -35,38 +31,16 @@ final class Phase11BProcess2ContractTest extends TestCase
     {
         self::assertTrue(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 1]));
         self::assertFalse(ShopConfigurationFlags::isSecondaryProcess(['uni_proces' => 0]));
-        self::assertSame('2.0.4', ModuleConstants::VERSION);
+        self::assertSame('2.0.5', ModuleConstants::VERSION);
         self::assertSame(BankStatus::SENT_PROCESS2, BankStatus::process2Sent()['status_id']);
         self::assertSame(BankStatus::LABEL_SENT_PROCESS2, BankStatus::process2Sent()['status_label']);
     }
 
-    public function testEgnAndPhone2ValidationParity(): void
+    public function testRetiredInputsAreOutsideApplicantContract(): void
     {
-        $validator = new ProcessTwoFieldValidator();
-        $ok = $validator->validate(['egn' => '1990011599', 'phone2' => '+359 88 123 456']);
-        self::assertSame('1990011599', $ok->egn);
-        self::assertSame('+359 88 123 456', $ok->phone2);
-
-        try {
-            $validator->validate(['egn' => '', 'phone2' => '0888123456']);
-            self::fail('Expected missing EGN to fail');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertArrayHasKey('egn', $exception->fieldErrors());
-        }
-
-        try {
-            $validator->validate(['egn' => '1990011599', 'phone2' => '']);
-            self::fail('Expected missing phone2 to fail');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertArrayHasKey('phone2', $exception->fieldErrors());
-        }
-
-        try {
-            $validator->validate(['egn' => '1990131599', 'phone2' => '0888']);
-            self::fail('Expected invalid EGN date to fail');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertArrayHasKey('egn', $exception->fieldErrors());
-        }
+        self::assertSame(['firstname' => 'Ivan'], \Opencart\System\Library\Extension\MtUniCredit\ProductPopupFormNormalizer::applicantFields([
+            'firstname' => 'Ivan', 'egn' => ['old'], 'phone2' => [['old']],
+        ]));
     }
 
     public function testProcess2SuccessWritesBankStatusWithShopOrderIdAndNoSmartUcf(): void
@@ -107,16 +81,6 @@ final class Phase11BProcess2ContractTest extends TestCase
 
         PersistenceIntegrationHarness::seedSuccessfulEurAttempt($attemptId, 9011, $submission, 777001, true);
 
-        ProcessTwoSubmissionSupport::validateAndPersist(
-            ['uni_proces' => 1],
-            ['egn' => '1990011599', 'phone2' => '0888123456'],
-            $submission,
-            $attemptId,
-            $db,
-            false,
-            ModuleEncryptionKeyProviderTestSecret()
-        );
-
         $transport = new FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate();
         $services = Phase4TestHarness::services($transport, null, $db, $submission->storeId);
@@ -140,7 +104,6 @@ final class Phase11BProcess2ContractTest extends TestCase
             new ProcessTwoLifecycleRepository($db),
             new OrderBankStatusRepository($db),
             $statusSync,
-            new ProcessTwoSensitiveCipher(ModuleEncryptionKeyProviderTestSecret()),
             $mailer
         );
         $coordinator = new SmartUcfSessionCoordinator(
@@ -197,8 +160,9 @@ final class Phase11BProcess2ContractTest extends TestCase
             'body_html'
         );
         self::assertNotEmpty($adminBodies);
-        self::assertStringContainsString('ЕГН', $adminBodies[0]);
-        self::assertStringContainsString('1990011599', $adminBodies[0]);
+        self::assertStringNotContainsString('ЕГН', $adminBodies[0]);
+        self::assertStringNotContainsString('1990011599', $adminBodies[0]);
+        self::assertStringNotContainsString('Втори телефон', $adminBodies[0]);
         $customerBodies = array_column(
             array_filter($mailer->sent, static fn(array $m): bool => $m['audience'] === 'customer'),
             'body_html'
@@ -230,19 +194,7 @@ final class Phase11BProcess2ContractTest extends TestCase
         self::assertSame($mailCount, count($mailer->sent));
     }
 
-    public function testMissingEgnLeavesCpSentSemanticsWithoutBankProcess2(): void
-    {
-        $validator = new ProcessTwoFieldValidator();
-        try {
-            $validator->validate(['egn' => 'bad', 'phone2' => '0888123456']);
-            self::fail('Expected validation failure');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertSame('validation', $exception->errorCode());
-            self::assertStringNotContainsString('bank_sent_process2', strtolower($exception->getMessage()));
-        }
-    }
-
-    public function testCheckoutPrimaryPhoneOptionalWithProcess2Fields(): void
+    public function testCheckoutPrimaryPhoneRemainsOptional(): void
     {
         $checkout = new \Opencart\System\Library\Extension\MtUniCredit\CheckoutCustomerValidator();
         $result = $checkout->validate([
@@ -253,31 +205,20 @@ final class Phase11BProcess2ContractTest extends TestCase
         ], 1, 0);
         self::assertSame('', $result['customer']->telephone);
 
-        $p2 = (new ProcessTwoFieldValidator())->validate([
-            'egn' => '1990011599',
-            'phone2' => '0888123456',
-        ], true);
-        self::assertSame('0888123456', $p2->phone2);
     }
 
-    public function testUiFieldsBehindProcess2FlagOnly(): void
+    public function testUiOmitsRetiredFieldsForBothProcesses(): void
     {
         $product = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_product_modal.twig');
         $cart = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/module/mt_uni_credit_cart_modal.twig');
         $checkout = (string) file_get_contents(dirname(__DIR__) . '/catalog/view/template/payment/mt_uni_credit.twig');
-        foreach ([$product, $cart] as $twig) {
-            self::assertStringContainsString('modal.process2', $twig);
-            self::assertMatchesRegularExpression('/process2[\s\S]*name="egn"[\s\S]*name="phone2"/', $twig);
+        foreach ([$product, $cart, $checkout] as $twig) {
+            self::assertStringNotContainsString('name="egn"', $twig);
+            self::assertStringNotContainsString('name="phone2"', $twig);
         }
-        self::assertMatchesRegularExpression('/\{\%\s*if\s+process2[\s\S]*name="egn"[\s\S]*name="phone2"/', $checkout);
 
         $coordinator = (string) file_get_contents(dirname(__DIR__) . '/system/library/smart_ucf_session_coordinator.php');
         self::assertStringContainsString('isSecondaryProcess', $coordinator);
         self::assertStringContainsString('process2()', $coordinator);
     }
-}
-
-function ModuleEncryptionKeyProviderTestSecret(): string
-{
-    return \Opencart\System\Library\Extension\MtUniCredit\ModuleEncryptionKeyProvider::testSecretInput();
 }

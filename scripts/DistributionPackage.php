@@ -80,9 +80,14 @@ final class DistributionPackage
         }
 
         $tracked = array_filter(explode("\0", $this->git(['ls-files', '--cached', '-z'])));
+        // Approved manifest removals may still be unstaged in the working tree.
+        $deleted = array_filter(explode("\0", $this->git(['ls-files', '--deleted', '-z'])));
         foreach ($tracked as $path) {
             if ($path === self::SECRET || str_starts_with($path, 'dist/')) {
                 throw new RuntimeException('Deployment secret and dist artifacts must remain untracked.');
+            }
+            if (in_array($path, $deleted, true)) {
+                continue;
             }
             if ((self::isRuntimePath($path) || preg_match('~\A(?:admin|catalog|system)/~', $path))
                 && !in_array($path, $manifest, true)) {

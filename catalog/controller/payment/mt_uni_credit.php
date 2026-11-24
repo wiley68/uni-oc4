@@ -136,8 +136,6 @@ class MtUniCredit extends \Opencart\System\Engine\Controller
             'text_glp',
             'text_gpr',
             'text_consents',
-            'text_egn',
-            'text_phone2',
             'text_required',
             'text_processing_title',
             'text_processing_message',

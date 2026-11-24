@@ -4,7 +4,7 @@ After CP order creation, the module synchronizes the certificate and private key
 
 # Phase 11B Process 2
 
-When `uni_proces === 1`, after CP create the module validates EGN + phone2, stores them encrypted on the financing attempt, patches CP/local status to `bank_sent_process2` / `Изпратен Банка - Процес 2` using the **shop** order id, sends leasing mail (EGN admin-only), and continues to the local thank-you page. CP never receives EGN/phone2. See `docs/PHASE11B.md`.
+When `uni_proces === 1`, the module uses finalized consent evidence and the existing customer data, leaves `process2_sensitive_enc` SQL NULL, patches CP/local status to `bank_sent_process2` / `Изпратен Банка - Процес 2` using the **shop** order id, sends leasing mail without EGN/phone2 for any audience, and continues to the local thank-you page. Historical presentation/retry never decrypts the removed values. CP create/status contracts and Process 1 are unchanged. See `docs/PHASE11B.md`.
 
 # UniCredit OpenCart 4.x — замразени договори (Phase 0)
 
@@ -26,7 +26,7 @@ When `uni_proces === 1`, after CP create the module validates EGN + phone2, stor
 
 ## Current release version
 
-The current module release is **2.0.4**, authorized by UNI-OC4-ADS-003. Keep the version unchanged outside an explicitly authorized release. The original v2.0.2 development freeze and the v2.0.2/v2.0.3 release history are historical context, not current-version declarations.
+The current prepared module version is **2.0.5**, authorized locally by UNI-OC4-PROCESS2-FIELDS-001 / RELEASE-PREP-01. No Git release, deployment or manual OC4 acceptance is asserted. Keep the version unchanged outside an explicitly authorized release. The original v2.0.2 development freeze and the v2.0.2/v2.0.3 release history are historical context, not current-version declarations.
 
 Authoritative source: `ModuleConstants::VERSION`. See `docs/RELEASE.md`.
 
@@ -74,7 +74,7 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `products_*`               | optional string; CP **без** max; DB `text`                                         |
 | `type_client`              | 0–255, default **0**; PS9: `0` ако `_is_mobile`, иначе `1`                         |
 | `currency`                 | CP historical validation accepts BGN/EUR; OC4 explicitly sends **EUR** and rejects any other value before HTTP                   |
-| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.4**                       |
+| `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.5**                       |
 | `status` / `status_id`     | optional string max 255, **не** са enum; default `Създаден в КП Банка` / `cp_sent` |
 
 Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `status` / `status_id` — CP прилага default `cp_sent`.  
@@ -95,7 +95,7 @@ Native Checkout primary telephone is optional (Process 1 does not collect it in 
 
 Do not invent placeholders. Re-test against live bank after CP/SmartUCF is wired.
 
-Process 2 Checkout UI (deferred): only `egn` + `phone2` may be added to the UniCredit panel.
+Process 2 Checkout uses native order/session customer/address data and financing consents only. EGN and secondary phone are removed. Product/Cart retain name, surname, address, primary phone and email, with the existing additional address contract and explicit Process 2 allowlists.
 
 ---
 
@@ -168,7 +168,7 @@ Ambiguous transport / timeout → internal lifecycle state only; **не** пуб
 
 Phase 10B: POST `/api/v1/orders` **без** `status`/`status_id` за Process 1 и Process 2 → CP default `cp_sent`.  
 Process 1 (`uni_proces !== 1`): след Phase 10B → Phase 11 SmartUCF.  
-Process 2 (`uni_proces === 1`): след Phase 10B → Phase 11 native Process 2; ЕГН + `phone2` (privacy: customer surfaces never show EGN).
+Process 2 (`uni_proces === 1`): след Phase 10B → Phase 11 native Process 2; без ЕГН/`phone2`, с NULL sensitive ciphertext и без sensitive decryption за всички audiences.
 
 Inbound `orderbankstatus` **не** сменя storefront order state (`ps_order_state_changed: false`). Later inbound/raw SmartUCF labels follow the raw-display rule above.
 

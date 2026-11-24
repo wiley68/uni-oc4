@@ -6,6 +6,10 @@ The canonical build command, run from the module project root, is:
 composer package
 ```
 
+The current local preparation is **2.0.5** (RELEASE-PREP-01). Both `install.json`
+and `ModuleConstants::VERSION` must match before building. This preparation does
+not imply completed OC4 browser/database/bank acceptance or a Git release.
+
 It produces exactly `dist/mt_uni_credit.ocmod.zip`. The filename never includes a
 version, date, environment or Git suffix. PHP 8.2–8.4 with `ext-zip`, Composer and
 Git are required. Building does not require `composer install`: Composer is the
@@ -60,7 +64,10 @@ contains paths only, with exactly one local-file exception:
 `secrets/smartucf-key.php`. Explicitly reviewed manifest entries may be unstaged
 new runtime files, allowing a package to be reviewed without staging or committing.
 Adding a tracked runtime file without updating the manifest fails the build;
-missing manifest files also fail. Unrelated untracked files are never selected.
+missing manifest files also fail. A tracked runtime file deleted from the working
+tree and explicitly removed from the manifest may remain unstaged; it is excluded
+without changing the Git index. A file still listed in the manifest must exist.
+Tracked secrets or dist artifacts remain forbidden even when deleted locally. Unrelated untracked files are never selected.
 When adding runtime files, review and update this manifest explicitly. Do not
 automatically collect arbitrary local files or broaden secret inclusion.
 

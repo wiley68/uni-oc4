@@ -257,7 +257,6 @@ final class CheckoutFinancingSubmissionService
                 $exception
             );
         }
-        $process2Data = ProcessTwoSubmissionSupport::validateIfRequired($shop, $posted, true);
 
         if (!$this->attempts->transitionFromStates(
             (int) $attemptRow['attempt_id'],
@@ -340,15 +339,6 @@ final class CheckoutFinancingSubmissionService
         (new DurableConsentAuthority($this->attempts->database(), $this->clock))->finalizeSubmission(
             (int) $attemptRow['attempt_id'], $submission, $postedConsents, $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
         );
-
-        if ($process2Data !== null) {
-            ProcessTwoSubmissionSupport::persist(
-                $submission,
-                (int) $attemptRow['attempt_id'],
-                $this->attempts->database(),
-                $process2Data
-            );
-        }
 
         $attemptContext = new FinancingAttemptContext($this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow);
         try {

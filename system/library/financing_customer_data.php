@@ -7,7 +7,7 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Normalized customer data required for OpenCart order creation.
  *
- * EGN is intentionally excluded — it belongs in Process 2 sensitive context only.
+ * Retired Process 2 fields are excluded.
  */
 final class FinancingCustomerData
 {

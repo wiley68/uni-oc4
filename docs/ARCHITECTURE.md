@@ -37,7 +37,7 @@ Initial public bank statuses (exact strings):
 | 10A Local parity   | Product/Cart visible local orders (`addHistory`)      |
 | 10B CP lifecycle   | CP create/recover → `cp_created`                      |
 | 11A Process 1      | direct SmartUCF session → bank redirect               |
-| 11B Process 2      | EGN/phone2 + bank_sent_process2 + leasing mail        |
+| 11B Process 2      | bank_sent_process2 + leasing mail; no sensitive fields        |
 
 ## Unified local boundary (Phase 10A)
 
@@ -75,9 +75,9 @@ Certificate synchronization is intentionally before the remote-submit claim. A s
 
 ```text
 cp_created → ProcessTwoLifecycleCoordinator
-→ encrypted EGN/phone2 on attempt
+→ finalized consent process identity; sensitive ciphertext remains NULL
 → CP/local bank_sent_process2 (shop order_id)
-→ admin/customer leasing mail (EGN admin-only)
+→ admin/customer leasing mail (no EGN or secondary phone for any audience)
 → checkout/success (no SmartUCF)
 ```
 
@@ -126,7 +126,7 @@ Shared layers reused: Phase 5 calculator/CartContext/resolver; Phase 6 materiali
 
 Leasing presentation and bank-status labels are loaded by exact `(store_id, order_id)` only — no cross-store order_id fallback (including no nonzero→store-0 bank-status retry). Admin order list enriches each row with that row's own `store_id`.
 
-`leasing_presentation_json` is retained from attempt `created_at` for 183 days, then NULLed in a bounded batch. Process 2 ciphertext retention (180 days from `updated_at`) is separate. Process 2 encryption is fail-closed when the deployment secret is missing.
+`leasing_presentation_json` is retained from attempt `created_at` for 183 days, then NULLed in a bounded batch. Process 2 ciphertext retention (180 days from `updated_at`) is separate. New Process 2 requests do not encrypt sensitive fields. Handoff, historical presentation and mail retry do not construct a sensitive cipher or decrypt old values; CP credential encryption remains unchanged. Product/Cart retain five applicant fields (name, surname, address, primary phone, email); Checkout uses native customer data. See `PHASE11B.md` for allowlists and diagnostic alias redaction.
 
 Diagnostic journal retention is 3 months with bounded DELETE batches and `idx_mt_uni_credit_diag_created`.
 

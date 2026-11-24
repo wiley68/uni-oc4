@@ -71,6 +71,9 @@ final class CartFinancingSubmissionService
         array $storeAddressDefaults = [],
         ?int $cartId = null
     ): ProductFinancingResult {
+        if (ShopConfigurationFlags::isSecondaryProcess($shop)) {
+            $posted = ProductPopupFormNormalizer::applicantFields($posted);
+        }
         $posted = $this->popupFormNormalizer->normalize($posted, $storeAddressDefaults);
         $attemptRow = $this->authorizedAttempt($storeId, $submissionToken, $actorBindingHash);
         $recovered = FinancingControlPanelCompletion::resumeBoundAttempt(
@@ -198,7 +201,6 @@ final class CartFinancingSubmissionService
         }
 
         // Consent validation uses the issued record, never the live shop configuration.
-        $process2Data = ProcessTwoSubmissionSupport::validateIfRequired($shop, $posted, false);
 
         if (!$this->attempts->transitionFromStates(
             (int) $attemptRow['attempt_id'],
@@ -279,15 +281,6 @@ final class CartFinancingSubmissionService
         (new DurableConsentAuthority($this->attempts->database(), $this->clock))->finalizeSubmission(
             (int) $attemptRow['attempt_id'], $submission, $posted['consent'] ?? [], $lockOwnerToken, ShopConfigurationFlags::isSecondaryProcess($shop) ? 2 : 1, $shop
         );
-
-        if ($process2Data !== null) {
-            ProcessTwoSubmissionSupport::persist(
-                $submission,
-                (int) $attemptRow['attempt_id'],
-                $this->attempts->database(),
-                $process2Data
-            );
-        }
 
         $attemptContext = new FinancingAttemptContext($this->attempts->findById((int) $attemptRow['attempt_id']) ?? $attemptRow);
         try {

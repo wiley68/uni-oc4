@@ -42,7 +42,7 @@ class DiagnosticDebugLogRepository
         $table = $this->db->getPrefix() . PersistenceTableNames::DIAGNOSTIC_DEBUG_LOG;
         $createdAt = $this->clock->formatUtc($this->clock->now());
         try {
-            $summaryJson = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $summaryJson = json_encode(DiagnosticPayloadRedactor::redact($summary), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             return false;
         }

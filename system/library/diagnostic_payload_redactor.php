@@ -12,12 +12,16 @@ final class DiagnosticPayloadRedactor
     /** @var list<string> */
     private const SENSITIVE_KEYS = [
         'egn',
-        'EGN',
-        'clientEGN',
+        'clientegn',
+        'unipayment_egn',
+        'unipayment_phone2',
+        'second_phone',
+        'secondary_phone',
+        'personal_id',
+        'phone_2',
         'email',
         'telephone',
         'phone',
-        'clientPhone',
         'clientphone',
         'phone2',
         'address',
@@ -29,7 +33,6 @@ final class DiagnosticPayloadRedactor
         'clientemail',
         'clientfirstname',
         'clientlastname',
-        'Authorization',
         'authorization',
         'access_token',
         'refresh_token',
@@ -47,7 +50,6 @@ final class DiagnosticPayloadRedactor
         'certificate',
         'certificate_pem',
         'certificate_password',
-        'Bearer',
         'bearer',
         'token',
         'user',
@@ -104,7 +106,23 @@ final class DiagnosticPayloadRedactor
 
     public static function redactText(string $value): string
     {
+        $trimmed = trim($value);
+        if ($trimmed !== '' && ($trimmed[0] === '{' || $trimmed[0] === '[')) {
+            try {
+                $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    return json_encode(self::redact($decoded), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                }
+            } catch (\JsonException) {
+                // Non-JSON diagnostic text still receives the key/value protection below.
+            }
+        }
         $value = preg_replace('/Bearer\s+[A-Za-z0-9._~+\/-]+=*/i', 'Bearer [REDACTED]', $value) ?? '[REDACTED]';
+        $value = preg_replace(
+            '/\b(egn|clientegn|phone2|unipayment_egn|unipayment_phone2|second_phone|secondary_phone|personal_id|phone_2|clientPhone)\b["\']?\s*[:=]\s*(?:"[^"\r\n]*"|\'[^\'\r\n]*\'|[^\s,;]+)/i',
+            '$1=[REDACTED]',
+            $value
+        ) ?? '[REDACTED]';
 
         return preg_replace(
             '/\b(secret|token|password|pass|private[_ -]?key)\b\s*[:=]\s*[^\s,;]+/i',
@@ -122,7 +140,6 @@ final class DiagnosticPayloadRedactor
         $message = preg_replace('/\b(INSERT|UPDATE|DELETE|SELECT)\b.*/is', '[sql-redacted]', $message) ?? $message;
         $message = preg_replace('/-----BEGIN [A-Z0-9 ]+-----.*?-----END [A-Z0-9 ]+-----/s', '[redacted-pem]', $message) ?? $message;
         $message = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i', '[redacted-email]', $message) ?? $message;
-        $message = preg_replace('/\b(egn|clientEGN|phone2|clientPhone)\b\s*[:=]\s*\S+/i', '$1=[REDACTED]', $message) ?? $message;
         $message = preg_replace('/\b\d{10}\b/', '[redacted-digits]', $message) ?? $message;
 
         if (function_exists('mb_substr')) {
@@ -134,10 +151,6 @@ final class DiagnosticPayloadRedactor
 
     private static function isSensitiveKey(string $key): bool
     {
-        if (in_array($key, self::SENSITIVE_KEYS, true)) {
-            return true;
-        }
-
         return in_array(strtolower($key), self::SENSITIVE_KEYS, true);
     }
 }

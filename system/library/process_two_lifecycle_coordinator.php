@@ -25,7 +25,6 @@ final class ProcessTwoLifecycleCoordinator
         private ProcessTwoLifecycleRepository $lifecycle,
         private OrderBankStatusRepository $bankStatuses,
         private ControlPanelStatusSyncService $statusSync,
-        private ProcessTwoSensitiveCipher $cipher,
         private ProcessTwoMailPort $mailer
     ) {
     }
@@ -129,11 +128,6 @@ final class ProcessTwoLifecycleCoordinator
         }
 
         try {
-            $enc = (string) ($row['process2_sensitive_enc'] ?? '');
-            if ($enc === '') {
-                throw new \RuntimeException('Process 2 sensitive payload missing.');
-            }
-
             $decision = $this->statusSync->admitTarget(
                 $attemptId,
                 $status['status_id'],
@@ -260,22 +254,9 @@ final class ProcessTwoLifecycleCoordinator
             return;
         }
 
-        $sensitive = null;
-        $enc = (string) ($row['process2_sensitive_enc'] ?? '');
-        if ($enc !== '') {
-            try {
-                $sensitive = $this->cipher->decrypt($enc);
-            } catch (\Throwable $exception) {
-                $this->lifecycle->releaseSendingOnFailure($attemptId, $claimToken);
-                error_log('mt_uni_credit: Process 2 sensitive decrypt failed attempt_id=' . $attemptId);
-
-                return;
-            }
-        }
-
         try {
             $orderContext = $this->enrichMailContext($attemptId, $row, $orderContext);
-            $ok = $this->mailer->sendProcess2Notifications($shop, $orderContext, $sensitive);
+            $ok = $this->mailer->sendProcess2Notifications($shop, $orderContext, null);
             if ($ok) {
                 $this->lifecycle->markSent($attemptId, $claimToken);
             } else {

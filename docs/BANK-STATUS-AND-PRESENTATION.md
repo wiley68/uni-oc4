@@ -215,7 +215,7 @@ They must not appear in normal customer or business bank-status / leasing UI.
 
 A standardized leasing information block is used on agreed surfaces (admin UniCredit panel, Thank You / confirmation when designed, standard emails, agreed reports, etc.).
 
-It may be adapted only in predetermined business cases (e.g. Process 2 may add second phone and EGN **only** where privacy/business rules already allow — typically admin/email audiences, never customer EGN).
+Process 2 EGN and secondary phone are excluded for every audience, including historical Admin and merchant mail. Legacy sensitive DTO values are ignored and ciphertext is not decrypted. Frozen financial data and the existing customer confirmation message remain available.
 
 Do **not** extend this block with service lifecycle/debug fields.
 
@@ -238,7 +238,7 @@ Example values are illustrative; the **field set / structure** is authoritative:
 
 If a field has no value at a given lifecycle moment, use the existing presentation rule for that surface (omit / empty / placeholder as already contracted) — do not invent a new presentation policy here.
 
-Process 2 audience-sensitive appendices (EGN, phone2, customer confirmation message) remain governed by `docs/PHASE11B.md` and `docs/SECURITY-OPERATIONS.md` — they are not part of the base public bank-status semantics.
+Process 2 customer confirmation remains governed by `docs/PHASE11B.md` and `docs/SECURITY-OPERATIONS.md`. EGN/phone2 are permanently removed from every presentation; bank-status semantics are unchanged.
 
 ### 9.3 Forbidden in the standard leasing block
 

@@ -211,12 +211,9 @@ final class Phase8CartFlowContractTest extends TestCase
         self::assertStringContainsString('data-mtuc-step="2"', $modal);
         self::assertStringContainsString('name="firstname"', $modal);
         self::assertStringContainsString('name="consent[]"', $modal);
-        // Process 2 EGN/phone2 only behind modal.process2.
-        self::assertStringContainsString('{% if mt_uni_credit.modal.process2 %}', $modal);
-        self::assertMatchesRegularExpression(
-            '/\{\%\s*if\s+mt_uni_credit\.modal\.process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
-            $modal
-        );
+
+        self::assertStringNotContainsString('name="egn"', $modal);
+        self::assertStringNotContainsString('name="phone2"', $modal);
     }
 
     public function testCartSubmissionServiceUsesCartEntryPointAndStaleGuards(): void
@@ -228,7 +225,7 @@ final class Phase8CartFlowContractTest extends TestCase
         self::assertStringContainsString('cart_changed', $src);
         self::assertStringContainsString('FinancingControlPanelCompletion', $src);
         self::assertStringContainsString('ResumeSubmissionFactory', $src);
-        self::assertStringContainsString('ProcessTwoSubmissionSupport', $src);
+        self::assertStringNotContainsString('ProcessTwoSubmissionSupport', $src);
         self::assertStringContainsString('CartOrderDraftFactory', $src);
         self::assertStringContainsString('cart_modal', $src);
         $doc = (string) file_get_contents(dirname(__DIR__) . '/docs/PHASE8.md');

@@ -37,12 +37,9 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('name="address"', $modal);
         self::assertStringContainsString('name="phone"', $modal);
         self::assertStringContainsString('name="email"', $modal);
-        // Process 2 fields only behind process2 flag.
-        self::assertStringContainsString('{% if mt_uni_credit.modal.process2 %}', $modal);
-        self::assertMatchesRegularExpression(
-            '/\{\%\s*if\s+mt_uni_credit\.modal\.process2\s*\%\}[\s\S]*name="egn"/',
-            $modal
-        );
+
+        self::assertStringNotContainsString('name="egn"', $modal);
+        self::assertStringNotContainsString('name="phone2"', $modal);
 
         self::assertSame(1, preg_match(
             '/:is\(#mt-uni-credit-product-modal, #mt-uni-credit-cart-modal\) \.mt-uni-credit-product-calculator__customer-input \{([^}]+)\}/s',
@@ -217,19 +214,12 @@ final class Phase7ProductStep2UxContractTest extends TestCase
         self::assertStringContainsString('consentContext.mandatory_ids.every', $js);
         self::assertStringContainsString('if (!consentReady || !consentContext', $js);
 
-        // Process-aware: EGN/phone2 only when rendered.
-        self::assertMatchesRegularExpression('/customerField\([\'"]egn[\'"]\)/', $js);
-        self::assertMatchesRegularExpression('/customerField\([\'"]phone2[\'"]\)/', $js);
-        self::assertStringContainsString('if (egnField)', $js);
-        self::assertStringContainsString('if (phone2Field)', $js);
-        self::assertStringContainsString('isValidEgn', $js);
+        self::assertStringNotContainsString('if (egnField)', $js);
+        self::assertStringNotContainsString('if (phone2Field)', $js);
+        self::assertStringNotContainsString('isValidEgn', $js);
 
-        // Process 2 modal fields only behind process2 flag (Process 1 fixtures omit them).
-        self::assertStringContainsString('{% if mt_uni_credit.modal.process2 %}', $modal);
-        self::assertMatchesRegularExpression(
-            '/\{\%\s*if\s+mt_uni_credit\.modal\.process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
-            $modal
-        );
+        self::assertStringNotContainsString('name="egn"', $modal);
+        self::assertStringNotContainsString('name="phone2"', $modal);
 
         // Initial markup: submit disabled.
         self::assertMatchesRegularExpression(
@@ -263,7 +253,7 @@ final class Phase7ProductStep2UxContractTest extends TestCase
 
         self::assertStringNotContainsString('egn', strtolower($validator));
         self::assertStringNotContainsString('phone2', strtolower($validator));
-        self::assertStringContainsString('EGN is intentionally excluded', $customer);
+        self::assertStringContainsString('Retired Process 2 fields are excluded', $customer);
     }
 
     public function testStep1ApprovedContractsUntouchedByStep2CssScope(): void

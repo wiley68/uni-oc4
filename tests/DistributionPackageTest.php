@@ -44,6 +44,25 @@ final class DistributionPackageTest extends TestCase
         $this->removeTree($this->root);
     }
 
+    public function testApprovedUnstagedRuntimeDeletionUsesWorkingTreeWithoutChangingIndex(): void
+    {
+        $retired = 'system/library/process_two_sensitive_cipher.php';
+        $manifest = $this->packager->sourceFiles();
+        $manifest = array_values(array_diff($manifest, [$retired]));
+        unlink($this->root . '/' . $retired);
+        file_put_contents($this->root . '/scripts/package-files.json', json_encode($manifest));
+        $index = $this->runFixtureCommand(['git', '-C', $this->root, 'ls-files', '--stage']);
+
+        $archive = $this->packager->build();
+        self::assertNotContains($retired, $this->packager->sourceFiles());
+        self::assertSame(count($this->packager->packageFiles()), $this->packager->verify($archive));
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($archive) === true);
+        self::assertFalse($zip->locateName($retired));
+        $zip->close();
+        self::assertSame($index, $this->runFixtureCommand(['git', '-C', $this->root, 'ls-files', '--stage']));
+    }
+
     public function testBuildHasExactFilenameLayoutAndIndependentlyUnpacks(): void
     {
         $path = $this->packager->build();

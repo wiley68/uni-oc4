@@ -113,6 +113,6 @@ final class Phase11CCheckoutLoaderParityTest extends TestCase
 
     public function testModuleVersionRemainsFrozen(): void
     {
-        self::assertSame('2.0.4', ModuleConstants::VERSION);
+        self::assertSame('2.0.5', ModuleConstants::VERSION);
     }
 }

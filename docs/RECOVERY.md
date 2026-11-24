@@ -126,7 +126,7 @@ Residual SMTP window (not exact-once without provider idempotency):
 successful SMTP send → process crash before markSent → stale reclaim → possible duplicate mail
 ```
 
-Validation failure (EGN/phone2) before handoff leaves CP at `cp_sent` and does not write `bank_sent_process2`.
+EGN/phone2 are no longer collected or validated. New attempts keep sensitive ciphertext SQL NULL. Handoff and historical pending merchant-mail retry do not require or decrypt ciphertext; NULL, old valid and malformed ciphertext do not change recovery admission. Consent/process identity, frozen financing hashes, ownership, durable targets and the above retry policy remain unchanged. Legacy outcomes without consent evidence remain read-only.
 
 ## SmartUCF unknown outcome (Phase 11A)
 

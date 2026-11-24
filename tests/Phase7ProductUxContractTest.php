@@ -40,12 +40,9 @@ final class Phase7ProductUxContractTest extends TestCase
         self::assertStringContainsString('name="address"', $modal);
         self::assertStringContainsString('name="phone"', $modal);
         self::assertStringContainsString('name="email"', $modal);
-        // Process 2 EGN/phone2 only behind modal.process2 (Process 1 renders without them).
-        self::assertStringContainsString('{% if mt_uni_credit.modal.process2 %}', $modal);
-        self::assertMatchesRegularExpression(
-            '/\{\%\s*if\s+mt_uni_credit\.modal\.process2\s*\%\}[\s\S]*name="egn"[\s\S]*name="phone2"/',
-            $modal
-        );
+
+        self::assertStringNotContainsString('name="egn"', $modal);
+        self::assertStringNotContainsString('name="phone2"', $modal);
         self::assertStringContainsString('data-mtuc-apply', $modal);
         self::assertStringContainsString('data-mtuc-secondary', $modal);
         self::assertStringContainsString('data-mtuc-submit', $modal);

@@ -16,7 +16,7 @@ final class Phase11BPresentationParityTest extends TestCase
 {
     public function testVersionFrozen(): void
     {
-        self::assertSame('2.0.4', ModuleConstants::VERSION);
+        self::assertSame('2.0.5', ModuleConstants::VERSION);
     }
 
     public function testCustomerRowsMatchCanonicalVocabularyAndExcludeSensitive(): void
@@ -81,7 +81,7 @@ final class Phase11BPresentationParityTest extends TestCase
         self::assertStringNotContainsString('ЕГН', $html);
     }
 
-    public function testAdminEmailIncludesEgnAndPhone2(): void
+    public function testAdminEmailExcludesEgnAndPhone2(): void
     {
         $presenter = new FinancingLeasingPresenter();
         $snapshot = new FinancingPresentationSnapshot(10, 99, true, 12, 'POS COM 100', 10.0, 900.0, 80.0, 960.0, 21.0, 23.0);
@@ -92,12 +92,12 @@ final class Phase11BPresentationParityTest extends TestCase
             new ProcessTwoSensitiveData('1990011599', '0888123456')
         );
         $map = array_column($rows, 'value', 'label');
-        self::assertSame('1990011599', $map[FinancingLeasingPresenter::LABEL_EGN]);
-        self::assertSame('0888123456', $map[FinancingLeasingPresenter::LABEL_PHONE2]);
+        self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_EGN, $map);
+        self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_PHONE2, $map);
         self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_MESSAGE, $map);
     }
 
-    public function testAdminPanelIncludesSensitivePerPs9(): void
+    public function testAdminPanelExcludesSensitive(): void
     {
         $presenter = new FinancingLeasingPresenter();
         $snapshot = new FinancingPresentationSnapshot(10, 99, true, 12, 'POS COM 100', 10.0, 900.0, 80.0, 960.0, 21.0, 23.0);
@@ -108,8 +108,8 @@ final class Phase11BPresentationParityTest extends TestCase
             new ProcessTwoSensitiveData('1990011599', '0888123456')
         );
         $map = array_column($rows, 'value', 'label');
-        self::assertSame('1990011599', $map[FinancingLeasingPresenter::LABEL_EGN]);
-        self::assertSame('0888123456', $map[FinancingLeasingPresenter::LABEL_PHONE2]);
+        self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_EGN, $map);
+        self::assertArrayNotHasKey(FinancingLeasingPresenter::LABEL_PHONE2, $map);
     }
 
     public function testProcess1CustomerHasNoEgnAndUsesProcess1Status(): void
@@ -215,13 +215,11 @@ HTML;
         );
     }
 
-    public function testAdminPanelSensitiveDecisionFollowsPs9NotWoo(): void
+    public function testAllAudiencesExcludeSensitiveFields(): void
     {
-        // PS9 admin order uses EmailAudience::ADMIN (EGN+phone2). Woo admin_panel omits EGN.
-        // OC4 ADMIN_PANEL matches PS9 authorized back-office leasing box.
         $presenter = new FinancingLeasingPresenter();
-        self::assertTrue($presenter->includesEgn(FinancingPresentationAudience::ADMIN_PANEL));
-        self::assertTrue($presenter->includesEgn(FinancingPresentationAudience::ADMIN_EMAIL));
+        self::assertFalse($presenter->includesEgn(FinancingPresentationAudience::ADMIN_PANEL));
+        self::assertFalse($presenter->includesEgn(FinancingPresentationAudience::ADMIN_EMAIL));
         self::assertFalse($presenter->includesEgn(FinancingPresentationAudience::CUSTOMER));
     }
 
@@ -295,7 +293,7 @@ HTML;
         );
     }
 
-    public function testNativeAdminAlertPipelineIncludesSensitiveForProcess2(): void
+    public function testNativeAdminAlertPipelineExcludesSensitiveForProcess2(): void
     {
         $presenter = new FinancingLeasingPresenter();
         $snapshot = new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12);
@@ -319,8 +317,6 @@ HTML;
                 FinancingLeasingPresenter::LABEL_MONTHLY,
                 FinancingLeasingPresenter::LABEL_TOTAL,
                 FinancingLeasingPresenter::LABEL_GLP_GPR,
-                FinancingLeasingPresenter::LABEL_EGN,
-                FinancingLeasingPresenter::LABEL_PHONE2,
             ],
             $labels
         );
@@ -331,8 +327,8 @@ HTML;
         self::assertStringContainsString('УниКредит лизинг<br/>', $mailBody);
         self::assertStringContainsString('Статус към банката: ' . BankStatus::LABEL_SENT_PROCESS2 . '<br/>', $mailBody);
         self::assertStringContainsString('КП shop order_id: 55', $mailBody);
-        self::assertStringContainsString('ЕГН: 1990011599', $mailBody);
-        self::assertStringContainsString('Втори телефон: 0888123456', $mailBody);
+        self::assertStringNotContainsString('ЕГН: 1990011599', $mailBody);
+        self::assertStringNotContainsString('Втори телефон: 0888123456', $mailBody);
         self::assertStringNotContainsString('<table', $mailBody);
         self::assertStringNotContainsString("УниКредит лизинг\nСтатус", $mailBody);
     }
@@ -433,7 +429,7 @@ HTML;
         self::assertStringNotContainsString('Втори телефон', $html);
     }
 
-    public function testAdditionalProcess2AdminMailIncludesSensitive(): void
+    public function testAdditionalProcess2AdminMailExcludesSensitive(): void
     {
         $presenter = new \Opencart\System\Library\Extension\MtUniCredit\ProcessTwoLeasingMailPresenter();
         $rows = $presenter->adminRows([
@@ -451,9 +447,9 @@ HTML;
             'leasing_snapshot' => (new FinancingPresentationSnapshot(55, 9, true, 6, 'POS COM 50', 0, 100, 20, 120, 10, 12))->toArray(),
         ], new ProcessTwoSensitiveData('1990011599', '0888123456'));
         $html = $presenter->renderHtml($rows);
-        self::assertStringContainsString('ЕГН', $html);
-        self::assertStringContainsString('1990011599', $html);
-        self::assertStringContainsString('Втори телефон', $html);
-        self::assertStringContainsString('0888123456', $html);
+        self::assertStringNotContainsString('ЕГН', $html);
+        self::assertStringNotContainsString('1990011599', $html);
+        self::assertStringNotContainsString('Втори телефон', $html);
+        self::assertStringNotContainsString('0888123456', $html);
     }
 }

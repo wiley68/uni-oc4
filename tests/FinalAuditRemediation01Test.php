@@ -16,7 +16,6 @@ use Opencart\System\Library\Extension\MtUniCredit\PersistenceSchemaInstaller;
 use Opencart\System\Library\Extension\MtUniCredit\PersistenceTableNames;
 use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSensitiveCipher;
 use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSensitiveData;
-use Opencart\System\Library\Extension\MtUniCredit\ProcessTwoSubmissionSupport;
 use Opencart\System\Library\Extension\MtUniCredit\ProductFinancingFlowException;
 use Opencart\System\Library\Extension\MtUniCredit\SecurityConstants;
 use PHPUnit\Framework\TestCase;
@@ -90,7 +89,7 @@ final class FinalAuditRemediation01Test extends TestCase
         new ProcessTwoSensitiveCipher('');
     }
 
-    public function testMissingSecretAbortDoesNotPersistCiphertextOrBankStatus(): void
+    public function testNewAttemptLeavesSensitiveCiphertextNull(): void
     {
         if (!PersistenceIntegrationHarness::enabled()) {
             self::markTestSkipped('Set MT_UNI_CREDIT_INTEGRATION=1 for MySQL integration tests.');
@@ -113,24 +112,10 @@ final class FinalAuditRemediation01Test extends TestCase
         $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
         $attemptId = (int) $row['attempt_id'];
 
-        try {
-            ProcessTwoSubmissionSupport::persist(
-                $submission,
-                $attemptId,
-                $db,
-                new ProcessTwoSensitiveData('1990011599', '0888123456'),
-                ''
-            );
-            self::fail('Expected ProductFinancingFlowException');
-        } catch (ProductFinancingFlowException $exception) {
-            self::assertSame('process2_encryption_unavailable', $exception->errorCode());
-            self::assertStringNotContainsString('secret', strtolower($exception->getMessage()));
-            self::assertStringNotContainsString('DB_PASSWORD', $exception->getMessage());
-        }
-
         $fresh = $attempts->findById($attemptId);
         self::assertNotNull($fresh);
-        self::assertSame('', (string) ($fresh['process2_sensitive_enc'] ?? ''));
+        self::assertArrayHasKey('process2_sensitive_enc', $fresh);
+        self::assertNull($fresh['process2_sensitive_enc']);
         self::assertStringNotContainsString('1990011599', json_encode($fresh, JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('0888123456', json_encode($fresh, JSON_THROW_ON_ERROR));
 
@@ -141,42 +126,6 @@ final class FinalAuditRemediation01Test extends TestCase
         self::assertSame(0, (int) ($bank->row['c'] ?? -1));
     }
 
-    public function testExplicitOverridePersistStillWorks(): void
-    {
-        if (!PersistenceIntegrationHarness::enabled()) {
-            self::markTestSkipped('Set MT_UNI_CREDIT_INTEGRATION=1 for MySQL integration tests.');
-        }
-        PersistenceIntegrationHarness::resetTables();
-        $db = PersistenceIntegrationHarness::connection();
-        $submission = OrderMaterializationTestHarness::productSubmission();
-        $attempts = new FinancingAttemptRepository($db);
-        $row = $attempts->issueWithSubmissionToken(
-            $submission->storeId,
-            OperationEntryPoint::PRODUCT,
-            hash('sha256', 'f01-ok-op'),
-            hash('sha256', 'f01-ok-actor'),
-            hash('sha256', 'f01-ok-sel'),
-            PersistenceIntegrationHarness::TEST_UNICID,
-            null,
-            null,
-            \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::seed(['uni_proces'=>1], \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::fromCalculation($submission->financingCalculation), null, \Opencart\System\Library\Extension\MtUniCredit\ConsentContext::commerce($submission->orderDraft->products))
-        );
-        $row = \MtUniCredit\Tests\Support\ConsentFixture::persistFinalized($row, $submission);
-        $attemptId = (int) $row['attempt_id'];
-        ProcessTwoSubmissionSupport::persist(
-            $submission,
-            $attemptId,
-            $db,
-            new ProcessTwoSensitiveData('1990011599', '0888123456'),
-            ModuleEncryptionKeyProvider::testSecretInput()
-        );
-        $fresh = $attempts->findById($attemptId);
-        self::assertNotNull($fresh);
-        $enc = (string) ($fresh['process2_sensitive_enc'] ?? '');
-        self::assertStringStartsWith('enc:v1:', $enc);
-        $decoded = (new ProcessTwoSensitiveCipher(ModuleEncryptionKeyProvider::testSecretInput()))->decrypt($enc);
-        self::assertSame('1990011599', $decoded->egn);
-    }
 
     public function testMultistoreBankStatusExactStoreMatch(): void
     {
@@ -298,11 +247,11 @@ final class FinalAuditRemediation01Test extends TestCase
     public function testVersionRemainsFrozen(): void
     {
         self::assertSame(
-            '2.0.4',
+            '2.0.5',
             \Opencart\System\Library\Extension\MtUniCredit\ModuleConstants::VERSION
         );
         $install = json_decode((string) file_get_contents(dirname(__DIR__) . '/install.json'), true);
-        self::assertSame('2.0.4', $install['version'] ?? null);
+        self::assertSame('2.0.5', $install['version'] ?? null);
     }
 
     /**
