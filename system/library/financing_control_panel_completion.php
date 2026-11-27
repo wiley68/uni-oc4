@@ -195,7 +195,7 @@ final class FinancingControlPanelCompletion
                 || $draft->currencyId !== $proof->currencyId
                 || abs($draft->currencyValue - $proof->currencyValue) > 0.000001
                 || abs($draft->orderTotal - $proof->baseTotal) > 0.02
-                || abs($submission->financingCalculation->price - $proof->eurTotal) > 0.02) {
+                || !DurableEurOrderGuard::withinGrossTolerance($submission->financingCalculation->price, $proof->eurTotal)) {
                 throw DurableEurOrderGuard::failure();
             }
         }

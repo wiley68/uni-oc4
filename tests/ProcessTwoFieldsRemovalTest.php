@@ -252,7 +252,7 @@ final class ProcessTwoFieldsDb implements U\DbConnection
     public ?array $bank=null;
     public ?array $diagnostic=null;
     private int $affected=0;
-    public function __construct() { $this->data=new ConsentFakeDb(); $this->orders=new InMemoryCheckoutOrderAdapter(); }
+    public function __construct() { $this->data=new ConsentFakeDb(); $this->data->simulateCpLifecycle=true; $this->orders=new InMemoryCheckoutOrderAdapter(); }
     public function query(string $sql): object
     {
         $this->queries[]=$sql; $this->affected=0; $sql=trim($sql);
@@ -264,9 +264,18 @@ final class ProcessTwoFieldsDb implements U\DbConnection
             if (str_starts_with($sql,'INSERT') && preg_match("/VALUES\s*\(\s*(\d+),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'/s",$sql,$m)) $this->bank=['order_id'=>(int)$m[2],'order_reference'=>$m[3],'status_id'=>$m[4],'status_label'=>$m[5]];
             return $result($this->bank===null?[]:[$this->bank]);
         }
+        if (str_contains($sql, 'AND EXISTS (SELECT 1 FROM `consent_mt_uni_credit_operation_lock`')
+            || str_contains($sql, 'SET `cp_payload`')) {
+            $this->data->failCpClaim = $this->rejectCpSubmitOnce && str_contains($sql, "SET `state` = 'cp_submitting'");
+            if ($this->data->failCpClaim) {
+                $this->rejectCpSubmitOnce = false;
+            }
+            $value = $this->data->query($sql);
+            $this->affected = $this->data->countAffected();
+            return $value;
+        }
         if (str_starts_with($sql,'UPDATE') && str_contains($sql,'financing_attempt') && !str_contains($sql,'SET `consent_context_json`') && preg_match('/WHERE `attempt_id` = (\d+)/',$sql,$m)) {
             $id=(int)$m[1];
-            if ($this->rejectCpSubmitOnce && str_contains($sql, "SET `state` = 'cp_submitting'")) { $this->rejectCpSubmitOnce=false; return $result([]); }
             $set=substr($sql,strpos($sql,'SET')+3,strpos($sql,'WHERE')-strpos($sql,'SET')-3);
             preg_match_all("/`([^`]+)`\s*=\s*(?:'((?:\\\\.|[^'\\\\])*)'|(NULL|\d+))/s",$set,$values,PREG_SET_ORDER);
             foreach ($values as $v) $this->data->rows[$id][$v[1]]=isset($v[3])&&$v[3]!==''?($v[3]==='NULL'?null:(int)$v[3]):stripcslashes($v[2]);

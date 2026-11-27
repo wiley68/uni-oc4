@@ -18,7 +18,7 @@ final class SmartUcfPayloadBuilder
             || $submission->orderDraft->currencyId !== $proof->currencyId
             || abs($submission->orderDraft->currencyValue - $proof->currencyValue) > 0.000001
             || abs($submission->orderDraft->orderTotal - $proof->baseTotal) > 0.02
-            || abs($submission->financingCalculation->price - $proof->eurTotal) > 0.02) {
+            || !DurableEurOrderGuard::withinGrossTolerance($submission->financingCalculation->price, $proof->eurTotal)) {
             throw DurableEurOrderGuard::failure();
         }
         $calculation = $submission->financingCalculation;

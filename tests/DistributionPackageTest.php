@@ -101,24 +101,208 @@ final class DistributionPackageTest extends TestCase
         self::assertSame('', $this->runFixtureCommand(['git', '-C', $this->root, 'ls-files', 'dist/', 'secrets/smartucf-key.php']));
     }
 
-    public function testBuildIsRepeatableAndDoesNotMutateInputs(): void
+    public static function timestampEnvironments(): iterable
     {
-        $before = $this->fingerprints();
-        $path = $this->packager->build();
-        $first = hash_file('sha256', $path);
+        yield 'non-UTC TZ and former fixed epoch' => ['Pacific/Auckland', '946684800'];
+        yield 'unset TZ and invalid former override' => [false, 'invalid-epoch'];
+        yield 'empty TZ and unset former override' => ['', false];
+    }
+
+    #[DataProvider('timestampEnvironments')]
+    public function testBuildUsesCurrentUtcAndRestoresCallerTimezones(string|false $tz, string|false $oldEpoch): void
+    {
         foreach ($this->packager->sourceFiles() as $relative) {
+            // Give the fixture source metadata unrelated to the build time.
             touch($this->root . '/' . $relative, 1750000001);
             chmod($this->root . '/' . $relative, 0640);
         }
+        $before = $this->fingerprints();
         $timezone = date_default_timezone_get();
-        date_default_timezone_set('Pacific/Auckland');
+        $processTz = getenv('TZ', true);
+        $epoch = getenv('SOURCE_DATE_EPOCH', true);
+        putenv($tz === false ? 'TZ' : 'TZ=' . $tz);
+        putenv($oldEpoch === false ? 'SOURCE_DATE_EPOCH' : 'SOURCE_DATE_EPOCH=' . $oldEpoch);
+        date_default_timezone_set('America/Los_Angeles');
         try {
-            $this->packager->build();
-            self::assertTrue($first === hash_file('sha256', $path), 'ZIP bytes repeat despite source mtimes/modes/timezone');
+            $start = time();
+            $archive = $this->packager->build();
+            $end = time();
+            self::assertSame($tz, getenv('TZ', true));
+            self::assertSame('America/Los_Angeles', date_default_timezone_get());
+            self::assertSame($oldEpoch, getenv('SOURCE_DATE_EPOCH', true));
+            $this->assertCurrentZipMetadata($archive, $start, $end);
+            self::assertTrue($before === $this->fingerprints(), 'Build leaves source bytes, modes and mtimes intact');
+
+            // A directory fails ZIP open after the writer enters its UTC scope.
+            $directory = $this->root . '/cannot-open-as-zip';
+            mkdir($directory);
+            $write = new \ReflectionMethod(DistributionPackage::class, 'writeArchive');
+            try {
+                $write->invoke($this->packager, $directory, $this->root, ['install.json'], time());
+                self::fail('Opening a directory as a ZIP should fail');
+            } catch (\RuntimeException $exception) {
+                self::assertSame('Cannot create installer ZIP.', $exception->getMessage());
+            }
+            self::assertSame($tz, getenv('TZ', true));
+            self::assertSame('America/Los_Angeles', date_default_timezone_get());
         } finally {
+            putenv($processTz === false ? 'TZ' : 'TZ=' . $processTz);
+            putenv($epoch === false ? 'SOURCE_DATE_EPOCH' : 'SOURCE_DATE_EPOCH=' . $epoch);
             date_default_timezone_set($timezone);
         }
-        self::assertTrue($before === $this->fingerprints(), 'Runtime, environment, secret and Composer inputs stay unchanged');
+    }
+
+    public function testChangedPackagesExtractAndPlaceFilesAtDistinctTimes(): void
+    {
+        $entry = 'catalog/controller/payment/mt_uni_credit.php';
+        $file = $this->root . '/' . $entry;
+        $installed = $this->root . '/renamed.php';
+        $copied = $this->root . '/copied.php';
+        $processTz = getenv('TZ', true);
+        putenv('TZ=UTC');
+        try {
+            $timestamp = null;
+            $digest = null;
+            foreach (['first' => "<?php return 'first synthetic version';\n",
+                'second' => "<?php return 'second synthetic version';\n"] as $label => $bytes) {
+                file_put_contents($file, $bytes);
+                $start = time();
+                $archive = $this->packager->build();
+                $end = time();
+                $time = $this->assertCurrentZipMetadata($archive, $start, $end);
+                $hash = hash_file('sha256', $archive);
+                if ($timestamp !== null) {
+                    self::assertGreaterThan($timestamp, $time);
+                    self::assertNotSame($digest, $hash);
+                }
+                $timestamp = $time;
+                $digest = $hash;
+
+                $tree = $this->root . '/extract-' . $label;
+                $zip = new \ZipArchive();
+                self::assertTrue($zip->open($archive, \ZipArchive::RDONLY | \ZipArchive::CHECKCONS) === true);
+                try {
+                    self::assertTrue($zip->extractTo($tree));
+                } finally {
+                    $zip->close();
+                }
+                $extracted = $tree . '/' . $entry;
+                self::assertSame($time, filemtime($extracted));
+                self::assertSame($bytes, file_get_contents($extracted));
+                self::assertTrue(rename($extracted, $installed));
+                clearstatcache(true, $installed);
+                self::assertSame($bytes, file_get_contents($installed));
+                self::assertSame($time, filemtime($installed));
+
+                $this->waitForLaterDosInterval($time);
+                $copyStart = time();
+                self::assertTrue(copy($installed, $copied));
+                $copyEnd = time();
+                clearstatcache(true, $copied);
+                self::assertSame($bytes, file_get_contents($copied));
+                $copyTime = filemtime($copied);
+                self::assertNotFalse($copyTime);
+                self::assertGreaterThanOrEqual($copyStart, $copyTime);
+                self::assertLessThanOrEqual($copyEnd, $copyTime);
+                self::assertNotSame($time, $copyTime);
+            }
+        } finally {
+            putenv($processTz === false ? 'TZ' : 'TZ=' . $processTz);
+        }
+    }
+
+    public static function stagedFailureCases(): iterable
+    {
+        yield 'central timestamp' => ['central', 'Staged installer entry timestamp does not match the UTC build time.'];
+        yield 'local timestamp' => ['local', 'Staged installer entry timestamp does not match the UTC build time.'];
+        yield 'partial publication write' => ['write', 'Cannot publish complete verified installer.'];
+    }
+
+    public function testStagedTimestampVerificationReadsZip64Offsets(): void
+    {
+        $timestamp = time();
+        $archive = $this->root . '/zip64-offset-fixture.zip';
+        $write = new \ReflectionMethod(DistributionPackage::class, 'writeArchive');
+        $write->invoke($this->packager, $archive, $this->root, ['install.json'], $timestamp);
+        $bytes = file_get_contents($archive);
+        self::assertNotFalse($bytes);
+        $end = substr($bytes, -22);
+        $directory = unpack('Vsize/Voffset', $end, 12);
+        $header = substr($bytes, $directory['offset'], 46);
+        $lengths = unpack('vname/vextra/vcomment', $header, 28);
+        $sizes = unpack('Vcompressed/Vuncompressed', $header, 20);
+        $zip64Extra = pack('vvPPP', 1, 24, $sizes['uncompressed'], $sizes['compressed'], 0);
+        $header = substr_replace($header, pack('VV', 0xffffffff, 0xffffffff), 20, 8);
+        $header = substr_replace($header, pack('v', $lengths['extra'] + strlen($zip64Extra)), 30, 2);
+        $header = substr_replace($header, pack('V', 0xffffffff), 42, 4);
+        $nameAndExtra = substr($bytes, $directory['offset'] + 46, $lengths['name'] + $lengths['extra']);
+        $comment = substr($bytes, $directory['offset'] + 46 + strlen($nameAndExtra), $lengths['comment']);
+        $central = $header . $nameAndExtra . $zip64Extra . $comment;
+        $record = pack('a4PvvVVPPPP', "PK\x06\x06", 44, 45, 45, 0, 0, 1, 1, strlen($central), $directory['offset']);
+        $locator = pack('a4VPV', "PK\x06\x07", 0, $directory['offset'] + strlen($central), 1);
+        $end = substr_replace($end, pack('VV', 0xffffffff, 0xffffffff), 12, 8);
+        $zip64 = substr($bytes, 0, $directory['offset']) . $central . $record . $locator . $end;
+
+        // Keep the fixture small while verifying both ZIP64 offsets select the actual timestamp fields.
+        $verify = new \ReflectionMethod(DistributionPackage::class, 'verifyBuildTimestamps');
+        $verify->invoke($this->packager, $zip64, 1, $timestamp);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Staged installer entry timestamp does not match the UTC build time.');
+        $verify->invoke($this->packager, substr_replace($zip64, pack('vv', 0, 0x2821), 10, 4), 1, $timestamp);
+    }
+
+    #[DataProvider('stagedFailureCases')]
+    public function testStagedFailurePreservesPublishedBytesAndCleansStage(string $fault, string $message): void
+    {
+        $archive = $this->packager->build();
+        $before = [hash_file('sha256', $archive), fileinode($archive)];
+        $hook = $this->root . '/fault.php';
+        // The child installs fixture-only faults without changing process-wide functions in PHPUnit.
+        file_put_contents($hook, <<<'PHP'
+<?php
+namespace MtUniCredit\Build;
+
+function file_get_contents(string $path): string|false
+{
+    $bytes = \file_get_contents($path);
+    if ($bytes !== false && str_contains($path, '/.build-') && $GLOBALS['fault'] !== 'write') {
+        $central = unpack('V', $bytes, strlen($bytes) - 6)[1];
+        $mtime = $GLOBALS['fault'] === 'central' ? $central + 12 : 10;
+        $bytes = substr_replace($bytes, pack('vv', 0, 0x2821), $mtime, 4); // 2000-01-01
+        ++$GLOBALS['faultCount'];
+    }
+    return $bytes;
+}
+
+function fwrite($handle, string $bytes): int|false
+{
+    if ($GLOBALS['fault'] === 'write' && stream_get_meta_data($handle)['uri'] === $GLOBALS['archive']
+        && $GLOBALS['faultCount'] === 0) {
+        ++$GLOBALS['faultCount'];
+        return \fwrite($handle, substr($bytes, 0, 16) ^ str_repeat("\xff", 16));
+    }
+    return \fwrite($handle, $bytes);
+}
+
+[$script, $root, $GLOBALS['archive'], $GLOBALS['fault'], $expected] = $argv;
+$GLOBALS['faultCount'] = 0;
+require $root . '/scripts/DistributionPackage.php';
+putenv('TZ=Pacific/Auckland');
+date_default_timezone_set('America/Los_Angeles');
+try {
+    (new DistributionPackage($root))->build();
+    exit(2);
+} catch (\RuntimeException $error) {
+    if ($error->getMessage() !== $expected || $GLOBALS['faultCount'] !== 1
+        || getenv('TZ', true) !== 'Pacific/Auckland' || date_default_timezone_get() !== 'America/Los_Angeles') {
+        exit(3);
+    }
+}
+PHP);
+        $this->runFixtureCommand([PHP_BINARY, $hook, $this->root, $archive, $fault, $message]);
+        clearstatcache(true, $archive);
+        self::assertSame($before, [hash_file('sha256', $archive), fileinode($archive)]);
+        self::assertSame([], glob($this->root . '/dist/.build-*'));
     }
 
     public function testRepeatedBuildPreservesSharedDirectoryFilesOwnershipAndAcl(): void
@@ -433,6 +617,33 @@ final class DistributionPackageTest extends TestCase
         $this->runFixtureCommand([PHP_BINARY, $this->root . '/scripts/build-package.php'], 1);
     }
 
+    public function testVerifierRejectsTwoEntriesWithTheSameName(): void
+    {
+        $archive = $this->packager->build();
+        $bytes = file_get_contents($archive);
+        self::assertNotFalse($bytes);
+        $end = strlen($bytes) - 22;
+        $directory = unpack('ventries/Vsize/Voffset', $bytes, $end + 10);
+        $names = [];
+        $offset = $directory['offset'];
+        for ($index = 0; $index < $directory['entries']; ++$index) {
+            $fields = unpack('vname/vextra/vcomment/x8/Vlocal', $bytes, $offset + 28);
+            $length = $fields['name'];
+            if (isset($names[$length])) {
+                // Both local records keep their own offsets and payloads. Duplicate only the name.
+                $bytes = substr_replace($bytes, $names[$length], $offset + 46, $length);
+                $bytes = substr_replace($bytes, $names[$length], $fields['local'] + 30, $length);
+                break;
+            }
+            $names[$length] = substr($bytes, $offset + 46, $length);
+            $offset += 46 + $length + $fields['extra'] + $fields['comment'];
+        }
+        self::assertLessThan($directory['entries'], $index, 'Fixture contains two equally long entry names');
+        self::assertSame(strlen($bytes), file_put_contents($archive, $bytes));
+        $this->expectException(\RuntimeException::class);
+        $this->packager->verify($archive);
+    }
+
     public function testFailedBuildPreservesPreviousInstallerAndCleansStage(): void
     {
         $archive = $this->packager->build();
@@ -459,12 +670,73 @@ final class DistributionPackageTest extends TestCase
         }
     }
 
-    /** @return array<string, string> Never emitted as assertion diagnostics. */
+    private function assertCurrentZipMetadata(string $archive, int $start, int $end): int
+    {
+        $bytes = file_get_contents($archive);
+        self::assertNotFalse($bytes);
+        $endOfDirectory = strrpos($bytes, "PK\x05\x06");
+        self::assertNotFalse($endOfDirectory);
+        $directory = unpack('ventries/Vsize/Voffset', $bytes, $endOfDirectory + 10);
+        $offset = $directory['offset'];
+        $manifest = $this->packager->packageFiles();
+        self::assertSame(count($manifest), $directory['entries']);
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($archive, \ZipArchive::RDONLY | \ZipArchive::CHECKCONS) === true);
+        $timestamp = null;
+        try {
+            self::assertSame(count($manifest), $zip->numFiles);
+            foreach ($manifest as $name => $source) {
+                self::assertSame("PK\x01\x02", substr($bytes, $offset, 4));
+                $fields = unpack('vtime/vdate/x12/vname/vextra/vcomment/x8/Vlocal', $bytes, $offset + 12);
+                self::assertSame($name, substr($bytes, $offset + 46, $fields['name']));
+                self::assertSame("PK\x03\x04", substr($bytes, $fields['local'], 4));
+                self::assertSame(['time' => $fields['time'], 'date' => $fields['date']],
+                    unpack('vtime/vdate', $bytes, $fields['local'] + 10));
+                $time = $fields['time'];
+                $date = $fields['date'];
+                $utc = gmmktime($time >> 11, ($time >> 5) & 63, ($time & 31) * 2,
+                    ($date >> 5) & 15, $date & 31, 1980 + ($date >> 9));
+                $timestamp ??= $utc;
+                self::assertSame($timestamp, $utc, $name);
+                $stat = $zip->statName($name);
+                $entry = $zip->getFromName($name);
+                self::assertNotFalse($stat);
+                self::assertTrue(is_string($entry) && $entry === file_get_contents($this->root . '/' . $source), 'Source parity: ' . $name);
+                self::assertSame(sprintf('%08x', $stat['crc']), hash('crc32b', $entry), 'CRC: ' . $name);
+                self::assertSame(\ZipArchive::CM_DEFLATE, $stat['comp_method']);
+                self::assertTrue($zip->getExternalAttributesName($name, $system, $attributes));
+                self::assertSame([\ZipArchive::OPSYS_UNIX, 0100644], [$system, ($attributes >> 16) & 0177777]);
+                $offset += 46 + $fields['name'] + $fields['extra'] + $fields['comment'];
+            }
+        } finally {
+            $zip->close();
+        }
+        self::assertSame($directory['offset'] + $directory['size'], $offset);
+        self::assertGreaterThanOrEqual($start - $start % 2, $timestamp);
+        self::assertLessThanOrEqual($end, $timestamp);
+        self::assertSame(0, $timestamp % 2);
+        self::assertNotSame(946684800, $timestamp);
+
+        return $timestamp;
+    }
+
+    private function waitForLaterDosInterval(int $timestamp): void
+    {
+        $deadline = hrtime(true) + 5_000_000_000;
+        while (time() < $timestamp + 2 && hrtime(true) < $deadline) {
+            usleep(20_000);
+        }
+        self::assertGreaterThanOrEqual($timestamp + 2, time(), 'Build clock reached the next DOS timestamp interval');
+    }
+
+    /** @return array<string, array{string, int, int}> Never emitted as assertion diagnostics. */
     private function fingerprints(): array
     {
         $hashes = [];
         foreach (array_merge($this->packager->sourceFiles(), ['composer.json']) as $path) {
-            $hashes[$path] = hash_file('sha256', $this->root . '/' . $path);
+            $file = $this->root . '/' . $path;
+            clearstatcache(true, $file);
+            $hashes[$path] = [hash_file('sha256', $file), fileperms($file) & 0777, filemtime($file)];
         }
         return $hashes;
     }

@@ -50,7 +50,10 @@ final class DurableEurResumeHydrator
                 throw DurableEurOrderGuard::failure();
             }
         }
-        if (abs(((float) $snapshot['financed_amount'] + (float) $snapshot['first_installment']) - $proof->eurTotal) > 0.02
+        if (!DurableEurOrderGuard::withinGrossTolerance(
+            (float) $snapshot['financed_amount'] + (float) $snapshot['first_installment'],
+            $proof->eurTotal
+        )
             || (float) $snapshot['monthly_installment'] <= 0.0) {
             throw DurableEurOrderGuard::failure();
         }

@@ -33,7 +33,7 @@ Old Voided rows remain in DB/history. Old financing attempts stay bound to the o
 
 ### Checkout CP failure visibility
 
-If CP submit fails while `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (neutral Pending). Attempt may be `cp_failed_retryable` or `cp_outcome_unknown` (see Phase 10B). Same cart + Pending remains reuse-eligible for the local order without a second `addOrder()`; automatic CP `POST /orders` resend is allowed only from `cp_failed_retryable`, never from `cp_outcome_unknown`.
+If CP submit fails while `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (neutral Pending). The same cart and Pending status allow the native order to be reused without a second `addOrder()`. CP submission can continue automatically only from an eligible pre-dispatch attempt.
 
 ## Status visibility (Phase 10A / remediated)
 
@@ -44,23 +44,77 @@ Checkout is not rewritten by this initializer.
 
 ## CP create crash window (Phase 10B)
 
-```text
-POST /orders → CP creates N
-→ OC crashes before control_panel_order_id write
-→ state cp_outcome_unknown (known cpId may be logged; persist failed)
-→ DO NOT automatic re-POST
-→ operator / safe manual recovery only
-```
+### Frozen CP body and first send
+
+Under the existing operation lock, a send-eligible attempt first reserves a
+body authorization in the existing `last_error_class` column. The
+`cp_body_v1:` value binds the intended semantic body. The conditional
+reservation checks the verified attempt and lease, and an authoritative
+read-back must confirm it before a first payload write or a submission claim.
+A first payload write still requires an eligible `order_created` row and SQL
+NULL payload. If that write does not apply, a repeat with a NULL body can
+proceed only when the newly built body matches the earlier authorization.
+
+An already stored, unmarked historical body in an eligible pre-dispatch
+state can receive its own authorization after passing the existing
+stored-body checks. The stored bytes are preserved.
+When an observed body conflicts with a confirmed authorization, try to record
+`cp_outcome_unknown` with `cp_conflict`. If the hold is unapplied or its
+acknowledgement is lost, the earlier authorization still prevents a later send
+of the contradictory body. Preserve the body for technical reconciliation.
+The hold does not establish that CP received a request.
+
+The body fingerprint proves which body was authorized. While the attempt
+is in an eligible `order_created` or `cp_failed_retryable` state, that
+authorization can be recovered before dispatch. With a validated frozen body,
+the submission claim conditionally enters `cp_submitting`, retaining the
+fingerprint. It matches the exact stored bytes, consent, origin, state, and
+local order identity. It also requires a live caller-owned operation lease
+and a NULL CP identifier. Only the caller that made the transition and
+confirmed the resulting row and lease may invoke CP.
+
+Eligible replay uses the stored JSON without rewriting it, preserving its
+original exact numeric amounts, order identity and wire version. Proven
+historical principal-priced bodies remain valid, as do stored gross-priced
+bodies. An already recorded CP identity continues locally under the existing
+provenance and downstream claim rules. The legacy recorded-result exception
+remains read-only and requires its existing evidence.
 
 ### `cp_failed_retryable`
 
-May re-POST frozen `cp_payload` only when the failure is proven local / pre-send (create request could not have created a remote order). Production uses this narrowly for cases such as unresolved frozen payload or a failed enter-`cp_submitting` claim that is not already `cp_created` / `cp_outcome_unknown`. It must **not** describe HTTP 5xx, timeout, transport ambiguity, auth ambiguity, malformed CP responses, 429, unknown 4xx, or malformed/noncanonical 409.
+Existing retry eligibility requires a valid frozen body. Preserve the stored
+body on retry. A missing body in an attempted or retry state, a corrupt body,
+or other known or suspected incomplete historical evidence requires technical
+reconciliation. Automatic reconstruction and alternate-price requests are
+prohibited. An entirely missing historical attempt cannot always be
+distinguished from a genuine new intent. Hold suspected cases before submitting
+the affected native order and reconcile the original order and shop evidence
+through the owner or an authorized operator.
 
-### `cp_outcome_unknown`
+### Possible dispatch and recorded outcomes
 
-Use when CP may have received/processed `POST /orders` but the module cannot prove the result. Preserve frozen `cp_payload` and local order identity. **Do not** automatically re-POST `/orders`, start SmartUCF, start Process 2, or write false `bank_send_failed_cp`. Operator / safe manual recovery only.
+An unresolved `cp_submitting` row requires technical reconciliation, including
+historical rows in that state. Dispatch may have started. A claim that committed
+without acknowledgement, or an interruption immediately before transport,
+can require reconciliation even when CP received no request.
 
-Includes: transport timeout; connection failure after submission may have occurred; authentication failure after the request was sent; malformed response / malformed success / echo mismatch; HTTP 429; **HTTP 5xx**; unknown/noncanonical 4xx; malformed/noncanonical 409; persist race with known `cpId` before durable `control_panel_order_id` write.
+Outcome recording checks the dispatch snapshot and changes the state and error
+classification in one write. A confirmed create records its CP ID and
+`cp_created` together. A definitive rejection records `terminal_failed`
+with `cp_rejected` before terminal failure processing. An ambiguous result
+records `cp_outcome_unknown` with its classification. If the write does not
+apply, `cp_submitting` and its fingerprint continue to block automatic
+creation. A lost acknowledgement can be resolved by exact read-back of the
+recorded disposition. Preserve the frozen body and local order identity.
+
+For an unresolved dispatch, the owner or authorized operator must reconcile
+before further processing. Automatic CP creation, SmartUCF, Process 2, and
+`bank_send_failed_cp` are blocked while the outcome is ambiguous.
+
+Ambiguity includes timeouts, connection or authentication failure during
+dispatch, malformed responses or echo mismatches, HTTP 429 or 5xx, unknown
+4xx, noncanonical 409, and loss of local persistence before a confirmed CP ID
+can be recorded.
 
 `cp_outcome_unknown` is an **internal/service lifecycle state**. It is not a public bank status and must not invent a fifth customer-facing bank-status label.
 

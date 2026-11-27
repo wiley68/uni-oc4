@@ -7,6 +7,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
  */
 final class FinancingAttemptRepository
 {
+    private const CP_BODY_AUTHORIZATION_PREFIX = 'cp_body_v1:';
+
     private DbConnection $db;
 
     private PersistenceClock $clock;
@@ -128,31 +130,159 @@ final class FinancingAttemptRepository
         return $this->db->countAffected() === 1;
     }
 
-    /**
-     * @param array<string, mixed> $payload
-     */
+    public static function isCpBodyAuthorization(?string $value): bool
+    {
+        return $value !== null && str_starts_with($value, self::CP_BODY_AUTHORIZATION_PREFIX);
+    }
+
+    public static function canPrepareCpSubmission(array $row): bool
+    {
+        $state = $row['state'] ?? null;
+        $error = $row['last_error_class'] ?? null;
+
+        return in_array($state, [FinancingAttemptState::ORDER_CREATED, FinancingAttemptState::CP_FAILED_RETRYABLE], true)
+            && ($error === null || self::isCpBodyAuthorization($error)
+                || ($state === FinancingAttemptState::CP_FAILED_RETRYABLE && $error === ControlPanelErrorClass::RECOVERY_FAILED));
+    }
+
+    public static function cpBodyAuthorization(array $payload): ?string
+    {
+        foreach (['price', 'parva', 'vnoska', 'gpr'] as $key) {
+            if (!is_numeric($payload[$key] ?? null) || !is_finite((float) $payload[$key])) {
+                return null;
+            }
+            $amount = (float) $payload[$key];
+            // Encode the exact CP numeric value without depending on PHP's JSON float precision.
+            $payload[$key] = bin2hex(pack('E', $amount == 0.0 ? 0.0 : $amount));
+        }
+        ksort($payload, SORT_STRING);
+        $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION), true);
+
+        return self::CP_BODY_AUTHORIZATION_PREFIX . rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
+    }
+
+    public function reserveCpBodyAuthorization(array $row, string $owner, string $authorization): void
+    {
+        if (!self::canPrepareCpSubmission($row) || self::isCpBodyAuthorization($row['last_error_class'] ?? null)) {
+            return;
+        }
+
+        $table = $this->tableName();
+        $now = $this->clock->formatUtc($this->clock->now());
+        $conditions = $this->cpSubmissionConditions($row);
+        $lease = $this->cpLeaseCondition($row, $owner, $now);
+        $expectedState = $this->db->escape($row['state']);
+        $authorization = $this->db->escape($authorization);
+        $this->db->query(
+            "UPDATE `{$table}` SET `last_error_class` = '{$authorization}', `updated_at` = '{$now}'
+             WHERE {$conditions} {$lease} AND `state` = '{$expectedState}'"
+        );
+    }
+
     public function persistCpPayload(int $attemptId, array $payload): bool
     {
-        if ($attemptId <= 0) {
+        $authorization = self::cpBodyAuthorization($payload);
+        if ($attemptId <= 0 || $authorization === null) {
             return false;
         }
 
-        try {
-            $json = json_encode($payload, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new PersistenceValidationException('Control Panel payload could not be encoded.', 0, $exception);
-        }
-
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
         $table = $this->tableName();
         $updatedAt = $this->clock->formatUtc($this->clock->now());
         $this->db->query(
             "UPDATE `{$table}`
              SET `cp_payload` = '" . $this->db->escape($json) . "',
                  `updated_at` = '" . $this->db->escape($updatedAt) . "'
-             WHERE `attempt_id` = " . (int) $attemptId
+             WHERE `attempt_id` = " . (int) $attemptId . "
+               AND `state` = '" . FinancingAttemptState::ORDER_CREATED . "'
+               AND `control_panel_order_id` IS NULL
+               AND BINARY `last_error_class` = '" . $this->db->escape($authorization) . "'
+               AND `cp_payload` IS NULL"
         );
 
         return $this->db->countAffected() === 1;
+    }
+
+    public function holdCpPayloadConflict(int $attemptId, int $storeId, int $orderId): void
+    {
+        $table = $this->tableName();
+        $this->db->query(
+            "UPDATE `{$table}`
+             SET `state` = 'cp_outcome_unknown', `last_error_class` = 'cp_conflict',
+                 `updated_at` = '" . $this->clock->formatUtc($this->clock->now()) . "'
+             WHERE `attempt_id` = {$attemptId} AND `store_id` = {$storeId} AND `order_id` = {$orderId}
+               AND `control_panel_order_id` IS NULL
+               AND `state` IN ('order_created', 'cp_failed_retryable')"
+        );
+    }
+
+    public function claimCpSubmission(array $row, string $owner): bool
+    {
+        $table = $this->tableName();
+        $authorization = $row['last_error_class'] ?? null;
+        if (!self::canPrepareCpSubmission($row) || !self::isCpBodyAuthorization($authorization)
+            || !is_string($row['cp_payload'] ?? null)) {
+            return false;
+        }
+        try {
+            $body = json_decode($row['cp_payload'], true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return false;
+        }
+        if (!is_array($body) || self::cpBodyAuthorization($body) !== $authorization) {
+            return false;
+        }
+        $now = $this->clock->formatUtc($this->clock->now());
+        $state = $this->db->escape($row['state']);
+        $conditions = $this->cpSubmissionConditions($row);
+        $lease = $this->cpLeaseCondition($row, $owner, $now);
+        $this->db->query(
+            "UPDATE `{$table}` SET `state` = 'cp_submitting', `updated_at` = '{$now}'
+             WHERE {$conditions} {$lease} AND `state` = '{$state}'"
+        );
+        if ($this->db->countAffected() !== 1) {
+            return false;
+        }
+
+        // Only the caller that entered cp_submitting may dispatch, after confirming its lease and row.
+        $lease = $this->cpLeaseCondition($row, $owner, $this->clock->formatUtc($this->clock->now()));
+        $result = $this->db->query(
+            "SELECT `attempt_id` FROM `{$table}` WHERE {$conditions} {$lease} AND `state` = 'cp_submitting'"
+        );
+
+        return is_object($result) && (int) ($result->num_rows ?? 0) === 1;
+    }
+
+    private function cpSubmissionConditions(array $row): string
+    {
+        $attemptId = (int) $row['attempt_id'];
+        $storeId = (int) $row['store_id'];
+        $orderId = (int) $row['order_id'];
+        $entry = $this->db->escape($row['entry_point']);
+        $operation = $this->db->escape($row['operation_key_hash']);
+        $body = isset($row['cp_payload']) ? "= '" . $this->db->escape($row['cp_payload']) . "'" : 'IS NULL';
+        $origin = $this->db->escape($row['cp_origin']);
+        $consent = $this->db->escape($row['consent_context_json']);
+        $error = isset($row['last_error_class']) ? "'" . $this->db->escape($row['last_error_class']) . "'" : 'NULL';
+
+        return "`attempt_id` = {$attemptId} AND `store_id` = {$storeId} AND `order_id` = {$orderId}
+               AND `entry_point` = '{$entry}' AND `operation_key_hash` = '{$operation}'
+               AND `control_panel_order_id` IS NULL AND BINARY `last_error_class` <=> {$error}
+               AND BINARY `cp_payload` {$body} AND BINARY `cp_origin` = '{$origin}'
+               AND BINARY `consent_context_json` = '{$consent}'";
+    }
+
+    private function cpLeaseCondition(array $row, string $owner, string $at): string
+    {
+        $locks = $this->db->getPrefix() . PersistenceTableNames::OPERATION_LOCK;
+        $storeId = (int) $row['store_id'];
+        $entry = $this->db->escape($row['entry_point']);
+        $operation = $this->db->escape($row['operation_key_hash']);
+        $owner = $this->db->escape($owner);
+
+        return "AND EXISTS (SELECT 1 FROM `{$locks}` WHERE `store_id` = {$storeId}
+                   AND `entry_point` = '{$entry}' AND `operation_key_hash` = '{$operation}'
+                   AND `owner_token` = '{$owner}' AND `expires_at` > '{$at}')";
     }
 
     public function persistControlPanelOrderId(int $attemptId, int $controlPanelOrderId): bool
@@ -182,40 +312,68 @@ final class FinancingAttemptRepository
             && (int) $row['control_panel_order_id'] === $controlPanelOrderId;
     }
 
-    public function persistLastErrorClass(int $attemptId, string $errorClass): bool
+    public function recordCpCreated(array $claimed, int $cpOrderId): bool
     {
-        if ($attemptId <= 0 || !ControlPanelErrorClass::isValid($errorClass)) {
+        if ($cpOrderId <= 0) {
             return false;
         }
 
-        $table = $this->tableName();
-        $updatedAt = $this->clock->formatUtc($this->clock->now());
-        $this->db->query(
-            "UPDATE `{$table}`
-             SET `last_error_class` = '" . $this->db->escape($errorClass) . "',
-                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
-             WHERE `attempt_id` = " . (int) $attemptId
-        );
-
-        return $this->db->countAffected() === 1;
+        return $this->recordCpDisposition($claimed, FinancingAttemptState::CP_CREATED, null, $cpOrderId);
     }
 
-    public function clearLastErrorClass(int $attemptId): bool
+    public function recordCpFailure(array $claimed, string $errorClass, bool $definitive = false): bool
     {
-        if ($attemptId <= 0) {
+        if (!ControlPanelErrorClass::isValid($errorClass) || ($definitive && $errorClass !== ControlPanelErrorClass::REJECTED)) {
             return false;
         }
 
+        $state = $definitive ? FinancingAttemptState::TERMINAL_FAILED : FinancingAttemptState::CP_OUTCOME_UNKNOWN;
+
+        return $this->recordCpDisposition($claimed, $state, $errorClass, null);
+    }
+
+    private function recordCpDisposition(array $claimed, string $state, ?string $errorClass, ?int $cpOrderId): bool
+    {
+        if (!self::isCpBodyAuthorization($claimed['last_error_class'] ?? null) || !is_string($claimed['cp_payload'] ?? null)) {
+            return false;
+        }
+
+        // The lease may have expired during transport. The original dispatch snapshot still owns its result.
+        $conditions = $this->cpSubmissionConditions($claimed);
         $table = $this->tableName();
         $updatedAt = $this->clock->formatUtc($this->clock->now());
-        $this->db->query(
-            "UPDATE `{$table}`
-             SET `last_error_class` = NULL,
-                 `updated_at` = '" . $this->db->escape($updatedAt) . "'
-             WHERE `attempt_id` = " . (int) $attemptId
-        );
+        $error = $errorClass === null ? 'NULL' : "'" . $this->db->escape($errorClass) . "'";
+        $order = $cpOrderId ?? 'NULL';
+        try {
+            $this->db->query(
+                "UPDATE `{$table}`
+                 SET `state` = '{$state}', `last_error_class` = {$error},
+                     `control_panel_order_id` = {$order}, `updated_at` = '{$updatedAt}'
+                 WHERE {$conditions} AND `state` = 'cp_submitting'"
+            );
+            if ($this->db->countAffected() === 1) {
+                return true;
+            }
+        } catch (\Exception) {
+            // The update may have committed before the connection lost its acknowledgement.
+        }
 
-        return $this->db->countAffected() === 1;
+        try {
+            $saved = $this->findById((int) $claimed['attempt_id']);
+        } catch (\Exception) {
+            return false;
+        }
+        if ($saved === null || $saved['state'] !== $state || ($saved['last_error_class'] ?? null) !== $errorClass
+            || (isset($saved['control_panel_order_id']) ? (int) $saved['control_panel_order_id'] : null) !== $cpOrderId) {
+            return false;
+        }
+        foreach (['store_id', 'order_id', 'entry_point', 'operation_key_hash', 'cp_payload', 'cp_origin', 'consent_context_json'] as $key) {
+            if ($saved[$key] !== $claimed[$key]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function attachOrder(int $attemptId, int $orderId): bool

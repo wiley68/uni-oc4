@@ -18,7 +18,7 @@ Module release version remains frozen at `2.0.2` (`ModuleConstants::VERSION`) fo
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | Method               | `POST`                                                                                   |
 | Route                | `/api/v1/orders` (client path `/orders`)                                                 |
-| Auth                 | `Authorization: Bearer <access_token>` (Phase 4 client; one 401 → login/refresh → retry) |
+| Auth                 | `Authorization: Bearer <access_token>`. The client does not replay a create after a remote 401. |
 | Content-Type         | `application/json`                                                                       |
 | Success              | HTTP 201 created or HTTP 200 idempotent replay; `success=true`; `data.id` = CP PK        |
 | Conflict             | HTTP 409 when same `(shop_id, order_id)` exists with different semantic hash             |
@@ -39,35 +39,37 @@ Process 2 shops (`uni_proces === 1`): also omit `status` / `status_id` on Phase 
 ## Attempt states (Phase 10B)
 
 ```text
-order_created → cp_submitting → cp_created
-cp_submitting → cp_failed_retryable | cp_outcome_unknown
-cp_failed_retryable → cp_submitting (retry via re-POST frozen payload)
-cp_outcome_unknown → STOP (no automatic re-POST; operator / manual recovery only)
-cp_created → (replay local only; no CP call)
+order_created | eligible cp_failed_retryable → confirmed dispatch claim (cp_submitting)
+cp_submitting → cp_created | terminal_failed | cp_outcome_unknown
+unresolved cp_submitting | cp_outcome_unknown → operator reconciliation
+cp_created → local continuation
 ```
 
-Forbidden:
-
-- `cp_created → cp_submitting` without clearing durable CP id (replay returns existing)
-- Blind re-POST from `cp_outcome_unknown` (auth/429/timeout/transport/malformed 2xx success)
+Only the caller that entered `cp_submitting` and confirmed the claim may
+invoke the create. Subsequent invocations stop at unresolved
+`cp_submitting` or `cp_outcome_unknown`.
 
 ## Persistence
 
 `mt_uni_credit_financing_attempt`:
 
 - `control_panel_order_id` (BIGINT) — CP `data.id`
-- `cp_payload` — frozen POST body (recovery source of truth for retryable failures only)
-- `last_error_class` — taxonomy below
+- `cp_payload` — frozen POST body preserved through dispatch and recovery
+- `last_error_class` — body fingerprint during preparation and dispatch, then the recorded error classification or NULL on success
 - `state` — lifecycle
 - `cp_status_sync_*` — durable outbound PATCH confirmation (separate from local bank*sent*\*)
 
 ## Crash / timeout recovery
 
-CP has no lookup-by-shop-order GET. Retryable recovery (`cp_failed_retryable`) = re-POST **frozen** `cp_payload`.
+CP has no lookup-by-shop-order GET. An eligible `cp_failed_retryable` attempt
+can dispatch its frozen `cp_payload` after validation and a confirmed claim.
 Same semantic hash → HTTP 200 + same `data.id`. Different hash → 409 (`cp_conflict`).
 
-Ambiguous outcomes (timeout, transport, auth, 429, 5xx, unknown 4xx, malformed success / echo mismatch after HTTP 2xx, persist race with known `cpId`) → `cp_outcome_unknown`.
-**Do not** automatic re-POST from `cp_outcome_unknown`. **Do not** write `bank_send_failed_cp` for ambiguous create outcomes.
+Ambiguous outcomes are recorded as `cp_outcome_unknown`. An unapplied
+outcome write leaves the attempt in `cp_submitting` with its fingerprint.
+Either state blocks automatic creation and `bank_send_failed_cp`. An
+interruption immediately before transport can also require reconciliation.
+See [Recovery](RECOVERY.md) for the disposition rules.
 
 HTTP ≥500 without definitive machine code → `cp_outcome_unknown` (no blind re-POST).
 Definitive machine codes (`invalid_payload`, `semantic_conflict`, `unsupported_status`, `shop_not_found`, `order_not_found`) → `terminal_failed` / non-retryable.
@@ -98,7 +100,7 @@ SmartUCF acceptance of empty `clientPhone` remains a Phase 11 real-bank test —
 
 CP success alone does not change OpenCart status. CP failure leaves Product/Cart at the configured payment status (order not deleted / not reverted to 0).
 
-Checkout CP failure before native success: if `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (typically Pending) so Admin is not Missing Orders. That status remains Checkout reuse-eligible for same-cart CP retry. Success path still uses payment method status via native confirm.
+Checkout CP failure before native success: if `order_status_id <= 0`, apply `addHistory(config_order_status_id)` (typically Pending) so Admin is not Missing Orders. That status remains eligible for same-cart native order reuse. CP create eligibility follows the durable attempt state. Success still uses payment method status via native confirm.
 
 There is **no** separate module setting `module_mt_uni_credit_awaiting_financing_order_status_id`.
 

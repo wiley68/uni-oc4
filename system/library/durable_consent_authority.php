@@ -36,7 +36,7 @@ final class DurableConsentAuthority
             try { $payload = json_decode($row['cp_payload'], true, 64, JSON_THROW_ON_ERROR); }
             catch (\JsonException) { throw ConsentResolver::refusal(); }
             if (!is_array($payload)) throw ConsentResolver::refusal();
-            self::compareCpPayload($c['conditions'], $payload, $nativeProducts ?? [], $orderId);
+            self::compareCpPayload($c['conditions'], $payload, $nativeProducts ?? [], $orderId, true);
         }
         return $record;
     }
@@ -91,11 +91,16 @@ final class DurableConsentAuthority
         ConsentContext::assertBinding($record, $row);
         $b = $record['issued']['binding'];
         $c = $record['issued']['context'];
+        $conditions = ConsentContext::fromCalculation($s->financingCalculation);
+        // Resume hydration starts with the saved native gross. The agreed gross stays in consent.
+        if ($s->submissionSource === 'resume' && DurableEurOrderGuard::withinGrossTolerance($conditions['price'], $c['conditions']['price'])) {
+            $conditions['price'] = $c['conditions']['price'];
+        }
         if ($s->storeId !== $b['store_id'] || $s->entryPoint !== $b['entry_point'] || $s->submissionToken !== $b['submission_token']
             || $s->operationKeyHash !== $b['operation_key_hash'] || $s->selectionHash !== $b['selection_hash'] || $s->shopUnicid !== $b['unicid']
             || ($s->existingOrderId !== $c['existing_order_id'] && $s->submissionSource !== 'resume')
             || $c['commerce_hash'] !== ConsentContext::commerce($s->orderDraft->products)
-            || ConsentContext::hash(ConsentContext::fromCalculation($s->financingCalculation)) !== ConsentContext::hash($c['conditions'])) throw ConsentResolver::refusal();
+            || ConsentContext::hash($conditions) !== ConsentContext::hash($c['conditions'])) throw ConsentResolver::refusal();
     }
 
     /** Called before sensitive preparation, order writes or network. Its lease is released before materialization acquires its lease. */
@@ -173,16 +178,24 @@ final class DurableConsentAuthority
         }
     }
 
-    public function assertCpPayload(int $attemptId, array $payload, ValidatedFinancingSubmission $s, int $orderId): void
+    public function assertCpPayload(int $attemptId, array $payload, ValidatedFinancingSubmission $s, int $orderId, bool $stored = false): void
     {
         $r = $this->requireFinalized($attemptId, $s, $orderId);
-        self::compareCpPayload($r['issued']['context']['conditions'], $payload, $s->orderDraft->products, $orderId);
+        self::compareCpPayload($r['issued']['context']['conditions'], $payload, $s->orderDraft->products, $orderId, $stored);
+        if (($payload['products_name'] ?? null) !== ControlPanelOrderPayloadBuilder::productNames($s->orderDraft->products)) {
+            throw ConsentResolver::refusal();
+        }
     }
 
-    private static function compareCpPayload(array $c, array $payload, array $products, int $orderId): void
+    private static function compareCpPayload(array $c, array $payload, array $products, int $orderId, bool $stored): void
     {
-        foreach (['price' => 'financed_amount', 'vnoska' => 'monthly_installment', 'gpr' => 'gpr', 'parva' => 'first_installment'] as $key => $condition) {
-            if (!is_numeric($payload[$key] ?? null) || (float) $payload[$key] !== round($c[$condition], 2)) throw ConsentResolver::refusal();
+        $price = $payload['price'] ?? null;
+        if (!DurableEurOrderGuard::matchesAmount($price, $c['price'])
+            && (!$stored || !DurableEurOrderGuard::matchesAmount($price, $c['financed_amount']))) {
+            throw ConsentResolver::refusal();
+        }
+        foreach (['vnoska' => 'monthly_installment', 'gpr' => 'gpr', 'parva' => 'first_installment'] as $key => $condition) {
+            if (!DurableEurOrderGuard::matchesAmount($payload[$key] ?? null, $c[$condition])) throw ConsentResolver::refusal();
         }
         $ids = array_map(static fn(array $p): int => (int) $p['product_id'], $products);
         $quantities = array_map(static fn(array $p): int => (int) $p['quantity'], $products);

@@ -7,8 +7,8 @@ namespace Opencart\System\Library\Extension\MtUniCredit;
 /**
  * Shared CP order create/recover lifecycle for Product, Cart and Checkout (Phase 10B).
  *
- * Recovery for retryable failures = re-POST the frozen cp_payload (CP idempotent on shop+order).
- * Ambiguous outcomes (`cp_outcome_unknown`) must NEVER blind re-POST — stop safely.
+ * An authorized pre-dispatch attempt can send its frozen body. A persisted
+ * dispatch claim requires reconciliation unless a definitive result is recorded.
  */
 final class ControlPanelOrderLifecycleService
 {
@@ -70,13 +70,6 @@ final class ControlPanelOrderLifecycleService
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
         }
         CpOriginGuard::assertAttempt($attempt->row());
-        (new DurableConsentAuthority($this->database()))->requireFinalized($attempt->attemptId(), $submission, $localOrderId);
-        $submission->eurOrderProof = (new DurableEurOrderGuard($this->database()))->prove(
-            $attempt->attemptId(),
-            $submission->storeId,
-            $localOrderId
-        );
-
         if (!$this->locks->acquire(
             $submission->storeId,
             $submission->entryPoint,
@@ -87,7 +80,7 @@ final class ControlPanelOrderLifecycleService
         }
 
         try {
-            return $this->runUnderLock($attempt->attemptId(), $submission, $localOrderId, $shop);
+            return $this->runUnderLock($attempt->attemptId(), $submission, $localOrderId, $shop, $lockOwnerToken);
         } finally {
             $this->locks->release(
                 $submission->storeId,
@@ -105,7 +98,8 @@ final class ControlPanelOrderLifecycleService
         int $attemptId,
         ValidatedFinancingSubmission $submission,
         int $localOrderId,
-        array $shop
+        array $shop,
+        string $lockOwnerToken
     ): ControlPanelOrderSubmissionResult {
         $row = $this->attempts->findById($attemptId);
         if ($row === null) {
@@ -114,15 +108,14 @@ final class ControlPanelOrderLifecycleService
 
         CpOriginGuard::assertAttempt($row);
 
+        $consent = new DurableConsentAuthority($this->database());
         $existingCpId = isset($row['control_panel_order_id']) ? (int) $row['control_panel_order_id'] : 0;
-        if ($existingCpId > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
-            $this->log('cp_replay_local', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $existingCpId, null, null);
-
-            return ControlPanelOrderSubmissionResult::ok($existingCpId, true);
-        }
-
-        // Ambiguous CP create: never blind-resend POST /orders.
-        if ((string) ($row['state'] ?? '') === FinancingAttemptState::CP_OUTCOME_UNKNOWN) {
+        if (self::requiresCpReconciliation($row)) {
+            $consent->requireFinalized($attemptId, $submission);
+            if ((int) ($row['order_id'] ?? 0) !== $localOrderId) {
+                throw ConsentResolver::refusal();
+            }
+            $error = self::reconciliationError($row);
             $this->log(
                 'cp_outcome_unknown_blocked',
                 $attemptId,
@@ -130,104 +123,155 @@ final class ControlPanelOrderLifecycleService
                 $submission->storeId,
                 $localOrderId,
                 $existingCpId > 0 ? $existingCpId : null,
-                (string) ($row['last_error_class'] ?? ControlPanelErrorClass::RECOVERY_FAILED),
+                $error,
                 null
             );
 
-            return ControlPanelOrderSubmissionResult::fail(
-                (string) ($row['last_error_class'] ?? ControlPanelErrorClass::RECOVERY_FAILED),
-                false
-            );
+            return ControlPanelOrderSubmissionResult::fail($error, false);
         }
 
-        $payload = $this->resolveFrozenPayload($row, $submission, $localOrderId, $shop);
-        if ($payload === null) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::RECOVERY_FAILED, FinancingAttemptState::CP_FAILED_RETRYABLE);
+        $record = $consent->requireFinalized($attemptId, $submission, $localOrderId);
+        $submission->eurOrderProof = (new DurableEurOrderGuard($this->database()))->prove(
+            $attemptId,
+            $submission->storeId,
+            $localOrderId
+        );
 
-            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, true);
+        if ($existingCpId > 0 && (string) ($row['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
+            $this->log('cp_replay_local', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $existingCpId, null, null);
+
+            return ControlPanelOrderSubmissionResult::ok($existingCpId, true);
         }
 
-        (new DurableConsentAuthority($this->database()))->assertCpPayload($attemptId, $payload, $submission, $localOrderId);
-        DurableEurOrderGuard::assertCpPayload($payload, $submission->eurOrderProof);
-        $this->attempts->persistCpPayload($attemptId, $payload);
+        $state = (string) ($row['state'] ?? '');
+        if (!FinancingAttemptRepository::canPrepareCpSubmission($row) || $existingCpId > 0) {
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+        }
 
-
-        if (!$this->enterSubmitting($attemptId, (string) ($row['state'] ?? ''))) {
-            $fresh = $this->attempts->findById($attemptId);
-            if ($fresh !== null) {
-                CpOriginGuard::assertAttempt($fresh);
+        $raw = $row['cp_payload'] ?? null;
+        $pending = $row['last_error_class'] ?? null;
+        $hasAuthorization = FinancingAttemptRepository::isCpBodyAuthorization($pending);
+        if ($raw !== null) {
+            $payload = $this->decodeFrozenPayload($raw);
+            if ($payload === null) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
             }
-            $freshCp = isset($fresh['control_panel_order_id']) ? (int) $fresh['control_panel_order_id'] : 0;
-            if ($fresh !== null && $freshCp > 0 && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_CREATED) {
+            $consent->assertCpPayload($attemptId, $payload, $submission, $localOrderId, true);
+        } else {
+            if ($state !== FinancingAttemptState::ORDER_CREATED) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+            }
+            // The resume hydrator starts from the native amount. Use the finalized gross for CP.
+            $newSubmission = clone $submission;
+            $newSubmission->financingCalculation = clone $submission->financingCalculation;
+            $newSubmission->financingCalculation->price = $record['issued']['context']['conditions']['price'];
+            $payload = $this->payloadBuilder->build($newSubmission, $localOrderId, $shop);
+            $consent->assertCpPayload($attemptId, $payload, $newSubmission, $localOrderId);
+        }
+
+        $authorization = FinancingAttemptRepository::cpBodyAuthorization($payload);
+        if ($authorization === null) {
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+        }
+        if ($hasAuthorization && $pending !== $authorization) {
+            return $this->rejectBodyConflict($attemptId, $submission->storeId, $localOrderId);
+        }
+        if (!$hasAuthorization) {
+            try {
+                $this->attempts->reserveCpBodyAuthorization($row, $lockOwnerToken, $authorization);
+            } catch (\Exception) {
+                // A lost acknowledgement is inconclusive until the authoritative read-back.
+            }
+            $saved = $this->attempts->findById($attemptId);
+            if (!self::isAuthorizedRow($row, $saved, $authorization) || ($saved['cp_payload'] ?? null) !== $raw) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+            }
+            $row = $saved;
+        }
+
+        if ($raw === null) {
+            try {
+                $this->attempts->persistCpPayload($attemptId, $payload);
+            } catch (\Exception) {
+                // The write can lose its acknowledgement after it commits.
+            }
+            $saved = $this->attempts->findById($attemptId);
+            if (!self::isAuthorizedRow($row, $saved, $authorization)) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+            }
+            $confirmedRaw = $saved['cp_payload'] ?? null;
+            if ($confirmedRaw === null) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+            }
+            $confirmed = $this->decodeFrozenPayload($confirmedRaw);
+            if ($confirmed === null || FinancingAttemptRepository::cpBodyAuthorization($confirmed) !== $authorization) {
+                return $this->rejectBodyConflict($attemptId, $submission->storeId, $localOrderId);
+            }
+            $consent->assertCpPayload($attemptId, $confirmed, $newSubmission, $localOrderId);
+            $payload = $confirmed;
+            $row = $saved;
+        }
+
+        try {
+            $dispatchConfirmed = $this->attempts->claimCpSubmission($row, $lockOwnerToken);
+        } catch (\Exception) {
+            // An unconfirmed dispatch claim never authorizes an external request.
+            $dispatchConfirmed = false;
+        }
+        if (!$dispatchConfirmed) {
+            $fresh = $this->attempts->findById($attemptId);
+            if ($fresh === null) {
+                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+            }
+            CpOriginGuard::assertAttempt($fresh);
+            $freshCp = (int) ($fresh['control_panel_order_id'] ?? 0);
+            if ($freshCp > 0 && $fresh['state'] === FinancingAttemptState::CP_CREATED) {
+                $consent->requireFinalized($attemptId, $submission, $localOrderId);
+                (new DurableEurOrderGuard($this->database()))->prove($attemptId, $submission->storeId, $localOrderId, true);
                 return ControlPanelOrderSubmissionResult::ok($freshCp, true);
             }
-            if ($fresh !== null && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_OUTCOME_UNKNOWN) {
-                return ControlPanelOrderSubmissionResult::fail(
-                    (string) ($fresh['last_error_class'] ?? ControlPanelErrorClass::RECOVERY_FAILED),
-                    false
-                );
+            if (self::requiresCpReconciliation($fresh)) {
+                return ControlPanelOrderSubmissionResult::fail(self::reconciliationError($fresh), false);
             }
-            $this->persistFailure($attemptId, ControlPanelErrorClass::RECOVERY_FAILED, FinancingAttemptState::CP_FAILED_RETRYABLE);
+            if (($fresh['cp_payload'] ?? null) !== $row['cp_payload']) {
+                return $this->rejectBodyConflict($attemptId, $submission->storeId, $localOrderId);
+            }
 
-            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, true);
+            return ControlPanelOrderSubmissionResult::fail(
+                ControlPanelErrorClass::RECOVERY_FAILED,
+                $freshCp === 0 && FinancingAttemptRepository::canPrepareCpSubmission($fresh)
+            );
         }
 
         $this->log('cp_submitting', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, null, null);
 
         try {
             $response = $this->client->createOrder($payload);
-            $cpId = (int) ($response['data']['id'] ?? 0);
-            if ($cpId <= 0) {
-                // Malformed success after HTTP 2xx — ambiguous; never bank_send_failed_cp; no second POST.
-                $this->persistFailure($attemptId, ControlPanelErrorClass::INVALID_RESPONSE, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
-                $this->log('cp_invalid_response', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::INVALID_RESPONSE, 200);
-
-                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::INVALID_RESPONSE, false, 200);
-            }
-
-            if (!$this->attempts->persistControlPanelOrderId($attemptId, $cpId)) {
-                // Crash-window: CP succeeded with known cpId but local persist raced.
-                // Prefer outcome_unknown stop — do not blind re-POST.
-                $this->persistFailure($attemptId, ControlPanelErrorClass::RECOVERY_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
-                $this->log('cp_persist_race', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $cpId, ControlPanelErrorClass::RECOVERY_FAILED, null);
-
-                return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
-            }
-
-            $this->attempts->transitionFromStates(
-                $attemptId,
-                [FinancingAttemptState::CP_SUBMITTING],
-                FinancingAttemptState::CP_CREATED
-            );
-            $this->attempts->clearLastErrorClass($attemptId);
-            $this->log('cp_created', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $cpId, null, 201);
-
-            return ControlPanelOrderSubmissionResult::ok($cpId);
         } catch (CpAuthenticationException $exception) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::AUTH_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::AUTH_FAILED);
             $this->log('cp_auth_failed', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::AUTH_FAILED, 401);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::AUTH_FAILED, false, 401);
         } catch (CpTimeoutException $exception) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::TIMEOUT, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::TIMEOUT);
             $this->log('cp_timeout', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::TIMEOUT, null);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::TIMEOUT, false);
         } catch (CpConnectionException $exception) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::TRANSPORT_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::TRANSPORT_FAILED);
             $this->log('cp_transport_failed', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::TRANSPORT_FAILED, null);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::TRANSPORT_FAILED, false);
         } catch (CpHttpException $exception) {
-            return $this->handleHttpFailure($attemptId, $submission, $localOrderId, $exception);
+            return $this->handleHttpFailure($row, $submission, $localOrderId, $exception);
         } catch (CpInvalidPayloadException|CpMalformedJsonException $exception) {
             // Malformed success / echo mismatch after HTTP 2xx → outcome_unknown, no second POST.
-            $this->persistFailure($attemptId, ControlPanelErrorClass::INVALID_RESPONSE, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::INVALID_RESPONSE);
             $this->log('cp_invalid_response', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::INVALID_RESPONSE, null);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::INVALID_RESPONSE, false);
         } catch (\Throwable $exception) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::TRANSPORT_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::TRANSPORT_FAILED);
             $this->log(
                 'cp_unexpected',
                 $attemptId,
@@ -243,44 +287,65 @@ final class ControlPanelOrderLifecycleService
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::TRANSPORT_FAILED, false);
         }
+
+        $cpId = (int) ($response['data']['id'] ?? 0);
+        if ($cpId <= 0) {
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::INVALID_RESPONSE);
+            $this->log('cp_invalid_response', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::INVALID_RESPONSE, 200);
+
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::INVALID_RESPONSE, false, 200);
+        }
+
+        if (!$this->attempts->recordCpCreated($row, $cpId)) {
+            $this->log('cp_persist_race', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $cpId, ControlPanelErrorClass::RECOVERY_FAILED, null);
+
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::RECOVERY_FAILED, false);
+        }
+
+        $this->log('cp_created', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, $cpId, null, 201);
+
+        return ControlPanelOrderSubmissionResult::ok($cpId);
     }
 
     private function handleHttpFailure(
-        int $attemptId,
+        array $row,
         ValidatedFinancingSubmission $submission,
         int $localOrderId,
         CpHttpException $exception
     ): ControlPanelOrderSubmissionResult {
+        $attemptId = (int) $row['attempt_id'];
         $status = $exception->getStatusCode();
         $error = $exception->isCanonicalFailure()
             ? (string) $exception->getCanonicalError()
             : '';
 
         if ($error !== '' && in_array($error, self::TERMINAL_CREATE_ERROR_CODES, true)) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::TERMINAL_FAILED);
-            $this->log('cp_rejected_terminal', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
+            $recorded = $this->attempts->recordCpFailure($row, ControlPanelErrorClass::REJECTED, true);
+            $event = $recorded ? 'cp_rejected_terminal' : 'cp_rejection_disposition_unconfirmed';
+            $this->log($event, $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
 
-            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, true);
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, $recorded);
         }
 
         // Explicit endpoint rejection: create was not accepted; no CP order exists.
         if (in_array($status, self::DEFINITIVE_ENDPOINT_REJECTION_STATUSES, true)) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::TERMINAL_FAILED);
-            $this->log('cp_endpoint_rejected_terminal', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
+            $recorded = $this->attempts->recordCpFailure($row, ControlPanelErrorClass::REJECTED, true);
+            $event = $recorded ? 'cp_endpoint_rejected_terminal' : 'cp_rejection_disposition_unconfirmed';
+            $this->log($event, $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
 
-            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, true);
+            return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status, $recorded);
         }
 
         // Bare/malformed/non-definitive 409 remains ambiguous — never terminal_failed.
         if ($status === 409) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::CONFLICT, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::CONFLICT);
             $this->log('cp_conflict_ambiguous', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::CONFLICT, 409);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::CONFLICT, false, 409);
         }
 
         if ($status === 429 || $error === 'rate_limited') {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::REJECTED);
             $this->log('cp_rate_limited', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, 429);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, 429);
@@ -288,78 +353,78 @@ final class ControlPanelOrderLifecycleService
 
         // 5xx and unknown 4xx: ambiguous — stop safely; never blind re-POST.
         if ($status >= 500) {
-            $this->persistFailure($attemptId, ControlPanelErrorClass::TRANSPORT_FAILED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+            $this->attempts->recordCpFailure($row, ControlPanelErrorClass::TRANSPORT_FAILED);
             $this->log('cp_http_5xx', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::TRANSPORT_FAILED, $status);
 
             return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::TRANSPORT_FAILED, false, $status);
         }
 
-        $this->persistFailure($attemptId, ControlPanelErrorClass::REJECTED, FinancingAttemptState::CP_OUTCOME_UNKNOWN);
+        $this->attempts->recordCpFailure($row, ControlPanelErrorClass::REJECTED);
         $this->log('cp_rejected_ambiguous', $attemptId, $submission->entryPoint, $submission->storeId, $localOrderId, null, ControlPanelErrorClass::REJECTED, $status);
 
         return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::REJECTED, false, $status);
     }
 
-    /**
-     * @param array<string, mixed> $row
-     * @param array<string, mixed> $shop
-     * @return array<string, mixed>|null
-     */
-    private function resolveFrozenPayload(array $row, ValidatedFinancingSubmission $submission, int $localOrderId, array $shop): ?array
+    private function decodeFrozenPayload(mixed $raw): ?array
     {
-        $raw = $row['cp_payload'] ?? null;
-        if (is_string($raw) && $raw !== '') {
-            try {
-                $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException $exception) {
-                $decoded = null;
-            }
-            if (is_array($decoded) && isset($decoded['order_id'])) {
-                return $decoded;
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+        try {
+            $body = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+        if (!is_array($body)) {
+            return null;
+        }
+        foreach (['order_id', 'name', 'phone', 'email', 'address', 'address2', 'products_id', 'products_name', 'products_q', 'currency', 'version'] as $field) {
+            if (!is_string($body[$field] ?? null)) {
+                return null;
             }
         }
+        if ($body['version'] === '' || !in_array($body['type_client'] ?? null, [0, 1], true)) {
+            return null;
+        }
 
-        return $this->payloadBuilder->build($submission, $localOrderId, $shop);
+        return $body;
     }
 
-    private function enterSubmitting(int $attemptId, string $currentState): bool
+    private static function isAuthorizedRow(array $expected, ?array $saved, string $authorization): bool
     {
-        if ($currentState === FinancingAttemptState::CP_CREATED
-            || $currentState === FinancingAttemptState::CP_OUTCOME_UNKNOWN
-            || $currentState === FinancingAttemptState::TERMINAL_FAILED
-        ) {
+        if ($saved === null || isset($saved['control_panel_order_id']) || ($saved['last_error_class'] ?? null) !== $authorization) {
             return false;
         }
-
-        $from = [
-            FinancingAttemptState::ORDER_CREATED,
-            FinancingAttemptState::CP_SUBMITTING,
-            FinancingAttemptState::CP_FAILED_RETRYABLE,
-        ];
-
-        // Materialization may leave order_created without an explicit local_order_prepared DB state.
-        if ($this->attempts->transitionFromStates($attemptId, $from, FinancingAttemptState::CP_SUBMITTING)) {
-            return true;
+        foreach (['attempt_id', 'store_id', 'order_id', 'entry_point', 'operation_key_hash', 'state', 'cp_origin', 'consent_context_json'] as $key) {
+            if ($expected[$key] !== $saved[$key]) {
+                return false;
+            }
         }
 
-        $fresh = $this->attempts->findById($attemptId);
-
-        return $fresh !== null && (string) ($fresh['state'] ?? '') === FinancingAttemptState::CP_SUBMITTING;
+        return true;
     }
 
-    private function persistFailure(int $attemptId, string $errorClass, string $state): void
+    private function rejectBodyConflict(int $attemptId, int $storeId, int $orderId): ControlPanelOrderSubmissionResult
     {
-        $this->attempts->persistLastErrorClass($attemptId, $errorClass);
-        $this->attempts->transitionFromStates(
-            $attemptId,
-            [
-                FinancingAttemptState::ORDER_CREATED,
-                FinancingAttemptState::CP_SUBMITTING,
-                FinancingAttemptState::CP_FAILED_RETRYABLE,
-                FinancingAttemptState::CP_OUTCOME_UNKNOWN,
-            ],
-            $state
-        );
+        try {
+            $this->attempts->holdCpPayloadConflict($attemptId, $storeId, $orderId);
+        } catch (\Exception) {
+            // The earlier authorization still fences the contradictory body if the hold cannot be recorded.
+        }
+
+        return ControlPanelOrderSubmissionResult::fail(ControlPanelErrorClass::CONFLICT, false);
+    }
+
+    private static function requiresCpReconciliation(array $row): bool
+    {
+        return in_array($row['state'], [FinancingAttemptState::CP_SUBMITTING, FinancingAttemptState::CP_OUTCOME_UNKNOWN], true);
+    }
+
+    private static function reconciliationError(array $row): string
+    {
+        $error = $row['last_error_class'] ?? '';
+
+        return ControlPanelErrorClass::isValid($error) ? $error : ControlPanelErrorClass::RECOVERY_FAILED;
     }
 
     private function log(

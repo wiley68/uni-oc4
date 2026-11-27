@@ -54,6 +54,27 @@ final class PersistenceIntegrationHarness
         $config = self::loadDatabaseConfig();
         self::assertSafeIntegrationPrefix($config['prefix']);
 
+        self::$connection = self::openConnection($config);
+        self::$activePrefix = $config['prefix'];
+        (new PersistenceSchemaInstaller(self::$connection))->installAll();
+        self::ensureNativeProofTables(self::$connection);
+        self::registerShutdownCleanup();
+
+        return self::$connection;
+    }
+
+    public static function independentConnection(): DbConnection
+    {
+        // Initialize the same guarded test schema through the primary connection first.
+        self::connection();
+        $config = self::loadDatabaseConfig();
+        self::assertSafeIntegrationPrefix($config['prefix']);
+
+        return self::openConnection($config);
+    }
+
+    private static function openConnection(array $config): DbConnection
+    {
         $mysqli = new \mysqli(
             $config['hostname'],
             $config['username'],
@@ -66,13 +87,7 @@ final class PersistenceIntegrationHarness
         }
         $mysqli->set_charset('utf8mb4');
 
-        self::$connection = new MysqliDbConnection($mysqli, $config['prefix']);
-        self::$activePrefix = $config['prefix'];
-        (new PersistenceSchemaInstaller(self::$connection))->installAll();
-        self::ensureNativeProofTables(self::$connection);
-        self::registerShutdownCleanup();
-
-        return self::$connection;
+        return new MysqliDbConnection($mysqli, $config['prefix']);
     }
 
     public static function resetTables(): void
@@ -228,7 +243,7 @@ final class PersistenceIntegrationHarness
         $payload = [
             'order_id' => substr((string) $orderId, 0, 13),
             'currency' => 'EUR',
-            'price' => $calc->financedAmount,
+            'price' => $calc->price,
             'parva' => $calc->firstInstallment->amount,
             'vnoska' => $calc->monthlyInstallment,
             'vnoski' => $calc->scheme->months,

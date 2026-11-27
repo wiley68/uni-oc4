@@ -380,8 +380,9 @@ final class EurRemediationBehaviorTest extends TestCase
         $orders->seedExistingOrder(123, $native, $native['products'], $native['totals']);
         $submission->eurOrderProof = new U\DurableEurOrderProof(123, P::STORE_ID, 1, 0.5, 1200, 600);
         $payload = (new U\ControlPanelOrderPayloadBuilder())->build($submission, 123, P::shop());
-        $attempts->persistCpPayload($id, $payload);
+        // Seed historical evidence directly. The production repository now freezes only once.
         $table = $db->getPrefix() . U\PersistenceTableNames::FINANCING_ATTEMPT;
+        $db->query("UPDATE `{$table}` SET `cp_payload` = '" . $db->escape(json_encode($payload, JSON_THROW_ON_ERROR)) . "' WHERE `attempt_id` = {$id}");
         $cpId = $state === 'cp_created' ? '901' : 'NULL';
         $process = $state === 'cp_created' ? 'process2_prepared' : 'not_started';
         $db->query("UPDATE `{$table}` SET `state` = '{$state}', `control_panel_order_id` = {$cpId}, `process2_state` = '{$process}', `process2_mail_sent` = 1, `process2_mail_state` = 'sent' WHERE `attempt_id` = {$id}");

@@ -64,7 +64,7 @@ final class DurableEurOrderGuard
         if ($requireCpSuccess && (!$cpCreated || $cpId <= 0)) {
             throw self::failure();
         }
-        if ($cpCreated || $requireCpSuccess || (is_string($rawPayload) && $rawPayload !== '')) {
+        if ($cpCreated || $requireCpSuccess || $rawPayload !== null) {
             if (!is_string($rawPayload) || $rawPayload === '') {
                 throw self::failure();
             }
@@ -76,34 +76,30 @@ final class DurableEurOrderGuard
             if (!is_array($payload)) {
                 throw self::failure();
             }
-            self::assertCpPayload($payload, $proof);
-            if ($cpCreated) {
-                if (($attempt['consent_context_json'] ?? null) !== null) {
-                    $record = (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, $orderId);
-                    $snapshot = $record['issued']['context']['conditions'] + ['shop_order_id' => $orderId];
-                    if (($payload['vnoski'] ?? null) !== $snapshot['months']) throw ConsentResolver::refusal();
-
-                } else {
-                    $snapshotRaw = $attempt['leasing_presentation_json'] ?? null;
-                    if (!is_string($snapshotRaw) || $snapshotRaw === '') throw self::failure();
-                    try { $snapshot = json_decode($snapshotRaw, true, 512, JSON_THROW_ON_ERROR); }
-                    catch (\JsonException) { throw self::failure(); }
+            if (($attempt['consent_context_json'] ?? null) !== null) {
+                $record = (new DurableConsentAuthority($this->db))->requireFinalized($attemptId, null, $orderId);
+                self::assertCpPayload($payload, $proof, $record['issued']['context']['conditions']['price']);
+            } elseif ($cpCreated) {
+                $snapshotRaw = $attempt['leasing_presentation_json'] ?? null;
+                if (!is_string($snapshotRaw) || $snapshotRaw === '') {
+                    throw self::failure();
+                }
+                try {
+                    $snapshot = json_decode($snapshotRaw, true, 512, JSON_THROW_ON_ERROR);
+                } catch (\JsonException) {
+                    throw self::failure();
                 }
                 if (!is_array($snapshot)
                     || (int) ($snapshot['shop_order_id'] ?? 0) !== $orderId
                     || (isset($snapshot['control_panel_order_id']) && (int) $snapshot['control_panel_order_id'] > 0
                         && (int) $snapshot['control_panel_order_id'] !== $cpId)
-                    || !is_numeric($snapshot['financed_amount'] ?? null)
-                    || !is_numeric($snapshot['first_installment'] ?? null)
-                    || !is_numeric($snapshot['monthly_installment'] ?? null)
-                    || !is_finite((float) $snapshot['financed_amount'])
-                    || !is_finite((float) $snapshot['first_installment'])
-                    || !is_finite((float) $snapshot['monthly_installment'])
-                    || abs((float) $snapshot['financed_amount'] - (float) $payload['price']) > 0.02
-                    || abs((float) $snapshot['first_installment'] - (float) $payload['parva']) > 0.02
-                    || abs((float) $snapshot['monthly_installment'] - (float) $payload['vnoska']) > 0.02) {
+                    || !self::matchesLegacyTerms($payload, $snapshot)) {
                     throw self::failure();
                 }
+                $gross = (float) $snapshot['financed_amount'] + (float) $snapshot['first_installment'];
+                self::assertCpPayload($payload, $proof, $gross);
+            } else {
+                throw self::failure();
             }
         }
 
@@ -111,7 +107,7 @@ final class DurableEurOrderGuard
     }
 
     /** @param array<string, mixed> $payload */
-    public static function assertCpPayload(array $payload, DurableEurOrderProof $proof): void
+    public static function assertCpPayload(array $payload, DurableEurOrderProof $proof, ?float $authorizedGross = null): void
     {
         $price = $payload['price'] ?? null;
         $first = $payload['parva'] ?? null;
@@ -121,9 +117,40 @@ final class DurableEurOrderGuard
             || !is_numeric($price) || !is_numeric($first) || !is_numeric($monthly)
             || !is_finite((float) $price) || !is_finite((float) $first) || !is_finite((float) $monthly)
             || (float) $price <= 0.0 || (float) $first < 0.0 || (float) $monthly <= 0.0
-            || abs(((float) $price + (float) $first) - $proof->eurTotal) > 0.02) {
+            || !self::withinGrossTolerance($authorizedGross ?? (float) $price, $proof->eurTotal)) {
             throw self::failure();
         }
+    }
+
+    private static function matchesLegacyTerms(array $payload, array $terms): bool
+    {
+        foreach (['financed_amount', 'first_installment', 'monthly_installment'] as $field) {
+            if (!is_numeric($terms[$field] ?? null) || !is_finite((float) $terms[$field])) {
+                return false;
+            }
+        }
+
+        // Pre-consent records have no separately frozen gross and retain their principal convention.
+        return self::matchesAmount($payload['price'] ?? null, (float) $terms['financed_amount'])
+            && self::matchesAmount($payload['parva'] ?? null, (float) $terms['first_installment'])
+            && self::matchesAmount($payload['vnoska'] ?? null, (float) $terms['monthly_installment'])
+            && (!isset($terms['gpr']) || self::matchesAmount($payload['gpr'] ?? null, (float) $terms['gpr']))
+            && (!isset($terms['months']) || ($payload['vnoski'] ?? null) === (int) $terms['months']);
+    }
+
+    public static function withinGrossTolerance(float $gross, float $savedGross): bool
+    {
+        $grossCents = round($gross * 100);
+        $savedCents = round($savedGross * 100);
+
+        return is_finite($grossCents) && is_finite($savedCents)
+            && abs($grossCents) < PHP_INT_MAX && abs($savedCents) < PHP_INT_MAX
+            && abs((int) $grossCents - (int) $savedCents) <= 2;
+    }
+
+    public static function matchesAmount(mixed $amount, float $expected): bool
+    {
+        return is_numeric($amount) && is_finite((float) $amount) && (float) $amount === round($expected, 2);
     }
 
     public static function failure(): ProductFinancingFlowException

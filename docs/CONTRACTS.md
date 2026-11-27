@@ -68,7 +68,8 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `email`                    | required, email, max **128**                                                       |
 | `address`                  | required, max **256**                                                              |
 | `address2`                 | optional, max **256**; PS9: delivery, иначе invoice, иначе `'-'`                   |
-| `price` / `vnoska` / `gpr` | required, numeric, min 0; PS9 `round(..., 2)`                                      |
+| `price` | Required numeric gross purchase amount before down payment for a new CP order, rounded to cents. |
+| `vnoska` / `gpr` | Required numeric monthly installment and APR, rounded to cents. |
 | `vnoski`                   | optional integer **1–255**, default **12** (месеци; shop UI е 3–36)                |
 | `parva`                    | optional numeric min 0, default **0**                                              |
 | `products_*`               | optional string; CP **без** max; DB `text`                                         |
@@ -76,6 +77,25 @@ PS9 builder: `src/Order/ControlPanelOrderPayloadBuilder.php` (`substr` към с
 | `currency`                 | CP historical validation accepts BGN/EUR; OC4 explicitly sends **EUR** and rejects any other value before HTTP                   |
 | `version`                  | max 11, `^\d{1,3}\.\d{1,3}\.\d{1,3}$`; текущ модул **2.0.5**                       |
 | `status` / `status_id`     | optional string max 255, **не** са enum; default `Създаден в КП Банка` / `cp_sent` |
+
+For a new order, finalized financing gross supplies CP `price` and the effective
+down payment supplies `parva`. Principal, installment, APR, native order totals,
+SmartUCF and notification financial values retain their existing calculations.
+The saved native EUR gross still has the existing EUR 0.02 tolerance against the
+finalized calculation. Resume hydration, CP completion and proof, and SmartUCF
+payload validation compare normalized integer cents. Differences through two
+cents are accepted in either direction, while differences of three cents or
+more are rejected. A resumed first CP send uses the finalized gross within that
+tolerance. SmartUCF retains its existing gross source for fresh and resumed
+submissions.
+
+A valid stored order body may have the historical principal convention or the
+new gross convention. Independent frozen terms and native provenance govern that
+check. Exact monetary equivalence applies to replay, so 499 and 499.00 compare
+equal while 499.001 differs. Zero down makes the two conventions numerically
+identical. Stored JSON, wire version and identity are preserved. Consent hashes
+cover the finalized terms and local bindings, while the stored JSON supplies the
+original request and has no separate full-body authentication hash.
 
 Phase 10B CP create (**всички** shops, Process 1 и Process 2): **omit** `status` / `status_id` — CP прилага default `cp_sent`.  
 `bank_sent_process*` / `bank_send_failed_smartucf` се пишат само след Phase 11 bank-side действие (не при POST /orders).
@@ -396,7 +416,23 @@ Module-owned JS/CSS URLs use per-file `filemtime` via `ModuleAssetVersion` (not 
 
 Phase 10A: Product/Cart `addOrder()` + `addHistory(payment order status)`. Order totals must set `extension=opencart` so native `addHistory` can load total confirm handlers. Admin visibility requires `order_status_id > 0`. See `docs/PHASE10A.md`.
 
-Phase 10B: after `order_created`, shared `ControlPanelOrderLifecycleService` POSTs frozen `cp_payload` to CP `POST /orders`, persists `control_panel_order_id`, state `cp_created`. Retryable recovery (`cp_failed_retryable`) = re-POST same frozen payload (CP idempotent on shop+order*id). Ambiguous outcomes (including 5xx) stay at `cp_outcome_unknown` with **no** blind re-POST and **no** `bank_send_failed_cp`. Definitive create machine codes → `terminal_failed`. After proven P1/P2 handoff, outbound PATCH is durable via `cp_status_sync*\*`(not fire-and-forget). See`docs/PHASE10B.md`/`docs/RECOVERY.md`. Checkout status remains native (confirm `addHistory`); Product/Cart status source is the payment method setting only.
+The shared `ControlPanelOrderLifecycleService` reserves authorization for the
+frozen `cp_payload`. Eligible `order_created` and `cp_failed_retryable` attempts
+can continue before dispatch. The caller must durably claim and confirm
+`cp_submitting` before invoking `POST /orders`. The body fingerprint stays
+with the dispatch claim until the outcome is recorded.
+
+A confirmed create atomically records `control_panel_order_id` with
+`cp_created`. A definitive rejection records `terminal_failed` with
+`cp_rejected`. Ambiguous outcomes record `cp_outcome_unknown`. If the outcome
+write fails, the unresolved `cp_submitting` row still requires reconciliation.
+Either ambiguous state blocks automatic create and `bank_send_failed_cp`.
+An interruption after the dispatch claim can require reconciliation even
+before the transport runs. See [Recovery](RECOVERY.md).
+
+After proven Process 1 or Process 2 handoff, outbound PATCH is durable via
+`cp_status_sync_*`. Checkout status uses native `addHistory`. Product and cart
+use the payment method’s order status setting.
 
 ### Store scope (OpenCart)
 

@@ -24,11 +24,9 @@ final class ControlPanelOrderPayloadBuilder
         $calc = $submission->financingCalculation;
 
         $ids = [];
-        $names = [];
         $quantities = [];
         foreach ($submission->orderDraft->products as $product) {
             $ids[] = (int) ($product['product_id'] ?? 0);
-            $names[] = str_replace('_', '-', (string) ($product['name'] ?? ''));
             $quantities[] = max(1, (int) ($product['quantity'] ?? 1));
         }
 
@@ -48,7 +46,7 @@ final class ControlPanelOrderPayloadBuilder
             || $submission->orderDraft->currencyId !== $proof->currencyId
             || abs($submission->orderDraft->currencyValue - $proof->currencyValue) > 0.000001
             || abs($submission->orderDraft->orderTotal - $proof->baseTotal) > 0.02
-            || abs($calc->price - $proof->eurTotal) > 0.02) {
+            || !DurableEurOrderGuard::withinGrossTolerance($calc->price, $proof->eurTotal)) {
             throw DurableEurOrderGuard::failure();
         }
 
@@ -59,13 +57,13 @@ final class ControlPanelOrderPayloadBuilder
             'email' => substr($customer->email, 0, 128),
             'address' => substr($address, 0, 256),
             'address2' => substr($address2, 0, 256),
-            'price' => round((float) $calc->financedAmount, 2),
+            'price' => round((float) $calc->price, 2),
             'vnoska' => round((float) $calc->monthlyInstallment, 2),
             'gpr' => round((float) $calc->gpr, 2),
             'vnoski' => (int) $calc->scheme->months,
             'parva' => round((float) $calc->firstInstallment->amount, 2),
             'products_id' => implode('_', $ids),
-            'products_name' => substr(implode('_', $names), 0, 255),
+            'products_name' => self::productNames($submission->orderDraft->products),
             'products_q' => implode('_', $quantities),
             'type_client' => !empty($shop['_is_mobile']) ? 0 : 1,
             'currency' => 'EUR',
@@ -79,6 +77,13 @@ final class ControlPanelOrderPayloadBuilder
         DurableEurOrderGuard::assertCpPayload($payload, $proof);
 
         return $payload;
+    }
+
+    public static function productNames(array $products): string
+    {
+        $names = array_map(static fn(array $product): string => str_replace('_', '-', (string) ($product['name'] ?? '')), $products);
+
+        return substr(implode('_', $names), 0, 255);
     }
 
     private function formatAddress(FinancingAddressData $address): string

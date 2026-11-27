@@ -111,19 +111,55 @@ Run standalone verification with:
 php scripts/verify-package.php dist/mt_uni_credit.ocmod.zip
 ```
 
-Entries have a sorted order, normalized Unix modes, fixed compression and UTC ZIP
-timestamps. The default epoch is `946684800` (2000-01-01 UTC). Optional
-`SOURCE_DATE_EPOCH` must be a decimal Unix timestamp within 1980–2107. Identical
-inputs and epoch produce repeatable bytes with the same PHP/libzip/zlib toolchain;
-different compressor versions may produce different ZIP bytes. Original source
-bytes, modes and mtimes are never modified by packaging.
+## Build timestamps and update verification
+
+Entries have a sorted order, normalized Unix modes, and explicit compression.
+The builder captures the current time once per package and gives every entry
+that timestamp, including generated language aliases. It sets the process
+`TZ` to UTC while writing and closing the archive, then restores the caller's
+setting. The fixed January 2000 default and the `SOURCE_DATE_EPOCH` override
+are retired. Source bytes, modes, and mtimes are preserved.
+
+The builder checks the raw DOS timestamps in the staged archive's central
+directory and local headers before publication. ZIP DOS timestamps carry no
+timezone and represent seconds in two-second steps. Builds within one interval
+can have identical entry timestamps. Use a reliable build clock and allow a
+different two-second interval between changed packages for the same shop.
+For an operator check, read entry times with `TZ=UTC unzip -l`. Archive tools
+and installers can interpret the timestamps using the destination timezone or
+assign new timestamps when placing files.
+
+After updating, verify the installed PHP bytes and compare their filesystem
+modification times with the prior installation. Confirm that changed PHP
+files have distinguishable installed mtimes. Synthetic ZIP extraction and
+file placement do not establish what an installed OpenCart instance will do.
+Source-to-archive byte parity remains required. Record and verify the SHA-256
+of each installer individually, for example with
+`sha256sum dist/mt_uni_credit.ocmod.zip`, and retain the exact tested installer
+with its checksum. Separate builds can have different hashes even when all
+entry bytes match.
+
+The owner archives only the standard DEV installer locally. The owner
+personally unpacks it, changes the approved CP endpoint in
+`config/environment.php`, repacks it, and delivers the bank-test and
+production installers.
+
+### Web PHP OPcache
+
+Current archive timestamps reduce the stale-opcode risk. Automatic invalidation
+still depends on how files are installed and on the web PHP configuration.
+With `opcache.validate_timestamps=1`, allow for the configured
+`opcache.revalidate_freq` interval before verifying the updated code. With
+`opcache.validate_timestamps=0`, use the hosting provider's supported web PHP
+cache invalidation or worker reload procedure. Verify using the serving web
+PHP SAPI and its workers because CLI OPcache runs in a separate context.
 
 ## Regression checks
 
 After installing development test dependencies, run the packaging regression tests:
 
 ```bash
-vendor/bin/phpunit --filter DistributionPackageTest
+MT_UNI_CREDIT_INTEGRATION=0 vendor/bin/phpunit --do-not-cache-result tests/DistributionPackageTest.php
 ```
 
 Run the existing safe suite with database integration disabled:
@@ -136,7 +172,10 @@ The packaging tests use private temporary Git fixtures and a synthetic key. They
 cover the mandatory filename, root layout, complete runtime inventory, independent
 extraction, deployment parity, missing/unreadable/symlinked inputs, protection,
 excluded local/dev files, malformed/tampered archives, nonzero CLI failures,
-cleanup and repeatable output. They never replace or delete the real local key.
+cleanup, publication rollback, and current UTC timestamps. The tests
+independently read the central-directory and local-header DOS timestamps, check
+CRCs and permissions, and observe extraction and file placement across changed
+builds.
 Bulgarian regressions cover all three language variants in both admin and catalog,
 identical relative file sets and bytes, rejection of missing/divergent/extra alias
 files, automatic aliases for new canonical files, and preservation of English.

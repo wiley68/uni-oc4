@@ -239,7 +239,7 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         self::assertSame(FinancingAttemptState::CP_OUTCOME_UNKNOWN, $fresh['state']);
     }
 
-    public function testStaleCpSubmittingRecoversExistingOrder(): void
+    public function testStaleCpSubmittingRequiresReconciliationWithoutAnotherCreate(): void
     {
         $transport = new FakeCpHttpTransport();
         $transport->enableAutoAuthAndCreate(333);
@@ -262,10 +262,15 @@ final class Phase10BControlPanelLifecycleTest extends TestCase
         $transport2 = new FakeCpHttpTransport();
         $transport2->enableAutoAuthAndCreate(333);
         $service2 = ProductFinancingTestHarness::submissionService($this->attempts, $orders, $transport2);
-        $recovered = $this->submitProduct($service2, (string) $row['submission_token']);
-        self::assertSame(333, $recovered->controlPanelOrderId);
+        try {
+            $this->submitProduct($service2, (string) $row['submission_token']);
+            self::fail('An unresolved dispatch requires reconciliation');
+        } catch (ProductFinancingFlowException $exception) {
+            self::assertSame(ControlPanelErrorClass::RECOVERY_FAILED, $exception->errorCode());
+        }
         self::assertSame(1, $orders->addOrderCallCount());
-        self::assertSame(1, $transport2->countOrderCreates());
+        self::assertSame(0, $transport2->countOrderCreates());
+        self::assertSame($row['cp_payload'], $this->attempts->findById((int) $row['attempt_id'])['cp_payload']);
     }
 
     public function testLockReleasedAfterCpFailure(): void
